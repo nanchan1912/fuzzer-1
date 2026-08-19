@@ -1,0 +1,108 @@
+# Store Buffering (long)
+# Locations
+LOC x
+LOC y
+LOC z1
+LOC z2
+LOC z3
+LOC z4
+LOC z5
+LOC z6
+LOC z7
+LOC z8
+LOC z9
+LOC z10
+
+# Event:   ID   TID  Kind Loc  Mode
+E          e40   0    W    x   Rlx
+E          e41   0    W    y   Rlx
+E          e42   0    W    z1  Rlx
+E          e43   0    W    z2  Rlx
+E          e44   0    W    z3  Rlx
+E          e45   0    W    z4  Rlx
+E          e46   0    W    z5  Rlx
+E          e47   0    W    z6  Rlx
+E          e48   0    W    z7  Rlx
+E          e49   0    W    z8  Rlx
+E          e50   0    W    z9  Rlx
+E          e51   0    W    z10 Rlx
+
+# Thread 1: many prelude events, then the critical pair, then postlude
+E          e1    1    W    z1  Rlx
+E          e2    1    W    z2  Rlx
+E          e3    1    R    z3  Rlx
+E          e4    1    W    z4  Rlx
+E          e5    1    R    z5  Rlx
+E          e6    1    W    z6  Rlx
+E          e7    1    R    z7  Rlx
+E          e8    1    W    z8  Rlx
+E          e9    1    R    z9  Rlx
+E          e10   1    W    z10 Rlx
+
+E          e11   1    W    x   Rlx
+E          e12   1    R    y   Rlx
+
+E          e13   1    R    z1  Rlx
+E          e14   1    W    z2  Rlx
+E          e15   1    R    z3  Rlx
+E          e16   1    W    z4  Rlx
+
+# Thread 2: many prelude events, then the critical pair, then postlude
+E          e17   2    W    z5  Rlx
+E          e18   2    R    z6  Rlx
+E          e19   2    W    z7  Rlx
+E          e20   2    R    z8  Rlx
+E          e21   2    W    z9  Rlx
+E          e22   2    R    z10 Rlx
+
+E          e23   2    W    y   Rlx
+E          e24   2    R    x   Rlx
+
+E          e25   2    W    z1  Rlx
+E          e26   2    R    z2  Rlx
+E          e27   2    W    z3  Rlx
+
+# ------ Skeleton relations ------
+# PO per thread
+CF e40 e41
+CF e41 e42
+CF e42 e43
+CF e43 e44
+CF e44 e45
+CF e45 e46
+CF e46 e47
+CF e47 e48
+CF e48 e49
+CF e49 e50
+CF e50 e51
+CF e51 e1
+CF e51 e17
+
+# Thread 1 order
+CF e1 e2
+CF e2 e3
+CF e3 e4
+CF e4 e5
+CF e5 e6
+CF e6 e7
+CF e7 e8
+CF e8 e9
+CF e9 e10
+CF e10 e11
+CF e11 e12
+CF e12 e13
+CF e13 e14
+CF e14 e15
+CF e15 e16
+
+# Thread 2 order
+CF e17 e18
+CF e18 e19
+CF e19 e20
+CF e20 e21
+CF e21 e22
+CF e22 e23
+CF e23 e24
+CF e24 e25
+CF e25 e26
+CF e26 e27

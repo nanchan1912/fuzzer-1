@@ -1,0 +1,736 @@
+{
+    "mo_per_location": [
+        {
+            "list": [
+                [
+                    0,
+                    40,
+                    1
+                ]
+            ],
+            "location": "x"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    41,
+                    1
+                ],
+                [
+                    2,
+                    23,
+                    1
+                ]
+            ],
+            "location": "y"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    42,
+                    1
+                ],
+                [
+                    1,
+                    1,
+                    1
+                ],
+                [
+                    2,
+                    25,
+                    1
+                ]
+            ],
+            "location": "z1"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    51,
+                    1
+                ]
+            ],
+            "location": "z10"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    43,
+                    1
+                ],
+                [
+                    1,
+                    2,
+                    1
+                ]
+            ],
+            "location": "z2"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    44,
+                    1
+                ],
+                [
+                    2,
+                    27,
+                    1
+                ]
+            ],
+            "location": "z3"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    45,
+                    1
+                ],
+                [
+                    1,
+                    4,
+                    1
+                ]
+            ],
+            "location": "z4"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    46,
+                    1
+                ],
+                [
+                    2,
+                    17,
+                    1
+                ]
+            ],
+            "location": "z5"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    47,
+                    1
+                ],
+                [
+                    1,
+                    6,
+                    1
+                ]
+            ],
+            "location": "z6"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    48,
+                    1
+                ],
+                [
+                    2,
+                    19,
+                    1
+                ]
+            ],
+            "location": "z7"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    49,
+                    1
+                ],
+                [
+                    1,
+                    8,
+                    1
+                ]
+            ],
+            "location": "z8"
+        },
+        {
+            "list": [
+                [
+                    0,
+                    50,
+                    1
+                ],
+                [
+                    2,
+                    21,
+                    1
+                ]
+            ],
+            "location": "z9"
+        }
+    ],
+    "nodes": [
+        {
+            "access_mode": "RLX",
+            "instruction_id": 40,
+            "kind": "W",
+            "loc": "x",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 41,
+            "kind": "W",
+            "loc": "y",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 42,
+            "kind": "W",
+            "loc": "z1",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 43,
+            "kind": "W",
+            "loc": "z2",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 44,
+            "kind": "W",
+            "loc": "z3",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 45,
+            "kind": "W",
+            "loc": "z4",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 46,
+            "kind": "W",
+            "loc": "z5",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 47,
+            "kind": "W",
+            "loc": "z6",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 48,
+            "kind": "W",
+            "loc": "z7",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 49,
+            "kind": "W",
+            "loc": "z8",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 50,
+            "kind": "W",
+            "loc": "z9",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 51,
+            "kind": "W",
+            "loc": "z10",
+            "thread_id": 0,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 1,
+            "kind": "W",
+            "loc": "z1",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 2,
+            "kind": "W",
+            "loc": "z2",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 3,
+            "kind": "R",
+            "loc": "z3",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 4,
+            "kind": "W",
+            "loc": "z4",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 5,
+            "kind": "R",
+            "loc": "z5",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 6,
+            "kind": "W",
+            "loc": "z6",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 7,
+            "kind": "R",
+            "loc": "z7",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 8,
+            "kind": "W",
+            "loc": "z8",
+            "thread_id": 1,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 17,
+            "kind": "W",
+            "loc": "z5",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 18,
+            "kind": "R",
+            "loc": "z6",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 19,
+            "kind": "W",
+            "loc": "z7",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 20,
+            "kind": "R",
+            "loc": "z8",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 21,
+            "kind": "W",
+            "loc": "z9",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 22,
+            "kind": "R",
+            "loc": "z10",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 23,
+            "kind": "W",
+            "loc": "y",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 24,
+            "kind": "R",
+            "loc": "x",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 25,
+            "kind": "W",
+            "loc": "z1",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 26,
+            "kind": "R",
+            "loc": "z2",
+            "thread_id": 2,
+            "visit_id": 1
+        },
+        {
+            "access_mode": "RLX",
+            "instruction_id": 27,
+            "kind": "W",
+            "loc": "z3",
+            "thread_id": 2,
+            "visit_id": 1
+        }
+    ],
+    "po_per_thread": [
+        {
+            "list": [
+                [
+                    0,
+                    40,
+                    1
+                ],
+                [
+                    0,
+                    41,
+                    1
+                ],
+                [
+                    0,
+                    42,
+                    1
+                ],
+                [
+                    0,
+                    43,
+                    1
+                ],
+                [
+                    0,
+                    44,
+                    1
+                ],
+                [
+                    0,
+                    45,
+                    1
+                ],
+                [
+                    0,
+                    46,
+                    1
+                ],
+                [
+                    0,
+                    47,
+                    1
+                ],
+                [
+                    0,
+                    48,
+                    1
+                ],
+                [
+                    0,
+                    49,
+                    1
+                ],
+                [
+                    0,
+                    50,
+                    1
+                ],
+                [
+                    0,
+                    51,
+                    1
+                ]
+            ],
+            "thread_id": 0
+        },
+        {
+            "list": [
+                [
+                    1,
+                    1,
+                    1
+                ],
+                [
+                    1,
+                    2,
+                    1
+                ],
+                [
+                    1,
+                    3,
+                    1
+                ],
+                [
+                    1,
+                    4,
+                    1
+                ],
+                [
+                    1,
+                    5,
+                    1
+                ],
+                [
+                    1,
+                    6,
+                    1
+                ],
+                [
+                    1,
+                    7,
+                    1
+                ],
+                [
+                    1,
+                    8,
+                    1
+                ]
+            ],
+            "thread_id": 1
+        },
+        {
+            "list": [
+                [
+                    2,
+                    17,
+                    1
+                ],
+                [
+                    2,
+                    18,
+                    1
+                ],
+                [
+                    2,
+                    19,
+                    1
+                ],
+                [
+                    2,
+                    20,
+                    1
+                ],
+                [
+                    2,
+                    21,
+                    1
+                ],
+                [
+                    2,
+                    22,
+                    1
+                ],
+                [
+                    2,
+                    23,
+                    1
+                ],
+                [
+                    2,
+                    24,
+                    1
+                ],
+                [
+                    2,
+                    25,
+                    1
+                ],
+                [
+                    2,
+                    26,
+                    1
+                ],
+                [
+                    2,
+                    27,
+                    1
+                ]
+            ],
+            "thread_id": 2
+        }
+    ],
+    "rf_edges": [
+        {
+            "from": [
+                0,
+                44,
+                1
+            ],
+            "to": [
+                [
+                    1,
+                    3,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                2,
+                19,
+                1
+            ],
+            "to": [
+                [
+                    1,
+                    7,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                47,
+                1
+            ],
+            "to": [
+                [
+                    2,
+                    18,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                46,
+                1
+            ],
+            "to": [
+                [
+                    1,
+                    5,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                49,
+                1
+            ],
+            "to": [
+                [
+                    2,
+                    20,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                43,
+                1
+            ],
+            "to": [
+                [
+                    2,
+                    26,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                51,
+                1
+            ],
+            "to": [
+                [
+                    2,
+                    22,
+                    1
+                ]
+            ]
+        },
+        {
+            "from": [
+                0,
+                40,
+                1
+            ],
+            "to": [
+                [
+                    2,
+                    24,
+                    1
+                ]
+            ]
+        }
+    ],
+    "sw_edges": [
+        {
+            "from": [
+                0,
+                51,
+                1
+            ],
+            "to": [
+                [
+                    1,
+                    1,
+                    1
+                ],
+                [
+                    2,
+                    17,
+                    1
+                ]
+            ]
+        }
+    ]
+}

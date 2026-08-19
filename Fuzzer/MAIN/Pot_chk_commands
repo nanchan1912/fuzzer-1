@@ -1,0 +1,21 @@
+Run From: AFL_WMM
+
+gcc -c -I AFL_patches/include AFL_patches/src/event_pair_set.c -o /tmp/event_pair_set.o
+gcc -c -I AFL_patches/include AFL_patches/src/hashmap.c -o /tmp/hashmap.o
+gcc -c -I AFL_patches/include AFL_patches/src/diversity_checker.c -o /tmp/diversity_checker.o
+
+g++ -std=c++17 -I AFL_patches/include \
+  AFL_patches/potdiff.cpp \
+  AFL_patches/src/skeleton_graph_mutator.cpp \
+  AFL_patches/src/skeleton_potential.cpp \
+  AFL_patches/src/consistency.cpp \
+  /tmp/event_pair_set.o /tmp/hashmap.o /tmp/diversity_checker.o \
+  -o /tmp/potdiff
+
+/tmp/potdiff AFL_patches/test1.json AFL_patches/test2.json AFL_patches/test.pg.bak
+
+g++ -std=c++17 -I AFL_patches/include \
+  AFL_patches/nextcheck.cpp \
+  -o /tmp/nextcheck
+
+/tmp/nextcheck AFL_patches/test.pg --verbose
