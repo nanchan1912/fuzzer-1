@@ -22,7 +22,7 @@ static atomic_int y = 0;
 
 void *thread_1(void *arg) {
     int a;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 1; i++) {
         atomic_store_explicit(&x, 1, memory_order_relaxed);   // e1
         a = atomic_load_explicit(&y, memory_order_relaxed);   // e2
     }
@@ -32,7 +32,7 @@ void *thread_1(void *arg) {
 
 void *thread_2(void *arg) {
     int b;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 1; i++) {
         atomic_store_explicit(&y, 1, memory_order_relaxed);   // e3
         b = atomic_load_explicit(&x, memory_order_relaxed);   // e4
     }

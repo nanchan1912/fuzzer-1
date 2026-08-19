@@ -9,7 +9,6 @@ pts_to_info.txt
 
 build/
 
-*.ccfg
 *.dot
 *.ll
 *.bc

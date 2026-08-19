@@ -1,0 +1,10 @@
+E e1 0 0x2cfed957c0aeeacf W 0xaf63ee4c86020b22 NA
+E e2 1 0xde6410664ddbeb82 W 0x43000003978d NA
+E e3 2 0xd1e2aedcabfa8df9 W 0x4200000391de NA
+E e4 2 0x2db91b315672e91b W 0x4200000391de NA
+CF e3 e3
+CF e3 e4
+CF e1 e4
+CF e2 e2
+CF e1 e2
+CF e1 e3
