@@ -1,0 +1,154 @@
+{
+  "nodes": [
+    {
+      "event_id": "1",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0x9a79ee9baa52a2b8",
+      "instruction_id": "0x17099dbcd3d1ee37",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "2",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0x690418194ed15d3e",
+      "instruction_id": "0x287bc746b2f58e43",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "3",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0xb5167a90e83ba4a9:field_index=0",
+      "instruction_id": "0x6699ca32c0d5ebde",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "4",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0xb5167a90e83ba4a9:field_index=1",
+      "instruction_id": "0xa9d0c83229b1e522",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "5",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0xb5167a90e83ba4a9:field_index=2",
+      "instruction_id": "0xd3faf4f81b4c7f0d",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "6",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0x9a79ee9baa52a2b8",
+      "instruction_id": "0xa68e7059877d4c4",
+      "visit_id": "1",
+      "access_mode": "NA"
+    }
+  ],
+  "rf_edges": [],
+  "po_per_thread": [
+    {
+      "thread_id": "0",
+      "list": [
+        [
+          "0",
+          "0x17099dbcd3d1ee37",
+          "1"
+        ],
+        [
+          "0",
+          "0x287bc746b2f58e43",
+          "1"
+        ],
+        [
+          "0",
+          "0x6699ca32c0d5ebde",
+          "1"
+        ],
+        [
+          "0",
+          "0xa9d0c83229b1e522",
+          "1"
+        ],
+        [
+          "0",
+          "0xd3faf4f81b4c7f0d",
+          "1"
+        ],
+        [
+          "0",
+          "0xa68e7059877d4c4",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "mo_per_location": [
+    {
+      "location": "0x690418194ed15d3e",
+      "list": [
+        [
+          "0",
+          "0x287bc746b2f58e43",
+          "1"
+        ]
+      ]
+    },
+    {
+      "location": "0x9a79ee9baa52a2b8",
+      "list": [
+        [
+          "0",
+          "0x17099dbcd3d1ee37",
+          "1"
+        ],
+        [
+          "0",
+          "0xa68e7059877d4c4",
+          "1"
+        ]
+      ]
+    },
+    {
+      "location": "0xb5167a90e83ba4a9:field_index=0",
+      "list": [
+        [
+          "0",
+          "0x6699ca32c0d5ebde",
+          "1"
+        ]
+      ]
+    },
+    {
+      "location": "0xb5167a90e83ba4a9:field_index=1",
+      "list": [
+        [
+          "0",
+          "0xa9d0c83229b1e522",
+          "1"
+        ]
+      ]
+    },
+    {
+      "location": "0xb5167a90e83ba4a9:field_index=2",
+      "list": [
+        [
+          "0",
+          "0xd3faf4f81b4c7f0d",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "sw_edges": []
+}

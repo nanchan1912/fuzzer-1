@@ -8,16 +8,13 @@ instrumented_output.md
 pts_to_info.txt
 
 build/
-data/
 
-*.pg
 *.ccfg
 *.dot
 *.ll
 *.bc
 
 *.out
-*.instrumented.out
 
 # Directories and AFL inputs/outputs
 in/

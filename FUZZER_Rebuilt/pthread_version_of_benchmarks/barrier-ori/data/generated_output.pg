@@ -1,0 +1,95 @@
+# Shared Locations
+LOC 0xb5167a90e83ba4a9 call
+LOC 0xb5167a90e83ba4a9:field_index=0 call
+LOC 0xb5167a90e83ba4a9:field_index=1 call
+LOC 0xb5167a90e83ba4a9:field_index=2 call
+LOC 0x9a79ee9baa52a2b8 barr
+LOC 0x690418194ed15d3e var
+
+# Event: ID TID  Kind  Loc VarName  Mode   Instruction_Address     Call_string_context     Instruction
+E	e1	0	W	0x9a79ee9baa52a2b8	barr	NA	0x17099dbcd3d1ee37	[: ]	[@barr = global init]	global_init
+E	e2	0	W	0x690418194ed15d3e	var	NA	0x287bc746b2f58e43	[: ]	[@var = global init]	global_init
+E	e3	0	W	0xb5167a90e83ba4a9:field_index=0	call	NA	0x6699ca32c0d5ebde	[:8  ]	[   store i32 %0, ptr %n_, align 4 ]	_ZN16spinning_barrierC2Ej
+E	e4	0	W	0xb5167a90e83ba4a9:field_index=1	call	NA	0xa9d0c83229b1e522	[:8  ]	[   store i32 0, ptr %nwait_, align 4 ]	_ZN16spinning_barrierC2Ej
+E	e5	0	W	0xb5167a90e83ba4a9:field_index=2	call	NA	0xd3faf4f81b4c7f0d	[:8  ]	[   store i32 0, ptr %step_, align 4 ]	_ZN16spinning_barrierC2Ej
+E	e6	0	W	0x9a79ee9baa52a2b8	barr	NA	0xa68e7059877d4c4	[: ]	[   store ptr %call, ptr @barr, align 8 ]	_Z9user_mainiPPc
+E	e7	1	W	0x690418194ed15d3e	var	NA	0xf4b41b2e42ff263	[:17 1  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e8	1	R	0x9a79ee9baa52a2b8	barr	NA	0x2343d2577c9fa3b2	[:17  ]	[   %0 = load ptr, ptr @barr, align 8 ]	_Z7threadAPv
+E	e9	1	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0x6ee39899158d548d	[:17 2  ]	[   %0 = load atomic i32, ptr %step_ seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e10	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa2b5da79bd424979	[:17 2  ]	[   %3 = atomicrmw add ptr %nwait_, i32 %2 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e11	1	R	0xb5167a90e83ba4a9:field_index=0	call	NA	0x3649e41c1e9e4ae3	[:17 2  ]	[   %5 = load i32, ptr %n_, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e12	1	W	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa850e94be004f97f	[:17 2  ]	[   store atomic i32 %6, ptr %nwait_3 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e13	1	RMW	0xb5167a90e83ba4a9:field_index=2	call	Rlx	0xbaad31305a55576b	[:17 2  ]	[   %8 = atomicrmw add ptr %step_5, i32 %7 monotonic, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e14	1	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0xdc0f43c1a5084e3c	[:17 2  ]	[   %10 = load atomic i32, ptr %step_8 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e15	2	R	0x9a79ee9baa52a2b8	barr	NA	0x1f5bbb7cdb6ff5a5	[:18  ]	[   %0 = load ptr, ptr @barr, align 8 ]	_Z7threadBPv
+E	e16	2	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0x6ee39899158d548d	[:18 4  ]	[   %0 = load atomic i32, ptr %step_ seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e17	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa2b5da79bd424979	[:18 4  ]	[   %3 = atomicrmw add ptr %nwait_, i32 %2 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e18	2	R	0xb5167a90e83ba4a9:field_index=0	call	NA	0x3649e41c1e9e4ae3	[:18 4  ]	[   %5 = load i32, ptr %n_, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e19	2	W	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa850e94be004f97f	[:18 4  ]	[   store atomic i32 %6, ptr %nwait_3 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e20	2	RMW	0xb5167a90e83ba4a9:field_index=2	call	Rlx	0xbaad31305a55576b	[:18 4  ]	[   %8 = atomicrmw add ptr %step_5, i32 %7 monotonic, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e21	2	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0xdc0f43c1a5084e3c	[:18 4  ]	[   %10 = load atomic i32, ptr %step_8 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e22	2	R	0x690418194ed15d3e	var	NA	0x95d2b9d2eb38fb98	[:18 5  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e23	3	R	0x9a79ee9baa52a2b8	barr	NA	0x1f5bbb7cdb6ff5a5	[:19  ]	[   %0 = load ptr, ptr @barr, align 8 ]	_Z7threadBPv
+E	e24	3	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0x6ee39899158d548d	[:19 4  ]	[   %0 = load atomic i32, ptr %step_ seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e25	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa2b5da79bd424979	[:19 4  ]	[   %3 = atomicrmw add ptr %nwait_, i32 %2 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e26	3	R	0xb5167a90e83ba4a9:field_index=0	call	NA	0x3649e41c1e9e4ae3	[:19 4  ]	[   %5 = load i32, ptr %n_, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e27	3	W	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa850e94be004f97f	[:19 4  ]	[   store atomic i32 %6, ptr %nwait_3 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e28	3	RMW	0xb5167a90e83ba4a9:field_index=2	call	Rlx	0xbaad31305a55576b	[:19 4  ]	[   %8 = atomicrmw add ptr %step_5, i32 %7 monotonic, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e29	3	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0xdc0f43c1a5084e3c	[:19 4  ]	[   %10 = load atomic i32, ptr %step_8 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e30	3	R	0x690418194ed15d3e	var	NA	0x95d2b9d2eb38fb98	[:19 5  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e31	4	R	0x9a79ee9baa52a2b8	barr	NA	0x1f5bbb7cdb6ff5a5	[:20  ]	[   %0 = load ptr, ptr @barr, align 8 ]	_Z7threadBPv
+E	e32	4	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0x6ee39899158d548d	[:20 4  ]	[   %0 = load atomic i32, ptr %step_ seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e33	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa2b5da79bd424979	[:20 4  ]	[   %3 = atomicrmw add ptr %nwait_, i32 %2 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e34	4	R	0xb5167a90e83ba4a9:field_index=0	call	NA	0x3649e41c1e9e4ae3	[:20 4  ]	[   %5 = load i32, ptr %n_, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e35	4	W	0xb5167a90e83ba4a9:field_index=1	call	SC	0xa850e94be004f97f	[:20 4  ]	[   store atomic i32 %6, ptr %nwait_3 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e36	4	RMW	0xb5167a90e83ba4a9:field_index=2	call	Rlx	0xbaad31305a55576b	[:20 4  ]	[   %8 = atomicrmw add ptr %step_5, i32 %7 monotonic, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e37	4	R	0xb5167a90e83ba4a9:field_index=2	call	SC	0xdc0f43c1a5084e3c	[:20 4  ]	[   %10 = load atomic i32, ptr %step_8 seq_cst, align 4 ]	_ZN16spinning_barrier4waitEv
+E	e38	4	R	0x690418194ed15d3e	var	NA	0x95d2b9d2eb38fb98	[:20 5  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+
+# Control Flow edges
+CF e35 e36
+CF e34 e35
+CF e34 e37
+CF e15 e16
+CF e14 e14
+CF e31 e32
+CF e12 e13
+CF e1 e2
+CF e32 e33
+CF e9 e10
+CF e7 e8
+CF e36 e38
+CF e5 e6
+CF e10 e11
+CF e37 e37
+CF e37 e38
+CF e16 e17
+CF e4 e5
+CF e3 e4
+CF e2 e3
+CF e25 e26
+CF e8 e9
+CF e18 e19
+CF e18 e21
+CF e17 e18
+CF e19 e20
+CF e26 e27
+CF e26 e29
+CF e20 e22
+CF e23 e24
+CF e27 e28
+CF e21 e21
+CF e21 e22
+CF e24 e25
+CF e11 e12
+CF e11 e14
+CF e28 e30
+CF e29 e29
+CF e29 e30
+CF e33 e34
+
+# Synchronizes-with edges
+CF e6 e15
+CF e6 e23
+CF e6 e31
+CF e6 e7

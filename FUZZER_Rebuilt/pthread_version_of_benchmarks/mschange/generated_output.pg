@@ -1,0 +1,1124 @@
+# Shared Locations
+LOC 0xb5167a90e83ba4a9 call
+LOC 0xb5167a90e83ba4a9:field_index=0 call
+LOC 0xb5167a90e83ba4a9:field_index=1 call
+LOC 0xf0d6e03a9d58b514 call5
+LOC 0x311272a5c67b83a0 _ZL7thread1
+LOC 0x311275a5c67b88b9 _ZL7thread2
+LOC 0x311274a5c67b8706 _ZL7thread3
+LOC 0x311277a5c67b8c1f _ZL7thread4
+LOC 0x64256cb462084ac6 succ1
+LOC 0x64256bb462084913 succ2
+LOC 0x9f0ae1f32a1a8a56 _ZL5queue
+LOC 0x48954d77256aa6d _ZL5input
+LOC 0x3c1c2ea070158173 _ZL6output
+LOC 0x5700c819446bdb4e tmp
+LOC 0x15a8a40e2cc8a9ef .str.3
+LOC 0x94e523e73c5c37f9 _ZL10free_lists
+LOC 0x4cedba8c78ee33c2 .str.1.7
+LOC 0xb5167a90e83ba4a9 call
+LOC 0xf0d6de3a9d58b1ae call3
+
+# Event: ID TID  Kind  Loc VarName  Mode   Instruction_Address     Call_string_context     Instruction
+E	e1	0	W	0x311272a5c67b83a0	_ZL7thread1	NA	0x254eb915df6de951	[: ]	[@_ZL7thread1 = global init]	global_init
+E	e2	0	W	0x311275a5c67b88b9	_ZL7thread2	NA	0x254eb615df6de438	[: ]	[@_ZL7thread2 = global init]	global_init
+E	e3	0	W	0x311274a5c67b8706	_ZL7thread3	NA	0x254eb715df6de5eb	[: ]	[@_ZL7thread3 = global init]	global_init
+E	e4	0	W	0x311277a5c67b8c1f	_ZL7thread4	NA	0x254ebc15df6dee6a	[: ]	[@_ZL7thread4 = global init]	global_init
+E	e5	0	W	0x64256cb462084ac6	succ1	NA	0x9ff285177e607897	[: ]	[@succ1 = global init]	global_init
+E	e6	0	W	0x64256bb462084913	succ2	NA	0x9ff286177e607a4a	[: ]	[@succ2 = global init]	global_init
+E	e7	0	W	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xccc9aaa424f11ca7	[: ]	[@_ZL5queue = global init]	global_init
+E	e8	0	W	0x48954d77256aa6d	_ZL5input	NA	0x4a46f9101e3493c	[: ]	[@_ZL5input = global init]	global_init
+E	e9	0	W	0x3c1c2ea070158173	_ZL6output	NA	0x6ff79f866bde488	[: ]	[@_ZL6output = global init]	global_init
+E	e10	0	W	0x15a8a40e2cc8a9ef	.str.3	NA	0x14eb3b8d8e7b82f8	[: ]	[@.str.3 = global init]	global_init
+E	e11	0	W	0x15a8a10e2cc8a4d6	.str.4	NA	0x14eb428d8e7b8edd	[: ]	[@.str.4 = global init]	global_init
+E	e12	0	W	0x4a9c70f0cb51d96b	__PRETTY_FUNCTION__._ZL12model_assertbPKci	NA	0xeb78c46c07418698	[: ]	[@__PRETTY_FUNCTION__._ZL12model_assertbPKci = global init]	global_init
+E	e13	0	W	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xbd62e51c86cc1cb4	[: ]	[@_ZL10free_lists = global init]	global_init
+E	e14	0	W	0x4cedba8c78ee33c2	.str.1.7	NA	0x373d34fa66ddff05	[: ]	[@.str.1.7 = global init]	global_init
+E	e15	0	W	0x31e14c8c694f09aa	.str.2.8	NA	0x2dd51afa6153c925	[: ]	[@.str.2.8 = global init]	global_init
+E	e16	0	W	0xb575767dd64d9a32	__PRETTY_FUNCTION__._ZL12model_assertbPKci.9	NA	0x52a0b3f515e5601	[: ]	[@__PRETTY_FUNCTION__._ZL12model_assertbPKci.9 = global init]	global_init
+E	e17	0	W	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x86aba5fd78323420	[: ]	[   store ptr %call, ptr @_ZL5queue, align 8 ]	main
+E	e18	0	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x81d26cd7ea59ebd8	[: ]	[   %0 = load ptr, ptr @_ZL5queue, align 8 ]	main
+E	e19	0	W	0x48954d77256aa6d	_ZL5input	NA	0x8198a46fb87275be	[: ]	[   store ptr %call3, ptr @_ZL5input, align 8 ]	main
+E	e20	0	W	0x3c1c2ea070158173	_ZL6output	NA	0x401bcd3cff4b0e5a	[: ]	[   store ptr %call5, ptr @_ZL6output, align 8 ]	main
+E	e21	0	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x4e6d8275a750d5f3	[: ]	[   %9 = load ptr, ptr @_ZL5queue, align 8 ]	main
+E	e22	0	W	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x4d5545f3cae1550	[:12  ]	[   store ptr %call, ptr @_ZL10free_lists, align 8 ]	_Z10init_queueP7queue_ti
+E	e23	0	W	0xb5167a90e83ba4a9:field_index=0	call	NA	0x66708a0de135643c	[:12  ]	[   store i64 1, ptr %head, align 8 ]	_Z10init_queueP7queue_ti
+E	e24	0	W	0xb5167a90e83ba4a9:field_index=1	call	NA	0x966b9f692680446c	[:12  ]	[   store i64 1, ptr %tail, align 8 ]	_Z10init_queueP7queue_ti
+E	e25	0	W	0xb5167a90e83ba4a9:field_index=1	call	NA	0x64996311213249d8	[:12  ]	[   store i64 0, ptr %next19, align 8 ]	_Z10init_queueP7queue_ti
+E	e26	0	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xc3af7d526771c0f6	[:12  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_Z10init_queueP7queue_ti
+E	e27	0	W	0xb5167a90e83ba4a9	call	NA	0x9dfcdf41f77b36fc	[:12  ]	[   store i32 %add5, ptr %arrayidx7, align 4 ]	_Z10init_queueP7queue_ti
+E	e28	0	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xf9e2823c82a44791	[:12  ]	[   %10 = load ptr, ptr @_ZL10free_lists, align 8 ]	_Z10init_queueP7queue_ti
+E	e29	0	R	0xb5167a90e83ba4a9	call	NA	0xb51865552788a33f	[:12  ]	[   %13 = load i32, ptr %arrayidx11, align 4 ]	_Z10init_queueP7queue_ti
+E	e30	0	W	0xb5167a90e83ba4a9:field_index=1	call	NA	0x8f77a8f930feaa08	[:12  ]	[   store i64 1638, ptr %next, align 8 ]	_Z10init_queueP7queue_ti
+E	e31	0	R	0x311272a5c67b83a0	_ZL7thread1	NA	0x67fa349fb3e0cfbf	[: ]	[   %11 = load i64, ptr @_ZL7thread1, align 8 ]	main
+E	e32	0	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x2cad79cfc2aa9ea5	[: ]	[   %12 = load i64, ptr @_ZL7thread2, align 8 ]	main
+E	e33	0	R	0x311274a5c67b8706	_ZL7thread3	NA	0x26d3ae955face687	[: ]	[   %13 = load i64, ptr @_ZL7thread3, align 8 ]	main
+E	e34	0	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x86953c4c6f33d1a9	[: ]	[   %14 = load i64, ptr @_ZL7thread4, align 8 ]	main
+E	e35	0	R	0x48954d77256aa6d	_ZL5input	NA	0x946dc6773766fd5f	[: ]	[   %17 = load ptr, ptr @_ZL5input, align 8 ]	main
+E	e36	0	R	0xf0d6de3a9d58b1ae	call3	NA	0xfcaf180239bf059e	[: ]	[   %19 = load i32, ptr %arrayidx, align 4 ]	main
+E	e37	0	R	0x3c1c2ea070158173	_ZL6output	NA	0x14a4a3c4354907c	[: ]	[   %21 = load ptr, ptr @_ZL6output, align 8 ]	main
+E	e38	0	R	0xf0d6e03a9d58b514	call5	NA	0x9dd3840ee6871466	[: ]	[   %23 = load i32, ptr %arrayidx18, align 4 ]	main
+E	e39	0	R	0x48954d77256aa6d	_ZL5input	NA	0x4696d75823d363da	[: ]	[   %29 = load ptr, ptr @_ZL5input, align 8 ]	main
+E	e40	0	R	0xf0d6de3a9d58b1ae	call3	NA	0x87eefc62a80ac689	[: ]	[   %31 = load i32, ptr %arrayidx27, align 4 ]	main
+E	e41	0	R	0x3c1c2ea070158173	_ZL6output	NA	0x608749d457314880	[: ]	[   %36 = load ptr, ptr @_ZL6output, align 8 ]	main
+E	e42	0	R	0xf0d6e03a9d58b514	call5	NA	0x2b4880737ead04f2	[: ]	[   %38 = load i32, ptr %arrayidx36, align 4 ]	main
+E	e43	0	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xc67999c4eae5bdea	[: ]	[   %40 = load ptr, ptr @_ZL5queue, align 8 ]	main
+E	e44	1	R	0x48954d77256aa6d	_ZL5input	NA	0x71dc62e785df0296	[:69  ]	[   %9 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e45	1	W	0xf0d6de3a9d58b1ae	call3	NA	0x21fb4f2088866ea6	[:69  ]	[   store i32 37, ptr %arrayidx3, align 4 ]	_ZL9main_taskPv
+E	e46	1	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xdc910b3a9f9a59f3	[:69  ]	[   %10 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e47	1	R	0x48954d77256aa6d	_ZL5input	NA	0x910871fc5f2acb1d	[:69  ]	[   %11 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e48	1	R	0xf0d6de3a9d58b1ae	call3	NA	0xb4aacde7e93a35e5	[:69  ]	[   %12 = load i32, ptr %arrayidx4, align 4 ]	_ZL9main_taskPv
+E	e49	1	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:69 26 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e50	1	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:69 26 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e51	1	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:69 26 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e52	1	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:69 26 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e53	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:69 26 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e54	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 26 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e55	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:69 26 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e56	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 26 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e57	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 26 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e58	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:69 26  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e59	1	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:69 26  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e60	1	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:69 26 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e61	1	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:69 26 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e62	1	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:69 26  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e63	1	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:69 26  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e64	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:69 26  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e65	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:69 26  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e66	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:69 26  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e67	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:69 26  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e68	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:69 26  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e69	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:69 26  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e70	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:69 26  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e71	1	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xe2d09c9ae8d2aba6	[:69  ]	[   %13 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e72	1	R	0x3c1c2ea070158173	_ZL6output	NA	0xf7f0c605d4ef1390	[:69  ]	[   %14 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e73	1	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:69 27  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e74	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:69 27  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e75	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:69 27  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e76	1	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:69 27  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e77	1	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:69 27 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e78	1	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:69 27 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e79	1	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:69 27 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e80	1	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:69 27 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e81	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:69 27 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e82	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 27 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e83	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:69 27 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e84	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 27 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e85	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 27 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e86	1	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:69 27  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e87	1	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:69 27  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e88	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:69 27  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e89	1	W	0x64256bb462084913	succ2	NA	0x161fadab49236ea2	[:69  ]	[   store i8 %frombool7, ptr @succ2, align 1 ]	_ZL9main_taskPv
+E	e90	1	R	0x48954d77256aa6d	_ZL5input	NA	0x45ebb48216ddb7c8	[:69  ]	[   %3 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e91	1	W	0xf0d6de3a9d58b1ae	call3	NA	0xd9b5dd73fd2cf2af	[:69  ]	[   store i32 17, ptr %arrayidx, align 4 ]	_ZL9main_taskPv
+E	e92	1	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x39a3c684affd6ed0	[:69  ]	[   %4 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e93	1	R	0x48954d77256aa6d	_ZL5input	NA	0xbbc133c2cfb51552	[:69  ]	[   %5 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e94	1	R	0xf0d6de3a9d58b1ae	call3	NA	0xd66e4a4e6657531f	[:69  ]	[   %6 = load i32, ptr %arrayidx1, align 4 ]	_ZL9main_taskPv
+E	e95	1	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:69 24 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e96	1	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:69 24 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e97	1	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:69 24 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e98	1	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:69 24 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e99	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:69 24 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e100	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 24 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e101	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:69 24 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e102	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 24 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e103	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 24 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e104	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:69 24  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e105	1	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:69 24  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e106	1	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:69 24 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e107	1	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:69 24 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e108	1	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:69 24  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e109	1	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:69 24  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e110	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:69 24  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e111	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:69 24  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e112	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:69 24  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e113	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:69 24  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e114	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:69 24  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e115	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:69 24  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e116	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:69 24  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e117	1	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x44f652c31731f8e1	[:69  ]	[   %7 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e118	1	R	0x3c1c2ea070158173	_ZL6output	NA	0xc2ec81b694f5cd	[:69  ]	[   %8 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e119	1	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:69 25  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e120	1	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:69 25  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e121	1	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:69 25  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e122	1	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:69 25  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e123	1	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:69 25 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e124	1	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:69 25 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e125	1	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:69 25 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e126	1	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:69 25 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e127	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:69 25 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e128	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 25 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e129	1	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:69 25 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e130	1	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:69 25 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e131	1	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:69 25 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e132	1	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:69 25  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e133	1	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:69 25  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e134	1	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:69 25  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e135	1	W	0x64256cb462084ac6	succ1	NA	0xb117bce8f92d6af0	[:69  ]	[   store i8 %frombool, ptr @succ1, align 1 ]	_ZL9main_taskPv
+E	e136	2	R	0x48954d77256aa6d	_ZL5input	NA	0x71dc62e785df0296	[:70  ]	[   %9 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e137	2	W	0xf0d6de3a9d58b1ae	call3	NA	0x21fb4f2088866ea6	[:70  ]	[   store i32 37, ptr %arrayidx3, align 4 ]	_ZL9main_taskPv
+E	e138	2	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xdc910b3a9f9a59f3	[:70  ]	[   %10 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e139	2	R	0x48954d77256aa6d	_ZL5input	NA	0x910871fc5f2acb1d	[:70  ]	[   %11 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e140	2	R	0xf0d6de3a9d58b1ae	call3	NA	0xb4aacde7e93a35e5	[:70  ]	[   %12 = load i32, ptr %arrayidx4, align 4 ]	_ZL9main_taskPv
+E	e141	2	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:70 26 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e142	2	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:70 26 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e143	2	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:70 26 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e144	2	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:70 26 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e145	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:70 26 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e146	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 26 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e147	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:70 26 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e148	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 26 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e149	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 26 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e150	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:70 26  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e151	2	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:70 26  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e152	2	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:70 26 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e153	2	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:70 26 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e154	2	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:70 26  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e155	2	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:70 26  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e156	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:70 26  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e157	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:70 26  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e158	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:70 26  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e159	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:70 26  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e160	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:70 26  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e161	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:70 26  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e162	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:70 26  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e163	2	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xe2d09c9ae8d2aba6	[:70  ]	[   %13 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e164	2	R	0x3c1c2ea070158173	_ZL6output	NA	0xf7f0c605d4ef1390	[:70  ]	[   %14 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e165	2	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:70 27  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e166	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:70 27  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e167	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:70 27  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e168	2	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:70 27  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e169	2	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:70 27 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e170	2	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:70 27 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e171	2	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:70 27 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e172	2	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:70 27 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e173	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:70 27 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e174	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 27 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e175	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:70 27 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e176	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 27 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e177	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 27 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e178	2	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:70 27  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e179	2	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:70 27  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e180	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:70 27  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e181	2	W	0x64256bb462084913	succ2	NA	0x161fadab49236ea2	[:70  ]	[   store i8 %frombool7, ptr @succ2, align 1 ]	_ZL9main_taskPv
+E	e182	2	R	0x48954d77256aa6d	_ZL5input	NA	0x45ebb48216ddb7c8	[:70  ]	[   %3 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e183	2	W	0xf0d6de3a9d58b1ae	call3	NA	0xd9b5dd73fd2cf2af	[:70  ]	[   store i32 17, ptr %arrayidx, align 4 ]	_ZL9main_taskPv
+E	e184	2	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x39a3c684affd6ed0	[:70  ]	[   %4 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e185	2	R	0x48954d77256aa6d	_ZL5input	NA	0xbbc133c2cfb51552	[:70  ]	[   %5 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e186	2	R	0xf0d6de3a9d58b1ae	call3	NA	0xd66e4a4e6657531f	[:70  ]	[   %6 = load i32, ptr %arrayidx1, align 4 ]	_ZL9main_taskPv
+E	e187	2	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:70 24 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e188	2	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:70 24 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e189	2	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:70 24 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e190	2	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:70 24 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e191	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:70 24 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e192	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 24 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e193	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:70 24 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e194	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 24 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e195	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 24 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e196	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:70 24  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e197	2	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:70 24  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e198	2	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:70 24 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e199	2	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:70 24 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e200	2	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:70 24  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e201	2	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:70 24  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e202	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:70 24  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e203	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:70 24  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e204	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:70 24  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e205	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:70 24  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e206	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:70 24  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e207	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:70 24  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e208	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:70 24  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e209	2	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x44f652c31731f8e1	[:70  ]	[   %7 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e210	2	R	0x3c1c2ea070158173	_ZL6output	NA	0xc2ec81b694f5cd	[:70  ]	[   %8 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e211	2	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:70 25  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e212	2	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:70 25  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e213	2	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:70 25  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e214	2	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:70 25  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e215	2	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:70 25 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e216	2	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:70 25 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e217	2	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:70 25 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e218	2	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:70 25 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e219	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:70 25 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e220	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 25 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e221	2	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:70 25 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e222	2	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:70 25 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e223	2	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:70 25 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e224	2	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:70 25  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e225	2	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:70 25  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e226	2	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:70 25  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e227	2	W	0x64256cb462084ac6	succ1	NA	0xb117bce8f92d6af0	[:70  ]	[   store i8 %frombool, ptr @succ1, align 1 ]	_ZL9main_taskPv
+E	e228	3	R	0x48954d77256aa6d	_ZL5input	NA	0x71dc62e785df0296	[:71  ]	[   %9 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e229	3	W	0xf0d6de3a9d58b1ae	call3	NA	0x21fb4f2088866ea6	[:71  ]	[   store i32 37, ptr %arrayidx3, align 4 ]	_ZL9main_taskPv
+E	e230	3	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xdc910b3a9f9a59f3	[:71  ]	[   %10 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e231	3	R	0x48954d77256aa6d	_ZL5input	NA	0x910871fc5f2acb1d	[:71  ]	[   %11 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e232	3	R	0xf0d6de3a9d58b1ae	call3	NA	0xb4aacde7e93a35e5	[:71  ]	[   %12 = load i32, ptr %arrayidx4, align 4 ]	_ZL9main_taskPv
+E	e233	3	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:71 26 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e234	3	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:71 26 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e235	3	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:71 26 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e236	3	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:71 26 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e237	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:71 26 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e238	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 26 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e239	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:71 26 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e240	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 26 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e241	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 26 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e242	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:71 26  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e243	3	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:71 26  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e244	3	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:71 26 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e245	3	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:71 26 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e246	3	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:71 26  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e247	3	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:71 26  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e248	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:71 26  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e249	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:71 26  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e250	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:71 26  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e251	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:71 26  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e252	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:71 26  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e253	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:71 26  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e254	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:71 26  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e255	3	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xe2d09c9ae8d2aba6	[:71  ]	[   %13 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e256	3	R	0x3c1c2ea070158173	_ZL6output	NA	0xf7f0c605d4ef1390	[:71  ]	[   %14 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e257	3	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:71 27  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e258	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:71 27  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e259	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:71 27  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e260	3	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:71 27  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e261	3	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:71 27 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e262	3	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:71 27 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e263	3	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:71 27 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e264	3	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:71 27 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e265	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:71 27 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e266	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 27 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e267	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:71 27 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e268	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 27 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e269	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 27 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e270	3	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:71 27  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e271	3	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:71 27  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e272	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:71 27  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e273	3	W	0x64256bb462084913	succ2	NA	0x161fadab49236ea2	[:71  ]	[   store i8 %frombool7, ptr @succ2, align 1 ]	_ZL9main_taskPv
+E	e274	3	R	0x48954d77256aa6d	_ZL5input	NA	0x45ebb48216ddb7c8	[:71  ]	[   %3 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e275	3	W	0xf0d6de3a9d58b1ae	call3	NA	0xd9b5dd73fd2cf2af	[:71  ]	[   store i32 17, ptr %arrayidx, align 4 ]	_ZL9main_taskPv
+E	e276	3	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x39a3c684affd6ed0	[:71  ]	[   %4 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e277	3	R	0x48954d77256aa6d	_ZL5input	NA	0xbbc133c2cfb51552	[:71  ]	[   %5 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e278	3	R	0xf0d6de3a9d58b1ae	call3	NA	0xd66e4a4e6657531f	[:71  ]	[   %6 = load i32, ptr %arrayidx1, align 4 ]	_ZL9main_taskPv
+E	e279	3	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:71 24 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e280	3	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:71 24 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e281	3	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:71 24 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e282	3	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:71 24 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e283	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:71 24 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e284	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 24 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e285	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:71 24 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e286	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 24 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e287	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 24 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e288	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:71 24  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e289	3	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:71 24  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e290	3	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:71 24 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e291	3	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:71 24 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e292	3	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:71 24  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e293	3	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:71 24  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e294	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:71 24  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e295	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:71 24  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e296	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:71 24  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e297	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:71 24  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e298	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:71 24  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e299	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:71 24  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e300	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:71 24  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e301	3	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x44f652c31731f8e1	[:71  ]	[   %7 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e302	3	R	0x3c1c2ea070158173	_ZL6output	NA	0xc2ec81b694f5cd	[:71  ]	[   %8 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e303	3	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:71 25  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e304	3	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:71 25  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e305	3	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:71 25  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e306	3	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:71 25  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e307	3	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:71 25 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e308	3	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:71 25 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e309	3	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:71 25 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e310	3	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:71 25 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e311	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:71 25 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e312	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 25 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e313	3	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:71 25 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e314	3	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:71 25 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e315	3	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:71 25 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e316	3	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:71 25  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e317	3	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:71 25  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e318	3	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:71 25  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e319	3	W	0x64256cb462084ac6	succ1	NA	0xb117bce8f92d6af0	[:71  ]	[   store i8 %frombool, ptr @succ1, align 1 ]	_ZL9main_taskPv
+E	e320	4	R	0x48954d77256aa6d	_ZL5input	NA	0x71dc62e785df0296	[:72  ]	[   %9 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e321	4	W	0xf0d6de3a9d58b1ae	call3	NA	0x21fb4f2088866ea6	[:72  ]	[   store i32 37, ptr %arrayidx3, align 4 ]	_ZL9main_taskPv
+E	e322	4	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xdc910b3a9f9a59f3	[:72  ]	[   %10 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e323	4	R	0x48954d77256aa6d	_ZL5input	NA	0x910871fc5f2acb1d	[:72  ]	[   %11 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e324	4	R	0xf0d6de3a9d58b1ae	call3	NA	0xb4aacde7e93a35e5	[:72  ]	[   %12 = load i32, ptr %arrayidx4, align 4 ]	_ZL9main_taskPv
+E	e325	4	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:72 26 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e326	4	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:72 26 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e327	4	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:72 26 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e328	4	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:72 26 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e329	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:72 26 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e330	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 26 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e331	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:72 26 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e332	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 26 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e333	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 26 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e334	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:72 26  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e335	4	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:72 26  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e336	4	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:72 26 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e337	4	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:72 26 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e338	4	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:72 26  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e339	4	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:72 26  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e340	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:72 26  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e341	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:72 26  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e342	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:72 26  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e343	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:72 26  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e344	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:72 26  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e345	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:72 26  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e346	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:72 26  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e347	4	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0xe2d09c9ae8d2aba6	[:72  ]	[   %13 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e348	4	R	0x3c1c2ea070158173	_ZL6output	NA	0xf7f0c605d4ef1390	[:72  ]	[   %14 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e349	4	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:72 27  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e350	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:72 27  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e351	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:72 27  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e352	4	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:72 27  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e353	4	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:72 27 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e354	4	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:72 27 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e355	4	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:72 27 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e356	4	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:72 27 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e357	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:72 27 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e358	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 27 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e359	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:72 27 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e360	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 27 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e361	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 27 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e362	4	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:72 27  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e363	4	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:72 27  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e364	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:72 27  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e365	4	W	0x64256bb462084913	succ2	NA	0x161fadab49236ea2	[:72  ]	[   store i8 %frombool7, ptr @succ2, align 1 ]	_ZL9main_taskPv
+E	e366	4	R	0x48954d77256aa6d	_ZL5input	NA	0x45ebb48216ddb7c8	[:72  ]	[   %3 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e367	4	W	0xf0d6de3a9d58b1ae	call3	NA	0xd9b5dd73fd2cf2af	[:72  ]	[   store i32 17, ptr %arrayidx, align 4 ]	_ZL9main_taskPv
+E	e368	4	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x39a3c684affd6ed0	[:72  ]	[   %4 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e369	4	R	0x48954d77256aa6d	_ZL5input	NA	0xbbc133c2cfb51552	[:72  ]	[   %5 = load ptr, ptr @_ZL5input, align 8 ]	_ZL9main_taskPv
+E	e370	4	R	0xf0d6de3a9d58b1ae	call3	NA	0xd66e4a4e6657531f	[:72  ]	[   %6 = load i32, ptr %arrayidx1, align 4 ]	_ZL9main_taskPv
+E	e371	4	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:72 24 29 43  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e372	4	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:72 24 29 43  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e373	4	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:72 24 29 43  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e374	4	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:72 24 29 43  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e375	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x31b800a50f6c0c15	[:72 24 29  ]	[   %1 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e376	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 24 29 44  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e377	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xb98d51c50a167981	[:72 24 29  ]	[   %5 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL8new_nodev
+E	e378	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 24 29 45  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e379	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 24 30  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e380	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x235412630b1d76f8	[:72 24  ]	[   %5 = load atomic i64, ptr %next4 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e381	4	W	0x5700c819446bdb4e	tmp	NA	0x3538253cd3750638	[:72 24  ]	[   store i64 %6, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e382	4	R	0x5700c819446bdb4e	tmp	NA	0xb04e3b61614d892f	[:72 24 31  ]	[   %1 = load i64, ptr %0, align 8 ]	_ZL7set_ptrPyj
+E	e383	4	W	0x5700c819446bdb4e	tmp	NA	0xb9ef6df7aa28cbe8	[:72 24 31  ]	[   store i64 %or, ptr %3, align 8 ]	_ZL7set_ptrPyj
+E	e384	4	R	0x5700c819446bdb4e	tmp	NA	0xd933a3d504e0ee27	[:72 24  ]	[   %9 = load i64, ptr %tmp, align 8 ]	_Z7enqueueP7queue_tj
+E	e385	4	W	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x1797f220a8751c30	[:72 24  ]	[   store atomic i64 %10, ptr %next8 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e386	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x5d89c7af9d992239	[:72 24  ]	[   %13 = load atomic i64, ptr %tail9 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e387	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x36239d405b932c61	[:72 24  ]	[   %17 = load atomic i64, ptr %next15 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e388	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0x5866dbf368452abf	[:72 24  ]	[   %21 = load atomic i64, ptr %tail17 monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e389	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0xb1f5469cd4b20c20	[:72 24  ]	[   %56 = cmpxchg ptr %tail61, i64 %54, i64 %55 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e390	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x8cadfd7b94301008	[:72 24  ]	[   %32 = cmpxchg ptr %next31, i64 %30, i64 %31 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e391	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0xd7ba75be902fedca	[:72 24  ]	[   %39 = load atomic i64, ptr %next41 acquire, align 8 ]	_Z7enqueueP7queue_tj
+E	e392	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x2e83654452a553f1	[:72 24  ]	[   %47 = cmpxchg ptr %tail51, i64 %45, i64 %46 release monotonic, align 8 ]	_Z7enqueueP7queue_tj
+E	e393	4	R	0x9f0ae1f32a1a8a56	_ZL5queue	NA	0x44f652c31731f8e1	[:72  ]	[   %7 = load ptr, ptr @_ZL5queue, align 8 ]	_ZL9main_taskPv
+E	e394	4	R	0x3c1c2ea070158173	_ZL6output	NA	0xc2ec81b694f5cd	[:72  ]	[   %8 = load ptr, ptr @_ZL6output, align 8 ]	_ZL9main_taskPv
+E	e395	4	R	0xb5167a90e83ba4a9:field_index=0	call	Acq	0x2bffe261c52d9a69	[:72 25  ]	[   %2 = load atomic i64, ptr %head1 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e396	4	R	0xb5167a90e83ba4a9:field_index=1	call	Rlx	0xaabfcf7ba8baf425	[:72 25  ]	[   %5 = load atomic i64, ptr %tail2 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e397	4	R	0xb5167a90e83ba4a9:field_index=1	call	Acq	0x89da7d738fbbbf98	[:72 25  ]	[   %9 = load atomic i64, ptr %next4 acquire, align 8 ]	_Z7dequeueP7queue_tPj
+E	e398	4	R	0xb5167a90e83ba4a9:field_index=0	call	Rlx	0x872fef150cf524e7	[:72 25  ]	[   %12 = load atomic i64, ptr %head6 monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e399	4	R	0x311272a5c67b83a0	_ZL7thread1	NA	0xd8e76e3a2cd0f65f	[:72 25 63 64  ]	[   %1 = load i64, ptr @_ZL7thread1, align 8 ]	_Z14get_thread_numv
+E	e400	4	R	0x311275a5c67b88b9	_ZL7thread2	NA	0x1b20b2b0040e2e3a	[:72 25 63 64  ]	[   %3 = load i64, ptr @_ZL7thread2, align 8 ]	_Z14get_thread_numv
+E	e401	4	R	0x311274a5c67b8706	_ZL7thread3	NA	0x73c9f1544c740ca9	[:72 25 63 64  ]	[   %5 = load i64, ptr @_ZL7thread3, align 8 ]	_Z14get_thread_numv
+E	e402	4	R	0x311277a5c67b8c1f	_ZL7thread4	NA	0x5f1534883c246780	[:72 25 63 64  ]	[   %7 = load i64, ptr @_ZL7thread4, align 8 ]	_Z14get_thread_numv
+E	e403	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0x690b238f6041c75d	[:72 25 63  ]	[   %2 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e404	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 25 63 66  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e405	4	R	0x94e523e73c5c37f9	_ZL10free_lists	NA	0xa052e284161082e9	[:72 25 63  ]	[   %6 = load ptr, ptr @_ZL10free_lists, align 8 ]	_ZL7reclaimj
+E	e406	4	W	0xb5167a90e83ba4a9	call	NA	0xf4b41b2e42ff263	[:72 25 63 67  ]	[   store i32 %0, ptr %1, align 4 ]	store_32
+E	e407	4	R	0xb5167a90e83ba4a9	call	NA	0x95d2b9d2eb38fb98	[:72 25 58  ]	[   %1 = load i32, ptr %0, align 4 ]	load_32
+E	e408	4	W	0xf0d6e03a9d58b514	call5	NA	0x840562a1cdef071e	[:72 25  ]	[   store i32 %call27, ptr %30, align 4 ]	_Z7dequeueP7queue_tPj
+E	e409	4	RMW	0xb5167a90e83ba4a9:field_index=0	call	Rel	0x44c8cf1ed726447	[:72 25  ]	[   %36 = cmpxchg ptr %head28, i64 %34, i64 %35 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e410	4	RMW	0xb5167a90e83ba4a9:field_index=1	call	Rel	0x92082d5251a0233e	[:72 25  ]	[   %24 = cmpxchg ptr %tail17, i64 %22, i64 %23 release monotonic, align 8 ]	_Z7dequeueP7queue_tPj
+E	e411	4	W	0x64256cb462084ac6	succ1	NA	0xb117bce8f92d6af0	[:72  ]	[   store i8 %frombool, ptr @succ1, align 1 ]	_ZL9main_taskPv
+
+# Control Flow edges
+CF e409 e395
+CF e409 e399
+CF e410 e395
+CF e410 e399
+CF e405 e406
+CF e404 e403
+CF e404 e405
+CF e404 e411
+CF e402 e403
+CF e402 e411
+CF e401 e402
+CF e401 e403
+CF e401 e411
+CF e394 e395
+CF e394 e399
+CF e393 e394
+CF e392 e386
+CF e392 e389
+CF e390 e386
+CF e390 e389
+CF e390 e391
+CF e388 e386
+CF e388 e389
+CF e388 e390
+CF e388 e391
+CF e387 e388
+CF e385 e386
+CF e385 e389
+CF e381 e382
+CF e380 e381
+CF e377 e378
+CF e374 e375
+CF e374 e379
+CF e375 e376
+CF e373 e374
+CF e373 e375
+CF e373 e379
+CF e372 e373
+CF e372 e375
+CF e372 e379
+CF e384 e385
+CF e371 e372
+CF e371 e375
+CF e371 e379
+CF e400 e401
+CF e400 e403
+CF e400 e411
+CF e368 e369
+CF e366 e367
+CF e360 e365
+CF e363 e349
+CF e363 e353
+CF e362 e363
+CF e361 e362
+CF e359 e360
+CF e358 e357
+CF e358 e359
+CF e358 e365
+CF e356 e357
+CF e356 e365
+CF e357 e358
+CF e354 e355
+CF e354 e357
+CF e354 e365
+CF e353 e354
+CF e353 e357
+CF e353 e365
+CF e351 e352
+CF e352 e349
+CF e352 e353
+CF e352 e361
+CF e352 e364
+CF e352 e365
+CF e349 e350
+CF e348 e349
+CF e348 e353
+CF e347 e348
+CF e346 e340
+CF e346 e343
+CF e345 e346
+CF e342 e340
+CF e342 e343
+CF e342 e344
+CF e342 e345
+CF e339 e340
+CF e339 e343
+CF e337 e338
+CF e336 e337
+CF e334 e335
+CF e333 e334
+CF e332 e333
+CF e332 e334
+CF e331 e332
+CF e329 e330
+CF e327 e328
+CF e327 e329
+CF e327 e333
+CF e326 e327
+CF e326 e329
+CF e326 e333
+CF e325 e326
+CF e325 e329
+CF e325 e333
+CF e323 e324
+CF e322 e323
+CF e321 e322
+CF e316 e317
+CF e397 e398
+CF e315 e316
+CF e306 e303
+CF e306 e307
+CF e306 e315
+CF e306 e318
+CF e306 e319
+CF e312 e311
+CF e312 e313
+CF e312 e319
+CF e310 e311
+CF e310 e319
+CF e311 e312
+CF e308 e309
+CF e308 e311
+CF e308 e319
+CF e378 e379
+CF e378 e380
+CF e304 e305
+CF e297 e301
+CF e296 e294
+CF e296 e297
+CF e296 e298
+CF e296 e299
+CF e295 e296
+CF e294 e295
+CF e293 e294
+CF e293 e297
+CF e292 e293
+CF e290 e291
+CF e288 e289
+CF e287 e288
+CF e396 e397
+CF e286 e287
+CF e286 e288
+CF e285 e286
+CF e284 e283
+CF e284 e285
+CF e284 e287
+CF e282 e283
+CF e282 e287
+CF e283 e284
+CF e281 e282
+CF e281 e283
+CF e281 e287
+CF e303 e304
+CF e280 e281
+CF e280 e283
+CF e280 e287
+CF e279 e280
+CF e279 e283
+CF e279 e287
+CF e277 e278
+CF e275 e276
+CF e272 e257
+CF e272 e261
+CF e260 e257
+CF e260 e261
+CF e260 e269
+CF e260 e272
+CF e260 e273
+CF e270 e271
+CF e267 e268
+CF e265 e266
+CF e263 e264
+CF e263 e265
+CF e263 e273
+CF e127 e128
+CF e129 e130
+CF e153 e154
+CF e123 e124
+CF e123 e127
+CF e123 e135
+CF e119 e120
+CF e406 e411
+CF e121 e122
+CF e90 e91
+CF e141 e142
+CF e141 e145
+CF e141 e149
+CF e395 e396
+CF e160 e156
+CF e160 e159
+CF e160 e161
+CF e118 e119
+CF e118 e123
+CF e198 e199
+CF e344 e340
+CF e344 e343
+CF e344 e345
+CF e106 e107
+CF e383 e384
+CF e105 e106
+CF e103 e104
+CF e320 e321
+CF e268 e273
+CF e102 e103
+CF e102 e104
+CF e229 e230
+CF e92 e93
+CF e26 e27
+CF e84 e89
+CF e98 e103
+CF e98 e99
+CF e27 e28
+CF e226 e211
+CF e226 e215
+CF e87 e73
+CF e87 e77
+CF e50 e51
+CF e50 e53
+CF e50 e57
+CF e85 e86
+CF e212 e213
+CF e120 e121
+CF e95 e103
+CF e95 e96
+CF e95 e99
+CF e174 e173
+CF e174 e175
+CF e174 e181
+CF e80 e81
+CF e80 e89
+CF e81 e82
+CF e77 e78
+CF e77 e81
+CF e77 e89
+CF e152 e153
+CF e73 e74
+CF e313 e314
+CF e124 e125
+CF e124 e127
+CF e124 e135
+CF e299 e300
+CF e289 e290
+CF e68 e64
+CF e68 e67
+CF e68 e69
+CF e29 e30
+CF e146 e145
+CF e146 e147
+CF e146 e149
+CF e246 e247
+CF e114 e110
+CF e114 e113
+CF e114 e115
+CF e276 e277
+CF e137 e138
+CF e69 e70
+CF e243 e244
+CF e66 e64
+CF e66 e67
+CF e66 e68
+CF e66 e69
+CF e111 e112
+CF e370 e371
+CF e151 e152
+CF e107 e108
+CF e62 e63
+CF e399 e400
+CF e399 e403
+CF e399 e411
+CF e125 e126
+CF e125 e127
+CF e125 e135
+CF e314 e319
+CF e100 e101
+CF e100 e103
+CF e100 e99
+CF e60 e61
+CF e32 e33
+CF e30 e23
+CF e30 e26
+CF e43 e136
+CF e43 e182
+CF e43 e228
+CF e43 e274
+CF e43 e320
+CF e43 e366
+CF e43 e44
+CF e43 e90
+CF e11 e12
+CF e57 e58
+CF e65 e66
+CF e266 e265
+CF e266 e267
+CF e266 e273
+CF e36 e37
+CF e24 e25
+CF e126 e127
+CF e126 e135
+CF e46 e47
+CF e41 e42
+CF e49 e50
+CF e49 e53
+CF e49 e57
+CF e264 e265
+CF e264 e273
+CF e19 e20
+CF e45 e46
+CF e211 e212
+CF e39 e40
+CF e17 e18
+CF e214 e211
+CF e214 e215
+CF e214 e223
+CF e214 e226
+CF e214 e227
+CF e15 e16
+CF e237 e238
+CF e18 e19
+CF e223 e224
+CF e230 e231
+CF e72 e73
+CF e72 e77
+CF e64 e65
+CF e8 e9
+CF e78 e79
+CF e78 e81
+CF e78 e89
+CF e61 e62
+CF e88 e73
+CF e88 e77
+CF e205 e209
+CF e269 e270
+CF e79 e80
+CF e79 e81
+CF e79 e89
+CF e33 e34
+CF e67 e71
+CF e219 e220
+CF e47 e48
+CF e2 e3
+CF e13 e14
+CF e59 e60
+CF e209 e210
+CF e255 e256
+CF e403 e404
+CF e369 e370
+CF e38 e35
+CF e38 e39
+CF e38 e41
+CF e38 e43
+CF e271 e257
+CF e271 e261
+CF e184 e185
+CF e4 e5
+CF e75 e76
+CF e122 e119
+CF e122 e123
+CF e122 e131
+CF e122 e134
+CF e122 e135
+CF e82 e81
+CF e82 e83
+CF e82 e89
+CF e407 e408
+CF e16 e17
+CF e1 e2
+CF e94 e95
+CF e14 e15
+CF e76 e73
+CF e76 e77
+CF e76 e85
+CF e76 e88
+CF e76 e89
+CF e44 e45
+CF e225 e211
+CF e225 e215
+CF e10 e11
+CF e117 e118
+CF e245 e246
+CF e5 e6
+CF e355 e356
+CF e355 e357
+CF e355 e365
+CF e324 e325
+CF e22 e23
+CF e22 e26
+CF e307 e308
+CF e307 e311
+CF e307 e319
+CF e300 e294
+CF e300 e297
+CF e6 e7
+CF e143 e144
+CF e143 e145
+CF e143 e149
+CF e301 e302
+CF e97 e103
+CF e97 e98
+CF e97 e99
+CF e341 e342
+CF e86 e87
+CF e9 e10
+CF e55 e56
+CF e12 e13
+CF e217 e218
+CF e217 e219
+CF e217 e227
+CF e31 e32
+CF e70 e64
+CF e70 e67
+CF e37 e38
+CF e133 e119
+CF e133 e123
+CF e335 e336
+CF e258 e259
+CF e367 e368
+CF e110 e111
+CF e96 e103
+CF e96 e97
+CF e96 e99
+CF e71 e72
+CF e187 e188
+CF e187 e191
+CF e187 e195
+CF e34 e35
+CF e34 e39
+CF e34 e41
+CF e34 e43
+CF e3 e4
+CF e113 e117
+CF e35 e36
+CF e101 e102
+CF e116 e110
+CF e116 e113
+CF e391 e392
+CF e138 e139
+CF e52 e53
+CF e52 e57
+CF e207 e208
+CF e63 e64
+CF e63 e67
+CF e42 e41
+CF e42 e43
+CF e28 e29
+CF e139 e140
+CF e398 e395
+CF e398 e399
+CF e398 e407
+CF e398 e410
+CF e398 e411
+CF e48 e49
+CF e21 e22
+CF e166 e167
+CF e20 e21
+CF e25 e136
+CF e25 e228
+CF e25 e31
+CF e25 e320
+CF e25 e44
+CF e177 e178
+CF e234 e235
+CF e234 e237
+CF e234 e241
+CF e7 e8
+CF e298 e294
+CF e298 e297
+CF e298 e299
+CF e91 e92
+CF e51 e52
+CF e51 e53
+CF e51 e57
+CF e274 e275
+CF e104 e105
+CF e343 e347
+CF e162 e156
+CF e162 e159
+CF e259 e260
+CF e408 e409
+CF e112 e110
+CF e112 e113
+CF e112 e114
+CF e112 e115
+CF e183 e184
+CF e364 e349
+CF e364 e353
+CF e195 e196
+CF e115 e116
+CF e53 e54
+CF e54 e53
+CF e54 e55
+CF e54 e57
+CF e328 e329
+CF e328 e333
+CF e58 e59
+CF e40 e39
+CF e40 e41
+CF e40 e43
+CF e131 e132
+CF e132 e133
+CF e194 e195
+CF e194 e196
+CF e134 e119
+CF e134 e123
+CF e136 e137
+CF e140 e141
+CF e142 e143
+CF e142 e145
+CF e142 e149
+CF e386 e387
+CF e145 e146
+CF e149 e150
+CF e163 e164
+CF e144 e145
+CF e144 e149
+CF e147 e148
+CF e93 e94
+CF e148 e149
+CF e148 e150
+CF e309 e310
+CF e309 e311
+CF e309 e319
+CF e199 e200
+CF e379 e380
+CF e150 e151
+CF e190 e191
+CF e190 e195
+CF e56 e57
+CF e56 e58
+CF e236 e237
+CF e236 e241
+CF e154 e155
+CF e204 e202
+CF e204 e205
+CF e204 e206
+CF e204 e207
+CF e155 e156
+CF e155 e159
+CF e156 e157
+CF e235 e236
+CF e235 e237
+CF e235 e241
+CF e330 e329
+CF e330 e331
+CF e330 e333
+CF e157 e158
+CF e192 e191
+CF e192 e193
+CF e192 e195
+CF e158 e156
+CF e158 e159
+CF e158 e160
+CF e158 e161
+CF e23 e24
+CF e128 e127
+CF e128 e129
+CF e128 e135
+CF e164 e165
+CF e164 e169
+CF e239 e240
+CF e165 e166
+CF e167 e168
+CF e376 e375
+CF e376 e377
+CF e376 e379
+CF e202 e203
+CF e169 e170
+CF e169 e173
+CF e169 e181
+CF e170 e171
+CF e170 e173
+CF e170 e181
+CF e171 e172
+CF e171 e173
+CF e171 e181
+CF e173 e174
+CF e172 e173
+CF e172 e181
+CF e247 e248
+CF e247 e251
+CF e253 e254
+CF e251 e255
+CF e168 e165
+CF e168 e169
+CF e168 e177
+CF e168 e180
+CF e168 e181
+CF e178 e179
+CF e109 e110
+CF e109 e113
+CF e180 e165
+CF e180 e169
+CF e317 e303
+CF e317 e307
+CF e196 e197
+CF e179 e165
+CF e179 e169
+CF e176 e181
+CF e182 e183
+CF e242 e243
+CF e185 e186
+CF e159 e163
+CF e215 e216
+CF e215 e219
+CF e215 e227
+CF e382 e383
+CF e130 e135
+CF e216 e217
+CF e216 e219
+CF e216 e227
+CF e233 e234
+CF e233 e237
+CF e233 e241
+CF e161 e162
+CF e186 e187
+CF e188 e189
+CF e188 e191
+CF e188 e195
+CF e189 e190
+CF e189 e191
+CF e189 e195
+CF e191 e192
+CF e222 e227
+CF e193 e194
+CF e350 e351
+CF e175 e176
+CF e197 e198
+CF e305 e306
+CF e228 e229
+CF e252 e248
+CF e252 e251
+CF e252 e253
+CF e83 e84
+CF e200 e201
+CF e389 e393
+CF e221 e222
+CF e201 e202
+CF e201 e205
+CF e224 e225
+CF e340 e341
+CF e231 e232
+CF e203 e204
+CF e302 e303
+CF e302 e307
+CF e206 e202
+CF e206 e205
+CF e206 e207
+CF e210 e211
+CF e210 e215
+CF e213 e214
+CF e218 e219
+CF e218 e227
+CF e232 e233
+CF e108 e109
+CF e238 e237
+CF e238 e239
+CF e238 e241
+CF e338 e339
+CF e240 e241
+CF e240 e242
+CF e241 e242
+CF e244 e245
+CF e248 e249
+CF e220 e219
+CF e220 e221
+CF e220 e227
+CF e249 e250
+CF e74 e75
+CF e250 e248
+CF e250 e251
+CF e250 e252
+CF e250 e253
+CF e318 e303
+CF e318 e307
+CF e254 e248
+CF e254 e251
+CF e278 e279
+CF e208 e202
+CF e208 e205
+CF e256 e257
+CF e256 e261
+CF e257 e258
+CF e291 e292
+CF e261 e262
+CF e261 e265
+CF e261 e273
+CF e99 e100
+CF e262 e263
+CF e262 e265
+CF e262 e273

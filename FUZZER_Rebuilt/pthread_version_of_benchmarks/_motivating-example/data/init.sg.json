@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "event_id": "1",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0x49ec5d0fc3af93d1",
+      "instruction_id": "2425720953110012676",
+      "visit_id": "1",
+      "access_mode": "NA"
+    },
+    {
+      "event_id": "2",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0x49ec5c0fc3af921e",
+      "instruction_id": "2425722052621640887",
+      "visit_id": "1",
+      "access_mode": "NA"
+    }
+  ],
+  "rf_edges": [],
+  "po_per_thread": [
+    {
+      "thread_id": "0",
+      "list": [
+        [
+          "0",
+          "2425720953110012676",
+          "1"
+        ],
+        [
+          "0",
+          "2425722052621640887",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "mo_per_location": [
+    {
+      "location": "0x49ec5c0fc3af921e",
+      "list": [
+        [
+          "0",
+          "2425722052621640887",
+          "1"
+        ]
+      ]
+    },
+    {
+      "location": "0x49ec5d0fc3af93d1",
+      "list": [
+        [
+          "0",
+          "2425720953110012676",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "sw_edges": []
+}

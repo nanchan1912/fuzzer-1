@@ -1,0 +1,20 @@
+# Shared Locations
+LOC 0xaf63ee4c86020b22 s
+LOC 0xaf63ee4c86020b22:field_index=0 s
+LOC 0xaf63ee4c86020b22:field_index=1 s
+
+# Event: ID TID  Kind  Loc VarName  Mode   Instruction_Address     Call_string_context     Instruction
+E	e1	0	W	0xaf63ee4c86020b22	s	NA	0x2cfed957c0aeeacf	[: ]	[@s = global init]	global_init
+E	e2	1	W	0xaf63ee4c86020b22:field_index=0	s	NA	0xde6410664ddbeb82	[:5  ]	[   store i32 %1, ptr %arrayidx1, align 4 ]	_Z8thread_1Pv
+E	e3	2	W	0xaf63ee4c86020b22:field_index=1	s	NA	0xd1e2aedcabfa8df9	[:6  ]	[   store i32 %add, ptr %arrayidx1, align 4 ]	_Z8thread_2Pv
+E	e4	2	W	0xaf63ee4c86020b22:field_index=1	s	NA	0x2db91b315672e91b	[:6  ]	[   store i32 1, ptr %4, align 4 ]	_Z8thread_2Pv
+
+# Control Flow edges
+CF e3 e3
+CF e3 e4
+CF e1 e4
+CF e2 e2
+
+# Synchronizes-with edges
+CF e1 e2
+CF e1 e3

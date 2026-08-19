@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    {
+      "event_id": "1",
+      "thread_id": "0",
+      "kind": "W",
+      "loc_id": "0xe756b1190570b338",
+      "instruction_id": "15885143967695667621",
+      "visit_id": "1",
+      "access_mode": "NA"
+    }
+  ],
+  "rf_edges": [],
+  "po_per_thread": [
+    {
+      "thread_id": "0",
+      "list": [
+        [
+          "0",
+          "15885143967695667621",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "mo_per_location": [
+    {
+      "location": "0xe756b1190570b338",
+      "list": [
+        [
+          "0",
+          "15885143967695667621",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "sw_edges": []
+}
