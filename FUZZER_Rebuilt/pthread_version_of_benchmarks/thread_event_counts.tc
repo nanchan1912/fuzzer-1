@@ -1,0 +1,17 @@
+# Expected format for THREAD_EVENT_COUNTS file.
+# Each line should specify the thread_id and its expected event count.
+# Separators like spaces, tabs, colons (:), equals (=), or commas (,) are supported.
+# Comment lines starting with '#' are ignored.
+
+# Format 1: thread_id expected_event_count (Space-separated)
+0 2
+1 1
+
+# Format 2: thread_id: expected_event_count (Colon-separated)
+2: 4
+
+# Format 3: thread_id = expected_event_count (Equals-separated)
+3 = 4
+
+# Format 4: thread_id, expected_event_count (Comma-separated)
+4, 1

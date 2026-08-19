@@ -1,0 +1,35 @@
+{
+    "nodes": [
+        {
+            "thread_id": 0,
+            "instruction_id": 7,
+            "visit_id": 1,
+            "kind": "W",
+            "loc": "x",
+            "access_mode": "RLX"
+        },
+        { 
+            "thread_id": 0,
+            "instruction_id": 8,
+            "visit_id": 1,
+            "kind": "W",
+            "loc": "y",
+            "access_mode": "RLX"
+        }
+    ],
+    "rf_edges": [ ],
+    "po_edges": [{
+        "from": [ 0, 7, 1 ],
+        "to": [[ 0, 8, 1 ]]
+    }],
+    "po_per_thread": [{
+        "thread_id": 0,
+        "list": [ [ 0, 7, 1 ], [ 0, 8, 1 ] ]
+    }],
+    "mo_edges": [ ],
+    "mo_per_location": [
+        { "location": "x", "list": [ [ 0, 7, 1 ] ] },
+        { "location": "y", "list": [ [ 0, 8, 1 ] ] }
+    ],
+    "sw_edges": [ ]
+}

@@ -1,0 +1,17 @@
+# ------- Static Program Abstraction -------
+# Locations
+LOC x
+LOC y
+# Event:   ID   TID  Kind Loc  Mode
+E          e0    0    W    x   Rlx # Initial write
+E          e1    0    W    y   Rlx # Initial write
+E          e2    1    W    x   Rlx
+E          e3    1    W    y   Rel
+E          e4    2    R    y   Acq
+E          e5    2    R    x   Rlx
+# Control flow
+CF e0 e1
+CF e1 e2
+CF e1 e4
+CF e2 e3
+CF e4 e5

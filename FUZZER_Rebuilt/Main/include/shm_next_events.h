@@ -1,0 +1,88 @@
+#pragma once
+
+#ifdef __cplusplus
+#include <cstdint>
+#include <cstddef>
+#include <tuple>
+#include <string>
+
+using ThreadID = int;
+using InstructionID = long long;
+using VisitID = int;
+#else
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+typedef int ThreadID;
+typedef long long InstructionID;
+typedef int VisitID;
+#endif
+
+// #define MAX_NEXT 4096
+// the scheduler is restricting the number of threads to 128 currently
+// there is only one node per thread, so setting this to 128 for now
+#define MAX_NEXT 128
+// There could be more than 1 parent for a next node - but that too cannot exceed the thread count 
+#define MAX_SRC_NODES 128 
+
+struct Event_id_triple {
+    ThreadID tid;
+    InstructionID iid;
+    VisitID vid;
+};
+
+struct Shared_event {
+
+    ThreadID tid;
+    InstructionID iid;
+    VisitID vid;
+
+    uint8_t event_type;
+    uint8_t access_mode;
+    uint64_t location;
+    uint64_t source_nodes_count;
+    struct Event_id_triple source_nodes[MAX_SRC_NODES];
+};
+
+struct SHM_next_events {
+    bool ready;
+    // next shared event & set of source nodes along each thread
+    uint64_t next_event_count; //REVISIT: is this necessary?
+    struct Shared_event next_events[MAX_NEXT];
+};
+
+
+#ifdef __cplusplus
+
+namespace shm_next_events {
+
+/* AFL side */
+int create_shm_next_events();
+void destroy_shm_next_events();
+
+/* Target side */
+bool attach_shm_next_events();
+
+/* Common */
+SHM_next_events* get_next_events();
+
+/* Publishing helpers */
+void begin_update();
+void finish_update();
+
+}
+
+extern "C" {
+#endif
+
+/* C-compatible wrappers */
+int create_shm_next_events_c(void);
+void destroy_shm_next_events_c(void);
+struct SHM_next_events* get_shm_next_events_c(void);
+void begin_update_c(void);
+void finish_update_c(void);
+
+#ifdef __cplusplus
+}
+#endif

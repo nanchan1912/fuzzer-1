@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "thread_id": 0,
+      "instruction_id": 0,
+      "kind": "W",
+      "loc": "x",
+      "access_mode": "RLX"
+    }
+  ],
+  "rf_edges": [ ],
+  "po_edges": [ ],
+  "po_per_thread": [
+    {
+      "thread_id": 0,
+      "list": [ [ 0, 0 ] ]
+    }
+  ],
+  "mo_edges": [ ],
+  "mo_per_location": [ { "location": "x", "list": [ [ 0, 0 ] ] } ],
+  "sw_edges": [ ]
+}
