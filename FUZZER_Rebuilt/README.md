@@ -15,9 +15,43 @@ A standalone fuzzer for concurrent programs, rebuilt from the AFL_MUTATOR resear
 ### Build
 
 ```bash
-cd FUZZER_Rebuilt/Main
-make clean
+cd fuzz3/FUZZER_Rebuilt/Main
 make afl-fuzz
+bash test_all_queues.sh
+(this is to check if the queues run)
+
+cd testcases/msg_passing
+gcc -O0 -pthread mp.c -o mp
+cd ../..
+(compiling the testcase bianry)
+
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 \
+./afl-fuzz -n \
+  -i testcases/msg_passing/seeds \
+  -o /tmp/fuzz_out \
+  -v testcases/msg_passing/mp_static_program_abstraction.eg \
+  -- ./testcases/msg_passing/mp
+
+  AFL_QUEUE_IMPL=structure2 \
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 \
+./afl-fuzz -n \
+  -i testcases/msg_passing/seeds \
+  -o /tmp/fuzz_out_s2 \
+  -v testcases/msg_passing/mp_static_program_abstraction.eg \
+  -- ./testcases/msg_passing/mp
+(if i wanna use a different structure instead)
+
+
+cd testcases/sb && gcc -O0 -pthread sb.c -o sb && cd ../..
+./afl-fuzz -n -i testcases/sb/seeds -o /tmp/out_sb -v testcases/sb/sb_static_program_abstraction.eg -- ./testcases/sb/sb
+(to run sb loop)
+
+
+cd testcases/sb && gcc -O0 -pthread sb.c -o sb && cd ../..
+./afl-fuzz -n -i testcases/sb/seeds -o /tmp/out_sb -v testcases/sb/sb_static_program_abstraction.eg -- ./testcases/sb/sb
+(to run load buffer)
+
+
 ```
 
 ### Run (simplest test)
