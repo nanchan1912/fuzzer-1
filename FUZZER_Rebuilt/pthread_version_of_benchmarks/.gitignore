@@ -14,8 +14,6 @@ build/
 *.ll
 *.bc
 
-*.out
-
 # Directories and AFL inputs/outputs
 in/
 out/
