@@ -83,9 +83,9 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                               bool skel_feedback_enabled);
 
 /**
- * @brief Set mutator RNG state from AFL state.
+ * @brief Set mutator RNG state from SGF state.
  *
- * @param sgf AFL state pointer used by the mutator RNG helpers.
+ * @param sgf SGF state pointer used by the mutator RNG helpers.
  */
 void set_skeleton_graph_rng_state(sgf_state_t *sgf);
 

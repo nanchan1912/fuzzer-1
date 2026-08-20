@@ -97,7 +97,7 @@ void update_cutoff(sgf_state_t *sgf, double current_cutoff, double new_score) {
  * Function to mutate the parent, run and enque the mutations created if they 
  * are not duplicates and are interesting.
  * 
- * @param sgf The AFL state.
+ * @param sgf The SGF state.
  * @param parent The parent queue entry from which the mutation is derived.
  * @return The newly created queue entry after mutation and enqueueing, or NULL if the mutation was not successful or was a duplicate.
 */

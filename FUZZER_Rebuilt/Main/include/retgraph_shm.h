@@ -68,7 +68,7 @@ struct SharedGraph {
 #ifdef __cplusplus
 namespace graph_shm {
 
-/* AFL side */
+/* SGF side */
 int create_shared_graph();
 void destroy_shared_graph();
 

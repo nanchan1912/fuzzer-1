@@ -21,7 +21,7 @@ namespace shm_next_events
     }
 
     /*
-     * AFL side:
+     * SGF side:
      * create SHM and export SHM_NEXT_EVENTS_ID
      */
     int create_shm_next_events() {
@@ -54,7 +54,7 @@ namespace shm_next_events
     }
 
     /*
-     * AFL side cleanup
+     * SGF side cleanup
      */
     void destroy_shm_next_events() {
         // checking if the attach was successful in the first place (shmat)

@@ -1505,7 +1505,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   read_initial_file();
 
-  // Initialize AFL state for custom mutators
+  // Initialize SGF state for custom mutators
   sgf = calloc(1, sizeof(sgf_state_t));
   if (sgf) {
 

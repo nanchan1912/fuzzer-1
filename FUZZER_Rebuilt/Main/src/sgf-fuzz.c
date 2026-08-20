@@ -3298,7 +3298,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      // Toggle phase after every 5 AFL cycles
+      // Toggle phase after every 5 SGF cycles
       if (sgf->queue_cycle == 0 || ((sgf->queue_cycle - 1) / 5) % 2 == 0) {
         sgf->current_phase = MO_FOOTPRINT_DRIVEN_PHASE;
       } else {

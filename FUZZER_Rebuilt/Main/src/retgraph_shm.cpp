@@ -22,7 +22,7 @@ SharedGraph* get() {
 }
 
 /*
- * AFL side:
+ * SGF side:
  * create SHM and export GRAPH_SHM_ID
  */
 int create_shared_graph() {
@@ -77,7 +77,7 @@ int create_shared_graph() {
 }
 
 /*
- * AFL side cleanup
+ * SGF side cleanup
  */
 void destroy_shared_graph() {
 

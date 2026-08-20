@@ -57,7 +57,7 @@ struct SHM_next_events {
 
 namespace shm_next_events {
 
-/* AFL side */
+/* SGF side */
 int create_shm_next_events();
 void destroy_shm_next_events();
 

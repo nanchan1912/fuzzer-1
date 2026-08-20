@@ -25,7 +25,7 @@
 #include "sgf-ijon-min.h"
 #include "sgf-fuzz.h"
 
-/* Global IJON history limit - initialized from environment or AFL state */
+/* Global IJON history limit - initialized from environment or SGF state */
 static int  sgf_ijon_history_limit_global = 0;
 static bool sgf_ijon_history_limit_initialized = false;
 
