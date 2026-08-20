@@ -991,14 +991,14 @@ void show_stats_normal(afl_state_t *afl) {
 
     if (afl->crash_mode) {
 
-      fuzzer_name = "peruvian were-rabbit";
+      fuzzer_name = "Skeleton Graph Fuzzer";
 
     } else {
 
-      fuzzer_name = "american fuzzy lop";
+      fuzzer_name = "Skeleton Graph Fuzzer";
       if (banner_len + strlen(fuzzer_name) + strlen(afl->use_banner) > 75) {
 
-        fuzzer_name = "AFL";
+        fuzzer_name = "SGF";
 
       }
 
@@ -1286,7 +1286,7 @@ void show_stats_normal(afl_state_t *afl) {
 
   /* Aaaalmost there... hold on! */
 
-  SAYF(bVR bH cCYA bSTOP " fuzzing strategy yields " bSTG bH10 bH2 bHT bH10 bH2
+  SAYF(bVR bH cCYA bSTOP " skeleton graph mutations " bSTG bH10 bH bHT bH10 bH2
            bH bHB bH bSTOP cCYA " item geometry " bSTG bH5 bH2 bVL "\n");
 
   if (unlikely(afl->custom_only)) {
@@ -1309,7 +1309,12 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP "   bit flips : " cRST "%-36s " bSTG bV bSTOP
+  sprintf(tmp, "%s",
+          u_stringify_int(IB(0), afl->mut_add_read_cnt + afl->mut_add_write_cnt +
+                                  afl->mut_add_rmw_cnt + afl->mut_add_cas_success_cnt +
+                                  afl->mut_add_cas_failure_cnt + afl->mut_add_fence_cnt));
+
+  SAYF(bV bSTOP "  add-a-node : " cRST "%-36s " bSTG bV bSTOP
                 "    levels : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->max_depth));
 
@@ -1325,7 +1330,9 @@ void show_stats_normal(afl_state_t *afl) {
 
   }
 
-  SAYF(bV bSTOP "  byte flips : " cRST "%-36s " bSTG bV bSTOP
+  sprintf(tmp, "%s", u_stringify_int(IB(0), afl->mut_rf_cnt));
+
+  SAYF(bV bSTOP " rf mutation : " cRST "%-36s " bSTG bV bSTOP
                 "   pending : " cRST "%-10s" bSTG bV "\n",
        tmp, u_stringify_int(IB(0), afl->pending_not_fuzzed));
 

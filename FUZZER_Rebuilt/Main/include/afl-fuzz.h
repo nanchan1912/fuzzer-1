@@ -751,6 +751,13 @@ typedef struct afl_state {
       queued_variable,                  /* Testcases with variable behavior */
       queued_at_start,                  /* Total number of initial inputs   */
       queued_discovered,                /* Items discovered during this run */
+      mut_add_read_cnt,                  /* MUT_ADD_READ count */
+      mut_add_write_cnt,                 /* MUT_ADD_WRITE count */
+      mut_add_rmw_cnt,                   /* MUT_ADD_RMW count */
+      mut_add_cas_success_cnt,           /* MUT_ADD_CAS_SUCCESS count */
+      mut_add_cas_failure_cnt,           /* MUT_ADD_CAS_FAILURE count */
+      mut_add_fence_cnt,                 /* MUT_ADD_FENCE count */
+      mut_rf_cnt,                        /* MUT_MUTATE_RF count */
       queued_imported,                  /* Items imported via -S            */
       queued_favored,                   /* Paths deemed favorable           */
       queued_with_cov,                  /* Paths with new coverage bytes    */

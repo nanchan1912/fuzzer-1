@@ -132,6 +132,17 @@ struct queue_entry* mutate_run_enqueue_graph(afl_state_t* afl, struct queue_entr
     working_graph = empty_skeleton_graph();
   }
 
+  switch (mut_info.kind) {
+    case MUT_ADD_READ:         afl->mut_add_read_cnt++;        break;
+    case MUT_ADD_WRITE:        afl->mut_add_write_cnt++;       break;
+    case MUT_ADD_RMW:          afl->mut_add_rmw_cnt++;         break;
+    case MUT_ADD_CAS_SUCCESS:  afl->mut_add_cas_success_cnt++; break;
+    case MUT_ADD_CAS_FAILURE:  afl->mut_add_cas_failure_cnt++; break;
+    case MUT_ADD_FENCE:        afl->mut_add_fence_cnt++;       break;
+    case MUT_MUTATE_RF:        afl->mut_rf_cnt++;              break;
+    default: break;
+  }
+
   /* Skip duplicates */
   if (skeleton_graph_seen_or_add(afl, working_graph)) {
     destroy_SkeletonGraph(working_graph);
