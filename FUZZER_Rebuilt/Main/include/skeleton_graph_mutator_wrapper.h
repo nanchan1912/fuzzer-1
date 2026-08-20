@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "afl-fuzz.h"
+#include "sgf-fuzz.h"
 #include "retgraph_shm.h"
 #include "shm_next_events.h"
 
@@ -85,9 +85,9 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
 /**
  * @brief Set mutator RNG state from AFL state.
  *
- * @param afl AFL state pointer used by the mutator RNG helpers.
+ * @param sgf AFL state pointer used by the mutator RNG helpers.
  */
-void set_skeleton_graph_rng_state(afl_state_t *afl);
+void set_skeleton_graph_rng_state(sgf_state_t *sgf);
 
 /**
  * @brief Load static program abstraction used by the mutator.

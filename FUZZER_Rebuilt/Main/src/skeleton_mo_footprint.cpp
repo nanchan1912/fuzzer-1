@@ -1,5 +1,5 @@
 #include "diversity_checker.h"
-#include "afl-fuzz.h"
+#include "sgf-fuzz.h"
 #include "skeleton_graph.hpp"
 
 #include <cassert>

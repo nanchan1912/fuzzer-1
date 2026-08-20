@@ -33,28 +33,28 @@ extern "C" {
 
 static MutationInfo last_mutation_info = {MUT_NONE, {0,0,0}, {0,0,0}, {0}};
 
-static afl_state_t *skel_afl_state = nullptr;
+static sgf_state_t *skel_sgf_state = nullptr;
 
 
 /*
- * Used in afl-fuzz.c to set the skeleton random state to the afl's random state.
+ * Used in sgf-fuzz.c to set the skeleton random state to the sgf's random state.
  * It means its done at the init, while reading env etc. 
- * So, the initial afl state is what remains throughout for random calculations.
+ * So, the initial sgf state is what remains throughout for random calculations.
  * TODO: Modify if required to be better.
 */
-extern "C" void set_skeleton_graph_rng_state(afl_state_t *afl) {
-    skel_afl_state = afl;
+extern "C" void set_skeleton_graph_rng_state(sgf_state_t *sgf) {
+    skel_sgf_state = sgf;
 }
 
 /* 
- * Returns random u32 number below limit using the provided afl_state_t for randomness.
- * If skel_afl_state is not set, it falls back to using std::rand() for randomness.
+ * Returns random u32 number below limit using the provided sgf_state_t for randomness.
+ * If skel_sgf_state is not set, it falls back to using std::rand() for randomness.
  * 
  * @param limit The upper limit for the random number (exclusive).
 */
 static u32 skel_rand_below(u32 limit) {
     if (!limit) { return 0; }
-    if (skel_afl_state) { return rand_below(skel_afl_state, limit); }
+    if (skel_sgf_state) { return rand_below(skel_sgf_state, limit); }
     return (u32)(rand() % limit);
 }
 
@@ -92,7 +92,7 @@ static void add_sw_if_absent(SkeletonGraph* graph, const EventID& from, const Ev
 
 // Changing this func as I changed the type of simulator_feedback in SkeletonGraphData to be of type SHM_next_events* instead of void*
 extern "C" void destroy_simulator_feedback(struct SHM_next_events* feedback_ptr){
-    //this is to free the memory allocated in update_simulator_feedback_cache function in afl-fuzz-run.c
+    //this is to free the memory allocated in update_simulator_feedback_cache function in sgf-fuzz-run.c
     ck_free(feedback_ptr);
 }
 /*
@@ -342,7 +342,7 @@ extern "C" void destroy_SkeletonGraph(SkeletonGraph* graph) {
 
 
 //REVISIT: This function is unnecessary but I am keeping it for now
-// Used in afl-fuzz-one.c to create an empty skeleton graph for the first time
+// Used in sgf-fuzz-one.c to create an empty skeleton graph for the first time
 // Check if needed or can be removed
 extern "C" SkeletonGraph* empty_skeleton_graph() {
     // cout << "Generating an empty skeleton graph" << endl;
@@ -1740,7 +1740,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
             // EventTriple prev_last_event_triple = {std::get<0>(prev_last_event_id), std::get<1>(prev_last_event_id), std::get<2>(prev_last_event_id)};
             // EventTriple new_event_triple = {std::get<0>(new_event->get_event_id()), std::get<1>(new_event->get_event_id()), std::get<2>(new_event->get_event_id())};
             
-            // Moved this logic to afl-fuzz-one 
+            // Moved this logic to sgf-fuzz-one 
             // Reason: We want to update the frequency only after checking for duplicates in SG wrt the corpus 
             // update_mo_coverage(prev_last_event_triple, new_event_triple);
         // }

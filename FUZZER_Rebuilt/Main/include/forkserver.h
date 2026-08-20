@@ -21,7 +21,7 @@
      https://www.apache.org/licenses/LICENSE-2.0
 
    Shared code that implements a forkserver. This is used by the fuzzer
-   as well the other components like afl-tmin.
+   as well the other components like sgf-tmin.
 
  */
 
@@ -102,9 +102,9 @@ typedef struct {
 nyx_plugin_handler_t *afl_load_libnyx_plugin(u8 *libnyx_binary);
 #endif
 
-typedef struct afl_forkserver {
+typedef struct sgf_forkserver {
 
-  /* a program that includes afl-forkserver needs to define these */
+  /* a program that includes sgf-forkserver needs to define these */
 
   u8 *trace_bits;                       /* SHM with instrumentation bitmap  */
 
@@ -124,7 +124,7 @@ typedef struct afl_forkserver {
   u32 init_tmout;                       /* Configurable init timeout (ms)   */
   u32 map_size;                         /* map size used by the target      */
   
-  //I have also defined this in afl-fuzz.h:afl_state struct 
+  //I have also defined this in sgf-fuzz.h:sgf_state struct 
   // as #define SKELETON_GRAPH_MAP_SIZE 32768 -- I would have to remove one of these later
   // REVISIT: remove one of these later
   
@@ -150,7 +150,7 @@ typedef struct afl_forkserver {
 
   bool use_shmem_fuzz;                  /* use shared mem for test cases    */
 
-  bool support_shmem_fuzz;              /* set by afl-fuzz                  */
+  bool support_shmem_fuzz;              /* set by sgf-fuzz                  */
 
   bool use_ijon;                        /* use IJON tracking feature        */
 
@@ -191,7 +191,7 @@ typedef struct afl_forkserver {
 
   /* persistent mode replay functionality */
   u32 persistent_record;                /* persistent replay setting        */
-#ifdef AFL_PERSISTENT_RECORD
+#ifdef SGF_PERSISTENT_RECORD
   u32  persistent_record_idx;           /* persistent replay cache ptr      */
   u32  persistent_record_cnt;           /* persistent replay counter        */
   u8  *persistent_record_dir;
@@ -211,11 +211,11 @@ typedef struct afl_forkserver {
   u8     chown_needed;
 
   /* Function to kick off the forkserver child */
-  void (*init_child_func)(struct afl_forkserver *fsrv, char **argv);
+  void (*init_child_func)(struct sgf_forkserver *fsrv, char **argv);
 
-  u8 *afl_ptr;                          /* for autodictionary: afl ptr      */
+  u8 *sgf_ptr;                          /* for autodictionary: sgf ptr      */
 
-  void (*add_extra_func)(void *afl_ptr, u8 *mem, u32 len);
+  void (*add_extra_func)(void *sgf_ptr, u8 *mem, u32 len);
 
   u8 child_kill_signal;
   u8 fsrv_kill_signal;
@@ -255,7 +255,7 @@ typedef struct afl_forkserver {
   u32   custom_input_len;
   void (*late_send)(void *, const u8 *, size_t);
 
-} afl_forkserver_t;
+} sgf_forkserver_t;
 
 typedef enum fsrv_run_result {
 
@@ -268,31 +268,31 @@ typedef enum fsrv_run_result {
 
 } fsrv_run_result_t;
 
-void afl_fsrv_init(afl_forkserver_t *fsrv);
-void afl_fsrv_init_dup(afl_forkserver_t *fsrv_to, afl_forkserver_t *from);
-void afl_fsrv_setup_preload(afl_forkserver_t *fsrv, char *argv0);
-void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
+void afl_fsrv_init(sgf_forkserver_t *fsrv);
+void afl_fsrv_init_dup(sgf_forkserver_t *fsrv_to, sgf_forkserver_t *from);
+void afl_fsrv_setup_preload(sgf_forkserver_t *fsrv, char *argv0);
+void afl_fsrv_start(sgf_forkserver_t *fsrv, char **argv,
                     volatile u8 *stop_soon_p, u8 debug_child_output);
-u32  afl_fsrv_get_mapsize(afl_forkserver_t *fsrv, char **argv,
+u32  afl_fsrv_get_mapsize(sgf_forkserver_t *fsrv, char **argv,
                           volatile u8 *stop_soon_p, u8 debug_child_output);
-void afl_fsrv_write_to_testcase(afl_forkserver_t *fsrv, u8 *buf, size_t len);
-fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
+void afl_fsrv_write_to_testcase(sgf_forkserver_t *fsrv, u8 *buf, size_t len);
+fsrv_run_result_t afl_fsrv_run_target(sgf_forkserver_t *fsrv, u32 timeout,
                                       volatile u8 *stop_soon_p);
 void              afl_fsrv_killall(void);
-void              afl_fsrv_deinit(afl_forkserver_t *fsrv);
-void              afl_fsrv_kill(afl_forkserver_t *fsrv);
+void              afl_fsrv_deinit(sgf_forkserver_t *fsrv);
+void              afl_fsrv_kill(sgf_forkserver_t *fsrv);
 
 #ifdef __linux__
-void nyx_load_target_hash(afl_forkserver_t *fsrv);
+void nyx_load_target_hash(sgf_forkserver_t *fsrv);
 #endif
 
 #ifdef __APPLE__
   #define MSG_FORK_ON_APPLE                                                    \
     "    - On MacOS X, the semantics of fork() syscalls are non-standard and " \
     "may\n"                                                                    \
-    "      break afl-fuzz performance optimizations when running "             \
+    "      break sgf-fuzz performance optimizations when running "             \
     "platform-specific\n"                                                      \
-    "      targets. To fix this, set AFL_NO_FORKSRV=1 in the environment.\n\n"
+    "      targets. To fix this, set SGF_NO_FORKSRV=1 in the environment.\n\n"
 #else
   #define MSG_FORK_ON_APPLE ""
 #endif

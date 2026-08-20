@@ -75,7 +75,7 @@ std::string access_mode_to_string(Access_Mode m) {
 namespace fs = std::filesystem;
 fs::path eg_file;
 
-// this function is called from afl-fuzz-init.c to set the .eg file path
+// this function is called from sgf-fuzz-init.c to set the .eg file path
 extern "C" void parse_program_abstraction_file(const char *file_name){
     eg_file = fs::path(file_name);
     //check if the file exists

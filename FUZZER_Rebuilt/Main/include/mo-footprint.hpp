@@ -2,7 +2,7 @@
 #define MO_FOOTPRINT_HPP
 
 extern "C"{
-    #include "afl-fuzz.h"
+    #include "sgf-fuzz.h"
     #include "skeleton_graph_mutator_wrapper.h"    
 }
 

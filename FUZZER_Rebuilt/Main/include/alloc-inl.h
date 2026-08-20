@@ -178,7 +178,7 @@ static inline u8 *DFL_ck_strdup(u8 *str) {
   #define alloc_report()
 
 #else
-  // This is the original alloc-inl of stock afl
+  // This is the original alloc-inl of stock sgf
 
   /* User-facing macro to sprintf() to a dynamically allocated buffer. */
 
@@ -442,7 +442,7 @@ struct TRK_obj {
 
 };
 
-    #ifdef AFL_MAIN
+    #ifdef SGF_MAIN
 
 struct TRK_obj *TRK[ALLOC_BUCKETS];
 u32             TRK_cnt[ALLOC_BUCKETS];
@@ -456,7 +456,7 @@ extern u32             TRK_cnt[ALLOC_BUCKETS];
 
       #define alloc_report()
 
-    #endif                                                     /* ^AFL_MAIN */
+    #endif                                                     /* ^SGF_MAIN */
 
     /* Bucket-assigning function for a given pointer: */
 
@@ -629,27 +629,27 @@ static inline size_t next_pow2(size_t in) {
 struct afl_alloc_buf {
 
   /* The complete allocated size, including the header of len
-   * AFL_ALLOC_SIZE_OFFSET */
+   * SGF_ALLOC_SIZE_OFFSET */
   size_t complete_size;
   /* ptr to the first element of the actual buffer */
   u8 buf[0];
 
 };
 
-#define AFL_ALLOC_SIZE_OFFSET (offsetof(struct afl_alloc_buf, buf))
+#define SGF_ALLOC_SIZE_OFFSET (offsetof(struct afl_alloc_buf, buf))
 
 /* Returns the container element to this ptr */
 static inline struct afl_alloc_buf *afl_alloc_bufptr(void *buf) {
 
-  return (struct afl_alloc_buf *)((u8 *)buf - AFL_ALLOC_SIZE_OFFSET);
+  return (struct afl_alloc_buf *)((u8 *)buf - SGF_ALLOC_SIZE_OFFSET);
 
 }
 
 /* Gets the maximum size of the buf contents (ptr->complete_size -
- * AFL_ALLOC_SIZE_OFFSET) */
+ * SGF_ALLOC_SIZE_OFFSET) */
 static inline size_t afl_alloc_bufsize(void *buf) {
 
-  return afl_alloc_bufptr(buf)->complete_size - AFL_ALLOC_SIZE_OFFSET;
+  return afl_alloc_bufptr(buf)->complete_size - SGF_ALLOC_SIZE_OFFSET;
 
 }
 
@@ -675,7 +675,7 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
 
   }
 
-  size_needed += AFL_ALLOC_SIZE_OFFSET;
+  size_needed += SGF_ALLOC_SIZE_OFFSET;
 
   /* No need to realloc */
   if (likely(current_size >= size_needed)) { return *buf; }
@@ -715,7 +715,7 @@ static inline void *afl_realloc(void **buf, size_t size_needed) {
 
 }
 
-/* afl_realloc_exact uses afl alloc buffers but sets it to a specific size */
+/* afl_realloc_exact uses sgf alloc buffers but sets it to a specific size */
 
 static inline void *afl_realloc_exact(void **buf, size_t size_needed) {
 
@@ -731,7 +731,7 @@ static inline void *afl_realloc_exact(void **buf, size_t size_needed) {
 
   }
 
-  size_needed += AFL_ALLOC_SIZE_OFFSET;
+  size_needed += SGF_ALLOC_SIZE_OFFSET;
 
   /* No need to realloc */
   if (unlikely(current_size == size_needed)) { return *buf; }

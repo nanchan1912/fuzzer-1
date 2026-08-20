@@ -35,15 +35,15 @@
  ******************************************************/
 
 /* Default shared memory map size. Most targets just need a coverage map
-   between 20-250kb. Plus there is an auto-detection feature in afl-fuzz.
+   between 20-250kb. Plus there is an auto-detection feature in sgf-fuzz.
    However if a target has problematic constructors and init arrays then
-   this can fail. Hence afl-fuzz deploys a larger default map. The largest
+   this can fail. Hence sgf-fuzz deploys a larger default map. The largest
    map seen so far is the xlsx fuzzer for libreoffice which is 5MB.
-   At runtime this value can be overridden via AFL_MAP_SIZE.
+   At runtime this value can be overridden via SGF_MAP_SIZE.
    Default: 8MB (defined in bytes) */
 #define DEFAULT_SHMEM_SIZE (8 * 1024 * 1024)
 
-/* Default time until when no more coverage finds are happening afl-fuzz
+/* Default time until when no more coverage finds are happening sgf-fuzz
    switches to exploitation mode. It automatically switches back when new
    coverage is found.
    Default: 300 (seconds) */
@@ -82,7 +82,7 @@
 /* CMPLOG/REDQUEEN TUNING
  *
  * Here you can modify tuning and solving options for CMPLOG.
- * Note that these are run-time options for afl-fuzz, no target
+ * Note that these are run-time options for sgf-fuzz, no target
  * recompilation required.
  *
  */
@@ -111,49 +111,49 @@
 /* -------------------------------------*/
 
 /* If a persistent target keeps state and found crashes are not reproducible
-   then enable this option and set the AFL_PERSISTENT_RECORD env variable
+   then enable this option and set the SGF_PERSISTENT_RECORD env variable
    to a number. These number of testcases prior and including the crash case
    will be kept and written to the crash/ directory as RECORD:... files.
    Note that every crash will be written, not only unique ones! */
 
-// #define AFL_PERSISTENT_RECORD
+// #define SGF_PERSISTENT_RECORD
 
 /* Adds support in compiler-rt to replay persistent records in @@-style
  * harnesses */
 
-//  #define AFL_PERSISTENT_REPLAY_ARGPARSE
+//  #define SGF_PERSISTENT_REPLAY_ARGPARSE
 
 /* console output colors: There are three ways to configure its behavior
  * 1. default: colored outputs fixed on: defined USE_COLOR && defined
- * ALWAYS_COLORED The env var. AFL_NO_COLOR will have no effect
+ * ALWAYS_COLORED The env var. SGF_NO_COLOR will have no effect
  * 2. defined USE_COLOR && !defined ALWAYS_COLORED
- *    -> depending on env var AFL_NO_COLOR=1 colors can be switched off
+ *    -> depending on env var SGF_NO_COLOR=1 colors can be switched off
  *    at run-time. Default is to use colors.
  * 3. colored outputs fixed off: !defined USE_COLOR
- *    The env var. AFL_NO_COLOR will have no effect
+ *    The env var. SGF_NO_COLOR will have no effect
  */
 
-/* Comment out to disable terminal colors (note that this makes afl-analyze
+/* Comment out to disable terminal colors (note that this makes sgf-analyze
    a lot less nice): */
 
 #define USE_COLOR
 
 #ifdef USE_COLOR
   /* Comment in to always enable terminal colors */
-  /* Comment out to enable runtime controlled terminal colors via AFL_NO_COLOR
+  /* Comment out to enable runtime controlled terminal colors via SGF_NO_COLOR
    */
   #define ALWAYS_COLORED 1
 #endif
 
 /* StatsD config
-   Config can be adjusted via AFL_STATSD_HOST and AFL_STATSD_PORT environment
+   Config can be adjusted via SGF_STATSD_HOST and SGF_STATSD_PORT environment
    variable.
 */
 #define STATSD_UPDATE_SEC 1
 #define STATSD_DEFAULT_PORT 8125
 #define STATSD_DEFAULT_HOST "127.0.0.1"
 
-/* If you want to have the original afl internal memory corruption checks.
+/* If you want to have the original sgf internal memory corruption checks.
    Disabled by default for speed. it is better to use "make ASAN_BUILD=1". */
 
 // #define _WANT_ORIGINAL_AFL_ALLOC
@@ -278,8 +278,8 @@
 #define TRIM_END_STEPS 1024
 
 /* Maximum size of input file, in bytes (keep under 100MB, default 1MB):
-   (note that if this value is changed, several areas in afl-cc.c, afl-fuzz.c
-   and afl-fuzz-state.c have to be changed as well! */
+   (note that if this value is changed, several areas in sgf-cc.c, sgf-fuzz.c
+   and sgf-fuzz-state.c have to be changed as well! */
 
 #define MAX_FILE (1 * 1024 * 1024L)
 
@@ -287,7 +287,7 @@
 
 #define TMIN_MAX_FILE (10 * 1024 * 1024L)
 
-/* Block normalization steps for afl-tmin: */
+/* Block normalization steps for sgf-tmin: */
 
 #define TMIN_SET_MIN_SIZE 4
 #define TMIN_SET_STEPS 128
@@ -419,7 +419,7 @@
 /* The default maximum testcase cache size in MB, 0 = disable.
    A value between 50 and 250 is a good default value. Note that the
    number of entries will be auto assigned if not specified via the
-   AFL_TESTCACHE_ENTRIES env variable */
+   SGF_TESTCACHE_ENTRIES env variable */
 
 #define TESTCASE_CACHE_SIZE 50
 
@@ -489,7 +489,7 @@ We add 4 byte for one u32 length field. */
 
 /* Map size for the traced binary (2^MAP_SIZE_POW2). Must be greater than
    2; you probably want to keep it under 18 or so for performance reasons
-   (adjusting AFL_INST_RATIO when compiling is probably a better way to solve
+   (adjusting SGF_INST_RATIO when compiling is probably a better way to solve
    problems with complex programs). You need to recompile the target binary
    after changing this - otherwise, SEGVs may ensue. */
 
@@ -523,7 +523,7 @@ We add 4 byte for one u32 length field. */
 
 #define HASH_CONST 0xa5b35705
 
-/* Constants for afl-gotcpu to control busy loop timing: */
+/* Constants for sgf-gotcpu to control busy loop timing: */
 
 #define CTEST_TARGET_MS 5000
 #define CTEST_CORE_TRG_MS 1000
@@ -531,14 +531,14 @@ We add 4 byte for one u32 length field. */
 
 /* Enable NeverZero counters in QEMU mode */
 
-#define AFL_QEMU_NOT_ZERO
+#define SGF_QEMU_NOT_ZERO
 
 /* AFL RedQueen */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
 /* ASAN SHM ID */
-#define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
+#define SGF_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
 
 /* CPU Affinity lockfile env var */
 
@@ -565,28 +565,28 @@ We add 4 byte for one u32 length field. */
 
 /* Minimum length of a queue input to be evaluated for "is_ascii"? */
 
-#define AFL_TXT_MIN_LEN 12
+#define SGF_TXT_MIN_LEN 12
 
 /* Maximum length of a queue input to be evaluated for "is_ascii"? */
 
-#define AFL_TXT_MAX_LEN 65535
+#define SGF_TXT_MAX_LEN 65535
 
 /* What is the minimum percentage of ascii characters present to be classified
    as "is_ascii"? */
 
-#define AFL_TXT_MIN_PERCENT 99
+#define SGF_TXT_MIN_PERCENT 99
 
 /* How often to perform ASCII mutations 0 = disable, 1-8 are good values */
 
-#define AFL_TXT_BIAS 6
+#define SGF_TXT_BIAS 6
 
 /* Maximum length of a string to tamper with */
 
-#define AFL_TXT_STRING_MAX_LEN 1024
+#define SGF_TXT_STRING_MAX_LEN 1024
 
 /* Maximum mutations on a string */
 
-#define AFL_TXT_STRING_MAX_MUTATIONS 6
+#define SGF_TXT_STRING_MAX_MUTATIONS 6
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

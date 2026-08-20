@@ -21,7 +21,7 @@
      https://www.apache.org/licenses/LICENSE-2.0
 
    Shared code to handle the shared memory. This is used by the fuzzer
-   as well the other components like afl-tmin, afl-showmap, etc...
+   as well the other components like sgf-tmin, sgf-showmap, etc...
 
  */
 
@@ -90,8 +90,8 @@ struct cmp_map {
 
 /* Execs the child */
 
-struct afl_forkserver;
-void cmplog_exec_child(struct afl_forkserver *fsrv, char **argv);
+struct sgf_forkserver;
+void cmplog_exec_child(struct sgf_forkserver *fsrv, char **argv);
 
 // Attribute of whether the Buffer points to the memory area mapped by ELF
 enum {

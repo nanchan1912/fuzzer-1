@@ -54,7 +54,7 @@ char **get_wine_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv);
 char  *get_afl_env(char *env);
 
 /* Extract env vars from input string and set them using setenv()
-   For use with AFL_TARGET_ENV, ... */
+   For use with SGF_TARGET_ENV, ... */
 bool extract_and_set_env(u8 *env_str);
 
 extern u8  be_quiet;
@@ -65,7 +65,7 @@ extern u8 *doc_path;                    /* path to documentation dir        */
 
 u8 *find_binary(u8 *fname);
 
-/* find an afl binary */
+/* find an sgf binary */
 
 u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 
@@ -76,12 +76,12 @@ u8 *find_afl_binary(u8 *own_loc, u8 *fname);
 int parse_afl_kill_signal(u8 *numeric_signal_as_str, int default_signal);
 
 /* Configure the signals that are used to kill the forkserver
-   and the forked children. If `afl_kill_signal_env` or
-   `afl_fsrv_kill_signal_env` is NULL, the appropriate values are read from the
+   and the forked children. If `sgf_kill_signal_env` or
+   `sgf_fsrv_kill_signal_env` is NULL, the appropriate values are read from the
    environment. */
-void configure_afl_kill_signals(afl_forkserver_t *fsrv,
-                                char             *afl_kill_signal_env,
-                                char             *afl_fsrv_kill_signal_env,
+void configure_afl_kill_signals(sgf_forkserver_t *fsrv,
+                                char             *sgf_kill_signal_env,
+                                char             *sgf_fsrv_kill_signal_env,
                                 int               default_server_kill_signal);
 
 /* Read a bitmap from file fname to memory
@@ -159,7 +159,7 @@ void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
 #ifdef __linux__
 /* Nyx helper functions to create and remove tmp workdirs */
 char *create_nyx_tmp_workdir(void);
-void  remove_nyx_tmp_workdir(afl_forkserver_t *fsrv, char *nyx_out_dir_path);
+void  remove_nyx_tmp_workdir(sgf_forkserver_t *fsrv, char *nyx_out_dir_path);
 #endif
 
 #endif

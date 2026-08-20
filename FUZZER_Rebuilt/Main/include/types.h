@@ -210,23 +210,23 @@ typedef int128_t s128;
                                \
   }
 
-#ifdef AFL_LLVM_PASS
+#ifdef SGF_LLVM_PASS
   #if defined(__linux__) || !defined(__ANDROID__)
-    #define AFL_SR(s) (srandom(s))
-    #define AFL_R(x) (random() % (x))
+    #define SGF_SR(s) (srandom(s))
+    #define SGF_R(x) (random() % (x))
   #else
-    #define AFL_SR(s) ((void)s)
-    #define AFL_R(x) (arc4random_uniform(x))
+    #define SGF_SR(s) ((void)s)
+    #define SGF_R(x) (arc4random_uniform(x))
   #endif
 #else
   #if defined(__linux__) || !defined(__ANDROID__)
     #define SR(s) (srandom(s))
-    #define AFL_R(x) (random() % (x))
+    #define SGF_R(x) (random() % (x))
   #else
     #define SR(s) ((void)s)
-    #define AFL_R(x) (arc4random_uniform(x))
+    #define SGF_R(x) (arc4random_uniform(x))
   #endif
-#endif                                                    /* ^AFL_LLVM_PASS */
+#endif                                                    /* ^SGF_LLVM_PASS */
 
 #define STRINGIFY_INTERNAL(x) #x
 #define STRINGIFY(x) STRINGIFY_INTERNAL(x)

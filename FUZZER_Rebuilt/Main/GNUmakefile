@@ -30,9 +30,9 @@ INCLUDE_PATH = $(PREFIX)/include/afl
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
-PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
-SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config afl-cc
-HEADERS     = include/data_race.hpp include/afl-fuzz.h include/afl-mutations.h include/skeleton_graph_mutator.hpp include/afl-persistent-replay.h include/afl-prealloc.h include/afl-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h include/afl-ijon-min.h include/skeleton_potential.hpp include/skeleton_graph.hpp include/retgraph_shm.h include/shm_next_events.h include/afl-queue.h
+PROGS       = sgf-fuzz sgf-showmap sgf-tmin sgf-gotcpu sgf-analyze
+SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config sgf-cc
+HEADERS     = include/data_race.hpp include/sgf-fuzz.h include/sgf-mutations.h include/skeleton_graph_mutator.hpp include/sgf-persistent-replay.h include/sgf-prealloc.h include/sgf-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h include/sgf-ijon-min.h include/skeleton_potential.hpp include/skeleton_graph.hpp include/retgraph_shm.h include/shm_next_events.h include/sgf-queue.h
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 ASAN_OPTIONS=detect_leaks=0
 
@@ -148,7 +148,7 @@ ifdef STATIC
 endif
 
 ifdef PROFILING
-  $(info Compiling with profiling information, for analysis: gprof ./afl-fuzz gmon.out > prof.txt)
+  $(info Compiling with profiling information, for analysis: gprof ./sgf-fuzz gmon.out > prof.txt)
   override CFLAGS_OPT += -pg -DPROFILING=1
   override LDFLAGS += -pg
 endif
@@ -176,7 +176,7 @@ else
 endif
 
 override CFLAGS += -g -Wno-pointer-sign -Wno-variadic-macros -Wall -Wextra -Wno-pointer-arith \
-			-fPIC -I include/ -DAFL_PATH=\"$(HELPER_PATH)\"  \
+			-fPIC -I include/ -DSGF_PATH=\"$(HELPER_PATH)\"  \
 			-DBIN_PATH=\"$(BIN_PATH)\" -DDOC_PATH=\"$(DOC_PATH)\"
 # -fstack-protector
 
@@ -207,7 +207,7 @@ ifeq "$(SYS)" "Haiku"
   #SPECIAL_PERFORMANCE += -DUSEMMAP=1
 endif
 
-AFL_FUZZ_FILES = $(filter-out src/afl-fuzz-frameshift.c,$(wildcard src/afl-fuzz*.c))
+AFL_FUZZ_FILES = $(filter-out src/sgf-fuzz-frameshift.c,$(wildcard src/sgf-fuzz*.c))
 
 ifneq "$(shell command -v python3m 2>/dev/null)" ""
   ifneq "$(shell command -v python3m-config 2>/dev/null)" ""
@@ -283,7 +283,7 @@ ifneq "$(findstring OpenBSD, $(SYS))" ""
   override LDFLAGS += -lpthread -lm
 endif
 
-COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h include/afl-fuzz.h include/hash.h include/sharedmem.h include/forkserver.h include/common.h include/list.h
+COMM_HDR    = include/alloc-inl.h include/config.h include/debug.h include/types.h include/sgf-fuzz.h include/hash.h include/sharedmem.h include/forkserver.h include/common.h include/list.h
 
 ifeq "$(shell echo '$(HASH)include <Python.h>@int main() {return 0; }' | tr @ '\n' | $(CC) $(CFLAGS) -x c - -o .test $(PYTHON_INCLUDE) $(LDFLAGS) $(PYTHON_LIB) 2>/dev/null && echo 1 || echo 0 ; rm -f .test )" "1"
 	PYTHON_OK=1
@@ -339,24 +339,24 @@ all:	test_x86 test_shm test_python ready $(PROGS) llvm gcc_plugin test_build all
 	@echo
 	@echo
 	@echo Build Summary:
-	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+	@test -e sgf-fuzz && echo "[+] sgf-fuzz and supporting tools successfully built" || echo "[-] sgf-fuzz could not be built, please set CC to a working compiler"
 	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM and LLD 11+. More information at instrumentation/README.lto.md on how to build it"
 ifneq "$(SYS)" "Darwin"
 	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
 endif
-	@test -e afl-cc || echo "[-] AFL++ instrumentation compilers could not be built! Install llvm-VERSION-dev or gcc-VERSION-plugin-dev, see docs/INSTALL.md!"
+	@test -e sgf-cc || echo "[-] AFL++ instrumentation compilers could not be built! Install llvm-VERSION-dev or gcc-VERSION-plugin-dev, see docs/INSTALL.md!"
 	@echo
 
 .PHONY: llvm
 llvm:
 	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
-	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+	@test -e sgf-cc || { echo "[-] Compiling sgf-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 llvm-build-test:
 	$(MAKE) -j$(nproc) -f GNUmakefile.llvm
-	@test -e afl-cc || { echo "[-] Compiling afl-cc failed. You seem not to have a working compiler." ; exit 1; }
+	@test -e sgf-cc || { echo "[-] Compiling sgf-cc failed. You seem not to have a working compiler." ; exit 1; }
 
 
 .PHONY: gcc_plugin
@@ -403,7 +403,7 @@ help:
 	@echo "code-format: format the code, do this before you commit and send a PR please!"
 	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
 	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
-	@echo "document: creates afl-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
+	@echo "document: creates sgf-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
 	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
@@ -417,8 +417,8 @@ help:
 	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
 	@echo LLVM_DEBUG - shows llvm deprecation warnings
-	@echo PROFILING - compile afl-fuzz with profiling information
-	@echo INTROSPECTION - compile afl-fuzz with mutation introspection
+	@echo PROFILING - compile sgf-fuzz with profiling information
+	@echo INTROSPECTION - compile sgf-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
 	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
 	@echo NO_NYX - disable building nyx mode dependencies
@@ -480,17 +480,17 @@ endif
 ready:
 	@echo "[+] Everything seems to be working, ready to compile. ($(shell $(CC) --version 2>&1|head -n 1))"
 
-src/afl-performance.o: $(COMM_HDR) src/afl-performance.c
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(CFLAGS_OPT) $(SPECIAL_PERFORMANCE) -Iinclude -c src/afl-performance.c -o src/afl-performance.o
+src/sgf-performance.o: $(COMM_HDR) src/sgf-performance.c
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(CFLAGS_OPT) $(SPECIAL_PERFORMANCE) -Iinclude -c src/sgf-performance.c -o src/sgf-performance.o
 
-src/afl-common.o: $(COMM_HDR) src/afl-common.c include/envs.h
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-common.c -o src/afl-common.o
+src/sgf-common.o: $(COMM_HDR) src/sgf-common.c include/envs.h
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/sgf-common.c -o src/sgf-common.o
 
-src/afl-forkserver.o: $(COMM_HDR) src/afl-forkserver.c 
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-forkserver.c -o src/afl-forkserver.o
+src/sgf-forkserver.o: $(COMM_HDR) src/sgf-forkserver.c 
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/sgf-forkserver.c -o src/sgf-forkserver.o
 
-src/afl-sharedmem.o: $(COMM_HDR) src/afl-sharedmem.c include/android-ashmem.h include/cmplog.h
-	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/afl-sharedmem.c -o src/afl-sharedmem.o
+src/sgf-sharedmem.o: $(COMM_HDR) src/sgf-sharedmem.c include/android-ashmem.h include/cmplog.h
+	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c src/sgf-sharedmem.c -o src/sgf-sharedmem.o
 
 
 # --- Compile all C sources into .o ---
@@ -558,11 +558,11 @@ src/event_pair_set.o: src/event_pair_set.c \
     include/event_pair_set.h
 	$(CC) $(CFLAGS) -c src/event_pair_set.c -o $@
 
-# --- Final target: afl-fuzz ---
-afl-fuzz: $(COMM_HDR) include/afl-fuzz.h \
+# --- Final target: sgf-fuzz ---
+sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
           $(AFL_FUZZ_FILES:.c=.o) \
-          src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o \
-          src/afl-performance.o \
+          src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o \
+          src/sgf-performance.o \
           src/skeleton_graph_mutator.o \
           src/consistency.o \
           src/data_race.o \
@@ -574,16 +574,16 @@ afl-fuzz: $(COMM_HDR) include/afl-fuzz.h \
           src/diversity_checker.o \
           src/retgraph_shm.o \
           src/shm_next_events.o \
-          src/afl-queue-maxheap.o \
-          src/afl-queue-structure1.o \
-          src/afl-queue-structure2.o \
-          src/afl-queue-structure3.o \
-          src/afl-queue-dispatch.o \
+          src/sgf-queue-maxheap.o \
+          src/sgf-queue-structure1.o \
+          src/sgf-queue-structure2.o \
+          src/sgf-queue-structure3.o \
+          src/sgf-queue-dispatch.o \
           include/cmplog.h include/envs.h | test_x86
 	$(CXX) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) \
 	    $(AFL_FUZZ_FILES:.c=.o) \
-	    src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o \
-	    src/afl-performance.o \
+	    src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o \
+	    src/sgf-performance.o \
 	    src/skeleton_graph_mutator.o \
 	    src/consistency.o \
 	    src/data_race.o \
@@ -595,11 +595,11 @@ afl-fuzz: $(COMM_HDR) include/afl-fuzz.h \
 	    src/diversity_checker.o \
 	    src/retgraph_shm.o \
 	    src/shm_next_events.o \
-	    src/afl-queue-maxheap.o \
-	    src/afl-queue-structure1.o \
-	    src/afl-queue-structure2.o \
-	    src/afl-queue-structure3.o \
-	    src/afl-queue-dispatch.o \
+	    src/sgf-queue-maxheap.o \
+	    src/sgf-queue-structure1.o \
+	    src/sgf-queue-structure2.o \
+	    src/sgf-queue-structure3.o \
+	    src/sgf-queue-dispatch.o \
 	    -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 
@@ -612,43 +612,43 @@ afl-fuzz: $(COMM_HDR) include/afl-fuzz.h \
 # %.o: src/%.c $(COMM_HDR)
 # 	$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) -c $< -o $@
 
-# afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o include/cmplog.h include/envs.h | test_x86
-# 	$(CXX) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/skeleton_graph_mutator.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
+# sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h $(AFL_FUZZ_FILES) src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o include/cmplog.h include/envs.h | test_x86
+# 	$(CXX) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) $(AFL_FUZZ_FILES) src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o src/skeleton_graph_mutator.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-showmap: src/afl-showmap.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
+sgf-showmap: src/sgf-showmap.c src/sgf-fuzz-mutators.c src/sgf-fuzz-python.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/sgf-fuzz-mutators.c src/sgf-fuzz-python.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-tmin: src/afl-tmin.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fuzz-python.o src/afl-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
+sgf-tmin: src/sgf-tmin.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o src/sgf-fuzz-python.o src/sgf-fuzz-mutators.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.o src/sgf-performance.o src/sgf-fuzz-python.o src/sgf-fuzz-mutators.o -o $@ $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-performance.o src/afl-forkserver.o -o $@ $(LDFLAGS)
+sgf-analyze: src/sgf-analyze.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-performance.o src/sgf-forkserver.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/sgf-common.o src/sgf-sharedmem.o src/sgf-performance.o src/sgf-forkserver.o -o $@ $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
+sgf-gotcpu: src/sgf-gotcpu.c src/sgf-common.o $(COMM_HDR) | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) src/$@.c src/sgf-common.o -o $@ $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
 .PHONY: document
-document:	afl-fuzz-document
+document:	sgf-fuzz-document
 
 # document all mutations and only do one run (use with only one input file!)
-afl-fuzz-document: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-performance.o | test_x86
-	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.c src/afl-performance.o -o afl-fuzz-document $(PYFLAGS) $(LDFLAGS)
+sgf-fuzz-document: $(COMM_HDR) include/sgf-fuzz.h $(AFL_FUZZ_FILES) src/sgf-common.o src/sgf-sharedmem.o src/sgf-performance.o | test_x86
+	$(CC) -D_DEBUG=\"1\" -D_AFL_DOCUMENT_MUTATIONS $(CFLAGS) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/sgf-common.o src/sgf-sharedmem.o src/sgf-forkserver.c src/sgf-performance.o -o sgf-fuzz-document $(PYFLAGS) $(LDFLAGS)
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
@@ -663,20 +663,20 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/afl-performance.o
+test/unittests/unit_hash.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_hash.c $(AFL_FUZZ_FILES) src/sgf-performance.o
 	@$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(ASAN_CFLAGS) $(SPECIAL_PERFORMANCE) -c test/unittests/unit_hash.c -o test/unittests/unit_hash.o
 
-unit_hash: test/unittests/unit_hash.o src/afl-performance.o
+unit_hash: test/unittests/unit_hash.o src/sgf-performance.o
 	@$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(ASAN_CFLAGS:-fno-lto=) $(SPECIAL_PERFORMANCE) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_hash $(LDFLAGS) $(ASAN_LDFLAGS:-fno-lto=) -lcmocka
 	./test/unittests/unit_hash
 ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/afl-performance.o
+test/unittests/unit_rand.o : $(COMM_HDR) include/alloc-inl.h test/unittests/unit_rand.c $(AFL_FUZZ_FILES) src/sgf-performance.o
 	@$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(ASAN_CFLAGS) $(SPECIAL_PERFORMANCE) -c test/unittests/unit_rand.c -o test/unittests/unit_rand.o
 
-unit_rand: test/unittests/unit_rand.o src/afl-common.o src/afl-performance.o
+unit_rand: test/unittests/unit_rand.o src/sgf-common.o src/sgf-performance.o
 	@$(CC) $(CFLAGS) $(CFLAGS_FLTO) $(ASAN_CFLAGS:-fno-lto=) $(SPECIAL_PERFORMANCE) -Wl,--wrap=exit -Wl,--wrap=printf $^ -o test/unittests/unit_rand $(LDFLAGS) $(ASAN_LDFLAGS:-fno-lto=) -lcmocka
 	./test/unittests/unit_rand
 ifdef IS_IOS
@@ -756,38 +756,38 @@ code-format:
 
 .PHONY: test_build
 ifndef AFL_NO_X86
-test_build: afl-cc afl-showmap
-	@echo "[*] Testing the CC wrapper afl-cc and its instrumentation output..."
-	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN AFL_LLVM_ALLOWLIST AFL_LLVM_DENYLIST; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-cc test-instr.c $(LDFLAGS) -o test-instr 2>&1 || (echo "Oops, afl-cc failed"; exit 1 )
-	-ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -q -m none -o .test-instr0 ./test-instr < /dev/null
-	-echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+test_build: sgf-cc sgf-showmap
+	@echo "[*] Testing the CC wrapper sgf-cc and its instrumentation output..."
+	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN AFL_LLVM_ALLOWLIST AFL_LLVM_DENYLIST; ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./sgf-cc test-instr.c $(LDFLAGS) -o test-instr 2>&1 || (echo "Oops, sgf-cc failed"; exit 1 )
+	-ASAN_OPTIONS=detect_leaks=0 ./sgf-showmap -q -m none -o .test-instr0 ./test-instr < /dev/null
+	-echo 1 | ASAN_OPTIONS=detect_leaks=0 ./sgf-showmap -m none -q -o .test-instr1 ./test-instr
 	@rm -f test-instr
-	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-cc does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
+	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of sgf-cc does not seem to be behaving correctly!"; echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue."; echo; exit 1; fi
 	@echo
-	@echo "[+] All right, the instrumentation of afl-cc seems to be working!"
+	@echo "[+] All right, the instrumentation of sgf-cc seems to be working!"
 #	@echo "[*] Testing the CC wrapper and its instrumentation output..."
-#	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./afl-clang-fast test-instr.c -o test-instr 2>&1 || (echo "Oops, afl-clang-fast failed"; exit 1 )
-#	ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
-#	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./afl-showmap -m none -q -o .test-instr1 ./test-instr
+#	@unset AFL_MAP_SIZE AFL_USE_UBSAN AFL_USE_CFISAN AFL_USE_LSAN AFL_USE_ASAN AFL_USE_MSAN; AFL_CC=$(CC) ASAN_OPTIONS=detect_leaks=0 AFL_INST_RATIO=100 AFL_PATH=. ./sgf-clang-fast test-instr.c -o test-instr 2>&1 || (echo "Oops, sgf-clang-fast failed"; exit 1 )
+#	ASAN_OPTIONS=detect_leaks=0 ./sgf-showmap -m none -q -o .test-instr0 ./test-instr < /dev/null
+#	echo 1 | ASAN_OPTIONS=detect_leaks=0 ./sgf-showmap -m none -q -o .test-instr1 ./test-instr
 #	@rm -f test-instr
-#	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of afl-clang-fast does not seem to be behaving correctly!"; \
+#	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation of sgf-clang-fast does not seem to be behaving correctly!"; \
 #		gcc -v 2>&1 | grep -q -- --with-as= && ( echo; echo "Gcc is configured not to use an external assembler with the -B option." ) || \
 #		( echo; echo "Please post to https://github.com/AFLplusplus/AFLplusplus/issues to troubleshoot the issue." ); echo; exit 0; fi
 #	@echo
-#	@echo "[+] All right, the instrumentation of afl-clang-fast seems to be working!"
+#	@echo "[+] All right, the instrumentation of sgf-clang-fast seems to be working!"
 else
-test_build: afl-cc afl-showmap
+test_build: sgf-cc sgf-showmap
 	@echo "[!] Note: skipping build tests (you may need to use LLVM or QEMU mode)."
 endif
 
 .PHONY: all_done
 all_done: test_build
-	@test -e afl-cc && echo "[+] Main compiler 'afl-cc' successfully built!" || { echo "[-] Main compiler 'afl-cc' failed to build, set up a working build environment first!" ; exit 1 ; }
-	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'afl-cc' successfully built!" || echo "[-] LLVM mode for 'afl-cc'  failed to build, likely you either don't have llvm installed, or you need to set LLVM_CONFIG, to point to e.g. llvm-config-11. See instrumentation/README.llvm.md how to do this. Highly recommended!"
-	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode for 'afl-cc' successfully built!" || echo "[-] LLVM LTO mode for 'afl-cc'  failed to build, this would need LLVM 11+, see instrumentation/README.lto.md how to build it"
-	@test -e afl-gcc-pass.so && echo "[+] gcc_plugin for 'afl-cc' successfully built!" || echo "[-] gcc_plugin for 'afl-cc'  failed to build, unless you really need it that is fine - or read instrumentation/README.gcc_plugin.md how to build it"
-	@test -e afl-cc && echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
-	@test -e afl-cc || echo "[-] ERROR  - neither afl-clang-fast or afl-gcc-fast could be compiled - YOU ARE MISSING PACKAGES! Read docs/INSTALL.md!"
+	@test -e sgf-cc && echo "[+] Main compiler 'sgf-cc' successfully built!" || { echo "[-] Main compiler 'sgf-cc' failed to build, set up a working build environment first!" ; exit 1 ; }
+	@test -e cmplog-instructions-pass.so && echo "[+] LLVM mode for 'sgf-cc' successfully built!" || echo "[-] LLVM mode for 'sgf-cc'  failed to build, likely you either don't have llvm installed, or you need to set LLVM_CONFIG, to point to e.g. llvm-config-11. See instrumentation/README.llvm.md how to do this. Highly recommended!"
+	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode for 'sgf-cc' successfully built!" || echo "[-] LLVM LTO mode for 'sgf-cc'  failed to build, this would need LLVM 11+, see instrumentation/README.lto.md how to build it"
+	@test -e afl-gcc-pass.so && echo "[+] gcc_plugin for 'sgf-cc' successfully built!" || echo "[-] gcc_plugin for 'sgf-cc'  failed to build, unless you really need it that is fine - or read instrumentation/README.gcc_plugin.md how to build it"
+	@test -e sgf-cc && echo "[+] All done! Be sure to review the README.md - it's pretty short and useful."
+	@test -e sgf-cc || echo "[-] ERROR  - neither sgf-clang-fast or afl-gcc-fast could be compiled - YOU ARE MISSING PACKAGES! Read docs/INSTALL.md!"
 	@if [ "$(SYS)" = "Darwin" ]; then printf "\nWARNING: Fuzzing on MacOS X is slow because of the unusually high overhead of\nfork() on this OS. Consider using Linux or *BSD for fuzzing software not\nspecifically for MacOS.\n\n"; fi
 	@! tty <&1 >/dev/null || printf "\033[0;30mNOTE: If you can read this, your terminal probably uses white background.\nThis will make the UI hard to read. See docs/status_screen.md for advice.\033[0m\n" 2>/dev/null
 
@@ -795,7 +795,7 @@ all_done: test_build
 
 .PHONY: clean
 clean:
-	rm -rf $(PROGS) afl-fuzz-document as afl-as afl-g++ afl-clang afl-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ afl-clang afl-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
+	rm -rf $(PROGS) sgf-fuzz-document as sgf-as afl-g++ sgf-clang sgf-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ sgf-clang sgf-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
 	-$(MAKE) -f GNUmakefile.llvm clean
 	-$(MAKE) -f GNUmakefile.gcc_plugin clean
 	-$(MAKE) -C utils/libdislocator clean
@@ -906,7 +906,7 @@ endif
 	@echo
 	@echo
 	@echo Build Summary:
-	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+	@test -e sgf-fuzz && echo "[+] sgf-fuzz and supporting tools successfully built" || echo "[-] sgf-fuzz could not be built, please set CC to a working compiler"
 ifneq "$(SYS)" "Darwin"
 ifeq "$(ARCH)" "aarch64"
   ifndef NO_CORESIGHT
@@ -942,7 +942,7 @@ endif
 	@echo
 	@echo
 	@echo Build Summary:
-	@test -e afl-fuzz && echo "[+] afl-fuzz and supporting tools successfully built" || echo "[-] afl-fuzz could not be built, please set CC to a working compiler"
+	@test -e sgf-fuzz && echo "[+] sgf-fuzz and supporting tools successfully built" || echo "[-] sgf-fuzz could not be built, please set CC to a working compiler"
 	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
 	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
@@ -979,7 +979,7 @@ endif
 install: all $(MANPAGES)
 	@install -d -m 755 $${DESTDIR}$(BIN_PATH) $${DESTDIR}$(HELPER_PATH) $${DESTDIR}$(DOC_PATH) $${DESTDIR}$(MISC_PATH)
 	@rm -f $${DESTDIR}$(BIN_PATH)/afl-plot.sh
-	@rm -f $${DESTDIR}$(BIN_PATH)/afl-as
+	@rm -f $${DESTDIR}$(BIN_PATH)/sgf-as
 	@rm -f $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-32.o $${DESTDIR}$(HELPER_PATH)/afl-llvm-rt-64.o $${DESTDIR}$(HELPER_PATH)/afl-gcc-rt.o
 	@for i in afl-llvm-dict2file.so afl-llvm-lto-instrumentlist.so afl-llvm-pass.so cmplog-instructions-pass.so cmplog-routines-pass.so cmplog-switches-pass.so compare-transform-pass.so libcompcov.so libdislocator.so libnyx.so libqasan.so libtokencap.so SanitizerCoverageLTO.so SanitizerCoveragePCGUARD.so split-compares-pass.so split-switches-pass.so injection-pass.so; do echo rm -fv $${DESTDIR}$(HELPER_PATH)/$${i}; done
 	install -m 755 $(PROGS) $(SH_PROGS) $${DESTDIR}$(BIN_PATH)
@@ -989,7 +989,7 @@ install: all $(MANPAGES)
 	@if [ -f libtokencap.so ]; then set -e; install -m 755 libtokencap.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libcompcov.so ]; then set -e; install -m 755 libcompcov.so $${DESTDIR}$(HELPER_PATH); fi
 	@if [ -f libqasan.so ]; then set -e; install -m 755 libqasan.so $${DESTDIR}$(HELPER_PATH); fi
-	@if [ -f afl-fuzz-document ]; then set -e; install -m 755 afl-fuzz-document $${DESTDIR}$(BIN_PATH); fi
+	@if [ -f sgf-fuzz-document ]; then set -e; install -m 755 sgf-fuzz-document $${DESTDIR}$(BIN_PATH); fi
 	@if [ -f socketfuzz32.so -o -f socketfuzz64.so ]; then $(MAKE) -C utils/socket_fuzzing install; fi
 	@if [ -f argvfuzz32.so -o -f argvfuzz64.so ]; then $(MAKE) -C utils/argv_fuzzing install; fi
 	@if [ -f afl-frida-trace.so ]; then install -m 755 afl-frida-trace.so $${DESTDIR}$(HELPER_PATH); fi
@@ -1001,10 +1001,10 @@ install: all $(MANPAGES)
 ifneq "$(SYS)" "Darwin"
 	-$(MAKE) -f GNUmakefile.gcc_plugin install
 endif
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-g++
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang
-	ln -sf afl-cc $${DESTDIR}$(BIN_PATH)/afl-clang++
+	ln -sf sgf-cc $${DESTDIR}$(BIN_PATH)/afl-gcc
+	ln -sf sgf-cc $${DESTDIR}$(BIN_PATH)/afl-g++
+	ln -sf sgf-cc $${DESTDIR}$(BIN_PATH)/sgf-clang
+	ln -sf sgf-cc $${DESTDIR}$(BIN_PATH)/sgf-clang++
 	@mkdir -m 755 -p $${DESTDIR}$(INCLUDE_PATH)
 	install -m 644 $(HEADERS) $${DESTDIR}$(INCLUDE_PATH)
 	@mkdir -m 0755 -p ${DESTDIR}$(MAN_PATH)
@@ -1016,9 +1016,9 @@ endif
 
 .PHONY: uninstall
 uninstall:
-	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-plot-ui afl-fuzz-document afl-network-client afl-network-server afl-g* afl-plot.sh afl-ld-lto afl-c* afl-lto* afl-fuzz
+	-cd $${DESTDIR}$(BIN_PATH) && rm -f $(PROGS) $(SH_PROGS) afl-cs-proxy afl-qemu-trace afl-plot-ui sgf-fuzz-document afl-network-client afl-network-server afl-g* afl-plot.sh sgf-ld-lto afl-c* afl-lto* sgf-fuzz
 	-cd $${DESTDIR}$(INCLUDE_PATH) && rm -f $(HEADERS:include/%=%)
-	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so libnyx.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as afl-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt injections.dic
+	-cd $${DESTDIR}$(HELPER_PATH) && rm -f afl-g*.*o afl-llvm-*.*o afl-compiler-*.*o libdislocator.so libtokencap.so libcompcov.so libqasan.so afl-frida-trace.so libnyx.so socketfuzz*.so argvfuzz*.so libAFLDriver.a libAFLQemuDriver.a as sgf-as SanitizerCoverage*.so compare-transform-pass.so cmplog-*-pass.so split-*-pass.so dynamic_list.txt injections.dic
 	-rm -rf $${DESTDIR}$(MISC_PATH)/testcases $${DESTDIR}$(MISC_PATH)/dictionaries
 	-sh -c "ls docs/*.md | sed 's|^docs/|$${DESTDIR}$(DOC_PATH)/|' | xargs rm -f"
 	-cd $${DESTDIR}$(MAN_PATH) && rm -f $(MANPAGES)

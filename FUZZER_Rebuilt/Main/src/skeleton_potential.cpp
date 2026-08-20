@@ -27,7 +27,7 @@ static void load_interesting_locations() {
     if (g_interesting_locations_loaded) return;
     g_interesting_locations_loaded = true;
     
-    char* filepath = getenv("AFL_INTERESTING_LOCATIONS_FILE");
+    char* filepath = getenv("SGF_INTERESTING_LOCATIONS_FILE");
     if (!filepath) {
         return;
     }
@@ -191,12 +191,12 @@ static void build_future_read_cache() {
 
     g_future_read_cache.clear();
 
-    char* fb = getenv("AFL_ENABLE_FEEDBACK");
+    char* fb = getenv("SGF_ENABLE_FEEDBACK");
     bool feedback_enabled = (fb != nullptr && std::atoi(fb) > 0);
 
     if (feedback_enabled) {
         if (!g_potential_locations_loaded) {
-            char* fb_locs = getenv("AFL_POTENTIAL_LOCATIONS_FILE");
+            char* fb_locs = getenv("SGF_POTENTIAL_LOCATIONS_FILE");
             load_potential_locations(fb_locs);
         }
         bool use_file_locations = !g_potential_locations.empty();

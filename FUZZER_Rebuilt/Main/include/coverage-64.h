@@ -29,10 +29,10 @@ inline u64 classify_word(u64 word) {
 
 }
 
-void simplify_trace(afl_state_t *afl, u8 *bytes) {
+void simplify_trace(sgf_state_t *sgf, u8 *bytes) {
 
   u64 *mem = (u64 *)bytes;
-  u32  i = (afl->fsrv.map_size >> 3);
+  u32  i = (sgf->fsrv.map_size >> 3);
 
   while (i--) {
 
@@ -61,7 +61,7 @@ void simplify_trace(afl_state_t *afl, u8 *bytes) {
 
 }
 
-inline void classify_counts(afl_forkserver_t *fsrv) {
+inline void classify_counts(sgf_forkserver_t *fsrv) {
 
   u64 *mem = (u64 *)fsrv->trace_bits;
   u32  i = (fsrv->map_size >> 3);

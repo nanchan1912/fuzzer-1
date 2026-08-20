@@ -24,15 +24,15 @@
 
  */
 
-#ifndef AFL_LIST
-#define AFL_LIST
+#ifndef SGF_LIST
+#define SGF_LIST
 
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
 #include "debug.h"
-#include "afl-prealloc.h"
+#include "sgf-prealloc.h"
 
 /* How many elements to allocate before malloc is needed */
 #define LIST_PREALLOC_SIZE (64)

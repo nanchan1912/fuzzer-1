@@ -35,7 +35,7 @@
 
 /* Define MESSAGES_TO_STDOUT to send diagnostic messages to stdout.
    By default, messages go to stderr (correct Unix convention).
-   afl-fuzz defines this in afl-fuzz.h for its TUI. */
+   sgf-fuzz defines this in sgf-fuzz.h for its TUI. */
 
 #ifdef USE_COLOR
 
@@ -201,12 +201,12 @@ static inline const char *colorfilter(const char *x) {
   if (once) {
 
     /* when there is no tty -> we always want filtering
-     * when AFL_NO_UI is set filtering depends on AFL_NO_COLOR
+     * when SGF_NO_UI is set filtering depends on SGF_NO_COLOR
      * otherwise we want always colors
      */
     disabled =
-        isatty(2) && (!getenv("AFL_NO_UI") ||
-                      (!getenv("AFL_NO_COLOR") && !getenv("AFL_NO_COLOUR")));
+        isatty(2) && (!getenv("SGF_NO_UI") ||
+                      (!getenv("SGF_NO_COLOR") && !getenv("SGF_NO_COLOUR")));
     once = 0;
 
   }
@@ -300,7 +300,7 @@ static inline const char *colorfilter(const char *x) {
                               \
   } while (0)
 
-/* Show a prefixed fatal error message (not used in afl). */
+/* Show a prefixed fatal error message (not used in sgf). */
 
 #define BADF(x...)              \
   do {                          \
