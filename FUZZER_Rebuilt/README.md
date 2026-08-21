@@ -1,6 +1,6 @@
-# Concurrency Fuzzer — Standalone Rebuild
+# SGF — Concurrency Fuzzer (Standalone Rebuild)
 
-A standalone fuzzer for concurrent programs, rebuilt from the AFL_MUTATOR research system. Uses skeleton graph-based mutation with swappable queue data structures for candidate selection.
+A standalone skeleton graph-based concurrency fuzzer with swappable runtime queue data structures for candidate selection.
 
 ---
 
@@ -9,82 +9,113 @@ A standalone fuzzer for concurrent programs, rebuilt from the AFL_MUTATOR resear
 ### Prerequisites
 
 - **Linux** (Ubuntu 20.04+ recommended, or WSL2)
-- GCC / G++ with C++17 support
-- GNU Make
+- GCC / G++ with C++17 support (`g++`, `gcc`)
+- GNU Make (`make`)
+- Python 3 with dev headers (`python3-dev`)
+- `zlib1g-dev`
 
-### Build
+---
+
+### 1. Unified One-Command Runner (`run.sh`)
+
+The easiest way to run testcases and benchmarks is using the unified [`run.sh`](file:///d:/IIITH/fuzzermax/fuzz3/fuzzer-1/FUZZER_Rebuilt/run.sh) script located at the root of `FUZZER_Rebuilt/` (or `Main/run.sh`). It automatically builds `sgf-fuzz` and compiles testcase sources if needed.
 
 ```bash
-cd fuzz3/FUZZER_Rebuilt/Main
-make sgf-fuzz
-bash test_all_queues.sh
-(this is to check if the queues run)
+cd FUZZER_Rebuilt
 
-cd testcases/msg_passing
-gcc -O0 -pthread mp.c -o mp
-cd ../..
-(compiling the testcase bianry)
+# Run built-in testcases (runs with 10s default timeout)
+./run.sh msg_passing          # Message Passing testcase (alias: mp)
+./run.sh sb                   # Store Buffering testcase (alias: sb-loop)
+./run.sh load_buffering       # Load Buffering testcase (alias: lb)
+./run.sh mp_loc               # MP with locations
+./run.sh mp_ra                # MP with release-acquire
+./run.sh isJson               # JSON input parser test
 
-SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
-./sgf-fuzz -n \
-  -i testcases/msg_passing/seeds \
-  -o /tmp/fuzz_out \
-  -v testcases/msg_passing/mp_static_program_abstraction.eg \
-  -- ./testcases/msg_passing/mp
+# Run with custom duration (e.g. 30 seconds)
+./run.sh --time 30 msg_passing
 
-  SGF_QUEUE_IMPL=structure2 \
-SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
-./sgf-fuzz -n \
-  -i testcases/msg_passing/seeds \
-  -o /tmp/fuzz_out_s2 \
-  -v testcases/msg_passing/mp_static_program_abstraction.eg \
-  -- ./testcases/msg_passing/mp
-(if i wanna use a different structure instead)
+# Run with a different queue data structure
+./run.sh --queue structure1 msg_passing
+./run.sh --queue structure2 sb
+./run.sh --queue structure3 load_buffering
 
+# Run all 4 queue data structures to verify them
+./run.sh test_queues
 
-cd testcases/sb && gcc -O0 -pthread sb.c -o sb && cd ../..
-./sgf-fuzz -n -i testcases/sb/seeds -o /tmp/out_sb -v testcases/sb/sb_static_program_abstraction.eg -- ./testcases/sb/sb
-(to run sb loop)
+# Run benchmarks from pthread_version_of_benchmarks
+./run.sh pthread_version_of_benchmarks/sb-loop/data/sb-loop.instrumented.out
+./run.sh pthread_version_of_benchmarks/barrier/data/barrier.instrumented.out
 
-
-cd testcases/sb && gcc -O0 -pthread sb.c -o sb && cd ../..
-./sgf-fuzz -n -i testcases/sb/seeds -o /tmp/out_sb -v testcases/sb/sb_static_program_abstraction.eg -- ./testcases/sb/sb
-(to run load buffer)
-
-
+# Run custom target with explicit inputs
+./run.sh -i /path/to/seeds -v /path/to/graph.ccfg -o /tmp/my_out -- /path/to/binary
 ```
 
-### Run (simplest test)
+---
 
+### 2. Manual Build & Run
+
+If you want to build and run manually using `make` and `sgf-fuzz`:
+
+#### Step 1: Build the Fuzzer
 ```bash
 cd FUZZER_Rebuilt/Main
 
-# Prepare seeds
-mkdir -p /tmp/fuzz_in /tmp/fuzz_out
-cp testcases/msg_passing/seeds/* /tmp/fuzz_in/
+# Build the main SGF fuzzer
+make sgf-fuzz
 
-# Run with default queue (MaxHeap)
-SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
-  ./sgf-fuzz -i /tmp/fuzz_in -o /tmp/fuzz_out \
-  -t 3000 -v <path-to-static-graph> \
-  -- <path-to-instrumented-target>
+# Or build all tools (sgf-fuzz, sgf-showmap, sgf-tmin, sgf-gotcpu, sgf-analyze)
+make all
 ```
 
-### Run a benchmark
-
-Use the `run_afl.sh` script in `pthread_version_of_benchmarks/`:
-
+#### Step 2: Test All 4 Queue Data Structures
 ```bash
-cd FUZZER_Rebuilt/pthread_version_of_benchmarks
-
-# Example: barrier benchmark
-./run_afl.sh ./barrier/data/barrier.instrumented.out
+bash test_all_queues.sh
 ```
 
-The script automatically:
-- Copies the initial seed to `in/`
-- Sets necessary environment variables
-- Runs the fuzzer with a 100-second timeout
+#### Step 3: Compile Testcase Targets
+```bash
+# Message Passing
+gcc -O0 -pthread testcases/msg_passing/mp.c -o testcases/msg_passing/mp
+
+# Store Buffering
+gcc -O0 -pthread testcases/sb/sb.c -o testcases/sb/sb
+
+# Load Buffering
+gcc -O0 -pthread testcases/load_buffering/lb.c -o testcases/load_buffering/lb
+```
+
+#### Step 4: Run Fuzzing Commands
+
+**Default Queue (`maxheap`):**
+```bash
+SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
+./sgf-fuzz -n \
+  -i testcases/msg_passing/seeds \
+  -o /tmp/fuzz_out_mp \
+  -v testcases/msg_passing/mp_static_program_abstraction.eg \
+  -- ./testcases/msg_passing/mp
+```
+
+**Store Buffering:**
+```bash
+SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
+./sgf-fuzz -n \
+  -i testcases/sb/seeds \
+  -o /tmp/fuzz_out_sb \
+  -v testcases/sb/generated_output.ccfg \
+  -- ./testcases/sb/sb-loop.instrumented.out
+```
+
+**Load Buffering with Structure 2:**
+```bash
+SGF_QUEUE_IMPL=structure2 \
+SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 SGF_SKIP_CPUFREQ=1 SGF_NO_AFFINITY=1 \
+./sgf-fuzz -n \
+  -i testcases/load_buffering/seeds \
+  -o /tmp/fuzz_out_lb \
+  -v testcases/load_buffering/lb_static_program_abstraction.eg \
+  -- ./testcases/load_buffering/lb
+```
 
 ---
 
@@ -95,261 +126,147 @@ The script automatically:
 | Name | Class | Description | Config Value |
 |------|-------|-------------|--------------|
 | **MaxHeap** (DEFAULT) | `MaxHeapDS` | Pure max-heap, always selects highest score. Unbounded. | `maxheap` |
-| Structure 1 | `ThresholdBucketQueueDS` | Two-tier (good + bad pile), periodic rebuild every T ops | `structure1` |
-| Structure 2 | `RunnerUpQueueDS` | Three-tier (good + runner-up + bad), incremental promotion | `structure2` |
-| Structure 3 | `MaxHeapBucketQueueDS` | Three-tier with threshold-driven admission | `structure3` |
+| **Structure 1** | `ThresholdBucketQueueDS` | Two-tier (good + bad pile), periodic rebuild every T ops | `structure1` |
+| **Structure 2** | `RunnerUpQueueDS` | Three-tier (good + runner-up + bad), incremental promotion | `structure2` |
+| **Structure 3** | `MaxHeapBucketQueueDS` | Three-tier with threshold-driven admission | `structure3` |
 
-All four share the same API: `insert(cid, score)`, `select() → (cid, score)`, `update_score(cid, score)`.
+All four share the unified C interface in [`include/sgf-queue.h`](file:///d:/IIITH/fuzzermax/fuzz3/fuzzer-1/FUZZER_Rebuilt/Main/include/sgf-queue.h):
+- `sgf_queue_create(impl_name, m, r, bad_cap)`
+- `sgf_queue_enqueue(q, entry_id, graph_data, score)`
+- `sgf_queue_dequeue(q)`
+- `sgf_queue_update_score(q, entry_id, new_score)`
+- `sgf_queue_size(q)`
+- `sgf_queue_destroy(q)`
 
-### Which Is the Default?
+### Selecting a Queue at Runtime
 
-**MaxHeap** is the default. If you run the fuzzer without setting `SGF_QUEUE_IMPL`, it uses MaxHeap.
-
-### Where Is the Queue Selected?
-
-The queue implementation is selected at **runtime** via the `SGF_QUEUE_IMPL` environment variable.
-
-The selection happens in two places (both default to `"maxheap"`):
-- [`src/sgf-fuzz-state.c`](file:///d:/IIITH/fuzzermax/fuzz3/FUZZER_Rebuilt/Main/src/sgf-fuzz-state.c) line 177-178: reads `SGF_QUEUE_IMPL` and creates the queue
-- [`src/sgf-queue-dispatch.c`](file:///d:/IIITH/fuzzermax/fuzz3/FUZZER_Rebuilt/Main/src/sgf-queue-dispatch.c) line 123-125: dispatch fallback default
-
-### How to Switch Queue Implementation
-
-**Step 1:** Set the environment variable before running:
+Queue selection occurs at runtime via the `SGF_QUEUE_IMPL` environment variable (no recompilation needed):
 
 ```bash
-# Use MaxHeap (default — no env var needed)
-./sgf-fuzz -i in -o out -- ./target
+# MaxHeap (default)
+SGF_QUEUE_IMPL=maxheap ./sgf-fuzz -n -i seeds -o out -v graph.eg -- ./target
 
-# Use Structure 1 (ThresholdBucketQueue)
-SGF_QUEUE_IMPL=structure1 ./sgf-fuzz -i in -o out -- ./target
+# Structure 1
+SGF_QUEUE_IMPL=structure1 ./sgf-fuzz -n -i seeds -o out -v graph.eg -- ./target
 
-# Use Structure 2 (RunnerUpQueue)
-SGF_QUEUE_IMPL=structure2 ./sgf-fuzz -i in -o out -- ./target
+# Structure 2
+SGF_QUEUE_IMPL=structure2 ./sgf-fuzz -n -i seeds -o out -v graph.eg -- ./target
 
-# Use Structure 3 (MaxHeapBucketQueue)
-SGF_QUEUE_IMPL=structure3 ./sgf-fuzz -i in -o out -- ./target
+# Structure 3
+SGF_QUEUE_IMPL=structure3 ./sgf-fuzz -n -i seeds -o out -v graph.eg -- ./target
 ```
 
-**Step 2:** No rebuild required. The selection is at runtime.
-
-**Step 3:** Verify by checking stderr output at startup:
-```
-[AFL Queue] Using MaxHeap (baseline, unbounded)
-```
-or
-```
-[AFL Queue] Using Structure 1 (ThresholdBucketQueue)
+Or using the runner script:
+```bash
+./run.sh --queue structure2 msg_passing
 ```
 
-### How to Add a New Data Structure
-
-1. Create `src/sgf-queue-newstruct.c` implementing the 7 functions:
-   `create`, `destroy`, `enqueue`, `dequeue`, `update_score`, `size`, `stats`
-2. Add forward declarations in [`src/sgf-queue-dispatch.c`](file:///d:/IIITH/fuzzermax/fuzz3/FUZZER_Rebuilt/Main/src/sgf-queue-dispatch.c)
-3. Add an `AflQueueOps` entry in the dispatch table
-4. Add a new `strcmp` branch in `sgf_queue_create()`
-5. Add the `.c` file to the `sgf-fuzz` target in [`GNUmakefile`](file:///d:/IIITH/fuzzermax/fuzz3/FUZZER_Rebuilt/Main/GNUmakefile)
-6. Rebuild: `make clean && make sgf-fuzz`
+Verify the active queue at startup by checking the banner:
+```
+[SGF Queue] Using Structure 2 (RunnerUpQueue)
+```
 
 ---
 
-## Architecture
+## Extended Benchmarks (`pthread_version_of_benchmarks/`)
 
-### Fuzzing Pipeline (from AFL_MUTATOR)
-
-```
-Seed (JSON skeleton graph)
-        ↓
-Load & parse skeleton graph
-        ↓
-Create/clone skeleton potential
-        ↓
-Mutate skeleton graph (skeleton_graph_mutator)
-        ↓
-Duplicate check (skeleton_graph_seen_or_add)
-        ↓
-Run on simulator (skeleton_graph_fuzz_stuff)
-        ↓
-Update potential & race pairs
-        ↓
-Update MO/RF coverage
-        ↓
-Calculate score (calculate_score)
-        ↓
-Dynamic cutoff check
-        ↓
-Enqueue into bounded queue (sgf_queue_enqueue)
-        ↓
-Write to disk (JSON)
-        ↓
-Next iteration: dequeue from bounded queue → select parent → mutate
-```
-
-### Queue Abstraction
-
-```
-                        Fuzzer (sgf-fuzz-one.c, sgf-fuzz.c)
-                              |
-                              | sgf_queue_enqueue()
-                              | sgf_queue_dequeue()
-                              | sgf_queue_size()
-                              |
-                        Queue API (afl-queue.h)
-                              |
-                     Dispatch (afl-queue-dispatch.c)
-                              |
-              +-------+-------+-------+-------+
-              |               |               |               |
-          MaxHeap        Structure1       Structure2       Structure3
-       (afl-queue-   (afl-queue-      (afl-queue-      (afl-queue-
-        maxheap.c)    structure1.c)    structure2.c)    structure3.c)
-
-                     DEFAULT = MaxHeap
-```
-
-### Key Source Files
-
-| File | Purpose |
-|------|---------|
-| `src/sgf-fuzz.c` | Main entry point, main loop |
-| `src/sgf-fuzz-one.c` | `mutate_run_enqueue_graph()` — core mutation pipeline |
-| `src/sgf-fuzz-run.c` | `skeleton_graph_fuzz_stuff()` — simulator execution |
-| `src/sgf-fuzz-queue.c` | `calculate_score()`, queue management |
-| `src/sgf-fuzz-state.c` | State initialization, queue creation |
-| `src/sgf-queue-dispatch.c` | Queue abstraction dispatch |
-| `src/sgf-queue-maxheap.c` | MaxHeap queue implementation |
-| `src/sgf-queue-structure[1-3].c` | Tiered queue implementations |
-| `src/skeleton_graph_mutator.cpp` | Graph mutation engine |
-| `src/skeleton_potential.cpp` | Potential/novelty scoring |
-| `src/data_race.cpp` | Data race detection |
-| `src/consistency.cpp` | Consistency validation (RC20) |
-| `src/skeleton_mo_footprint.cpp` | Memory order footprint analysis |
-| `include/sgf-queue.h` | Queue API header |
-| `include/sgf-fuzz.h` | Main fuzzer state/types |
-
----
-
-## Benchmark Programs
-
-### Built-in Testcases (`Main/testcases/`)
-
-| Directory | Description |
-|-----------|-------------|
-| `msg_passing/` | Message passing pattern |
-| `sb/` | Store buffering |
-| `load_buffering/` | Load buffering |
-| `mp_loc/` | Message passing with locations |
-| `mp_ra/` | Message passing with release-acquire |
-| `input_is_json/` | JSON-based inputs |
-
-### Extended Benchmarks (`pthread_version_of_benchmarks/`)
-
-30+ concurrent programs including:
+The repository contains 30+ concurrent pthread benchmarks including:
 - `barrier/`, `barrier-change/` — Barrier synchronization
-- `chase-lev-deque/`, `chasechange/` — Chase-Lev work-stealing deque
-- `dekker-change/`, `dekker-fences/` — Dekker's algorithm
-- `mcs-lock/`, `mcs-change/` — MCS lock
+- `chase-lev-deque/`, `chasechange/` — Work-stealing deque
+- `dekker-change/`, `dekker-fences/` — Dekker's mutual exclusion
+- `mcs-lock/`, `mcs-change/` — Scalable MCS locks
 - `mpmc-queue/`, `mpmc-change/` — Multi-producer multi-consumer queue
 - `ms-queue/`, `mschange/` — Michael-Scott queue
 - `linuxrwlocks/`, `linuxrwchange/` — Linux reader-writer locks
-- `ringbuffer/` — Ring buffer
-- `sb-loop/` — Store buffering loop (SB loop scene)
+- `ringbuffer/` — Lockless ring buffer
+- `sb-loop/` — Store Buffering loop
 - `spsc-queue/` — Single-producer single-consumer queue
 - `iris/` — IRIS benchmark
 
-Each benchmark directory typically contains:
-- `data/` with `.instrumented.out` (compiled target), `init.sg.json` (initial seed), `generated_output.ccfg` (static graph)
-- `generate_ir.sh` — Script to compile/instrument the benchmark
-
-### Running Benchmarks
-
+### Running Benchmarks via `run_sgf.sh`
 ```bash
 cd FUZZER_Rebuilt/pthread_version_of_benchmarks
 
-# Run a specific benchmark
-./run_afl.sh ./barrier/data/barrier.instrumented.out
+# Run barrier benchmark
+./run_sgf.sh ./barrier/data/barrier.instrumented.out
 
-# With custom settings
+# Run sb-loop benchmark
+./run_sgf.sh ./sb-loop/data/sb-loop.instrumented.out
+
+# Run with custom feedback and data race checks
 SGF_ENABLE_FEEDBACK=1 SGF_CHECK_DATA_RACE=1 \
-  ./run_afl.sh ./sb-loop/data/sb-loop.instrumented.out
+  ./run_sgf.sh ./sb-loop/data/sb-loop.instrumented.out
 ```
 
-### Comparing Queue Implementations
-
+### Comparing All 4 Queues on a Benchmark
 ```bash
 cd FUZZER_Rebuilt/pthread_version_of_benchmarks
 
-# Test with each queue
 for impl in maxheap structure1 structure2 structure3; do
-  echo "=== Testing $impl ==="
-  SGF_QUEUE_IMPL=$impl OUTPUT_DIR=out_$impl \
-    ./run_afl.sh ./barrier/data/barrier.instrumented.out
-done
-
-# Compare results
-for impl in maxheap structure1 structure2 structure3; do
-  echo "$impl: $(ls out_$impl/default/queue/ 2>/dev/null | wc -l) seeds found"
+  echo "=== Running benchmark with $impl ==="
+  SGF_QUEUE_IMPL=$impl OUTPUT_DIR=out_$impl MAX_TIME=30 \
+    ./run_sgf.sh ./sb-loop/data/sb-loop.instrumented.out
 done
 ```
 
 ---
 
-## SB Loop Scene
+## SB Loop Benchmark
 
-The **sb-loop** (Store Buffering Loop) benchmark is located at:
-
-```
-pthread_version_of_benchmarks/sb-loop/
-├── generate_ir.sh    ← Script to compile the benchmark
-└── sb-loop.cc        ← Source code
-```
-
-This implements a store-buffering pattern in a loop, which is a classic weak memory model test case. To run it:
+The **sb-loop** (Store Buffering Loop) benchmark is located at `pthread_version_of_benchmarks/sb-loop/` and tested via:
 
 ```bash
-cd FUZZER_Rebuilt/pthread_version_of_benchmarks
+cd FUZZER_Rebuilt
 
-# First compile (if not already compiled)
-cd sb-loop && bash generate_ir.sh && cd ..
+# Via unified runner
+./run.sh sb-loop
 
-# Then fuzz
-./run_afl.sh ./sb-loop/data/sb-loop.instrumented.out
+# Or directly
+./pthread_version_of_benchmarks/run_sgf.sh ./pthread_version_of_benchmarks/sb-loop/data/sb-loop.instrumented.out
 ```
 
 ---
 
-## Environment Variables
+## Environment Variables Reference
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SGF_QUEUE_IMPL` | `maxheap` | Queue data structure: `maxheap`, `structure1`, `structure2`, `structure3` |
-| `SGF_ENABLE_FEEDBACK` | `0` | Enable simulator feedback for mutations |
-| `SGF_CHECK_DATA_RACE` | `0` | Enable data race detection |
+| `SGF_QUEUE_IMPL` | `maxheap` | Active queue structure: `maxheap`, `structure1`, `structure2`, `structure3` |
+| `SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES` | `0` | Skip OS core_pattern crash handling aborts |
+| `SGF_SKIP_CPUFREQ` | `0` | Skip CPU frequency scaling checks |
+| `SGF_NO_AFFINITY` | `0` | Disable binding to a specific CPU core |
+| `SGF_ENABLE_FEEDBACK` | `0` | Enable simulator feedback for mutations (0 or 1) |
+| `SGF_CHECK_DATA_RACE` | `0` | Enable data race detection (0 or 1) |
 | `SGF_SKELETON_GRAPH_HIGHEST_STEP` | `3` | Maximum depth of mutation tree per cycle |
 | `SGF_CUTOFF_PERCENTILE` | `0` | Dynamic cutoff percentile for score filtering |
-| `SGF_POTENTIAL_LOCATIONS_FILE` | — | Path to potential locations file |
-| `SGF_INTERESTING_LOCATIONS_FILE` | — | Path to interesting locations file |
-| `THREAD_EVENT_COUNTS` | — | Path to thread event counts file |
+| `SGF_POTENTIAL_LOCATIONS_FILE` | — | Path to potential locations file (`.loc`) |
+| `SGF_INTERESTING_LOCATIONS_FILE` | — | Path to interesting locations file (`.loc`) |
+| `THREAD_EVENT_COUNTS` | — | Path to thread event counts file (`.tc`) |
 
 ---
 
-## Repository Structure
+## Key Source Files
 
-```
-fuzz3/
-├── fuzzer-1/                         ← Original reference repository
-│   ├── AFL_MUTATOR/                  ← Source of truth for fuzzer logic
-│   ├── AFLplusplus/                  ← Original AFL++ (background reference)
-│   ├── datastructs/                  ← Source of truth for data structures
-│   └── differences.txt              ← Diff between implementations
-│
-└── FUZZER_Rebuilt/                   ← Standalone rebuilt fuzzer
-    ├── Main/                        ← Fuzzer implementation
-    │   ├── include/                 ← Header files
-    │   ├── src/                     ← Source files
-    │   ├── GNUmakefile              ← Build system
-    │   └── testcases/               ← Test inputs
-    ├── pthread_version_of_benchmarks/ ← Extended benchmarks
-    └── README.md                    ← This file
-```
+| File | Purpose |
+|------|---------|
+| `run.sh` | Top-level one-command unified runner |
+| `Main/GNUmakefile` | Primary build system (`make sgf-fuzz`, `make all`) |
+| `Main/test_all_queues.sh` | Automated queue verification script |
+| `Main/src/sgf-fuzz.c` | Main fuzzer entry point and CLI |
+| `Main/src/sgf-fuzz-one.c` | Core mutation pipeline (`mutate_run_enqueue_graph`) |
+| `Main/src/sgf-fuzz-run.c` | Target execution and simulator interfacing |
+| `Main/src/sgf-fuzz-queue.c` | Candidate queue scoring and management |
+| `Main/src/sgf-fuzz-state.c` | State initialization and runtime queue instantiation |
+| `Main/src/sgf-queue-dispatch.c` | Queue runtime selection and abstraction dispatch |
+| `Main/src/sgf-queue-maxheap.c` | MaxHeap queue implementation (default) |
+| `Main/src/sgf-queue-structure1.c` | Structure 1 (ThresholdBucketQueue) |
+| `Main/src/sgf-queue-structure2.c` | Structure 2 (RunnerUpQueue) |
+| `Main/src/sgf-queue-structure3.c` | Structure 3 (MaxHeapBucketQueue) |
+| `Main/src/skeleton_graph_mutator.cpp` | Skeleton graph mutation engine |
+| `Main/src/skeleton_potential.cpp` | Potential/novelty scoring algorithm |
+| `Main/src/data_race.cpp` | Data race detection |
+| `Main/src/consistency.cpp` | Consistency validation |
+| `Main/src/skeleton_mo_footprint.cpp` | Memory order footprint analysis |
+| `Main/include/sgf-queue.h` | Queue API header |
+| `Main/include/sgf-fuzz.h` | Main fuzzer state and data structures |
+| `pthread_version_of_benchmarks/run_sgf.sh` | Benchmark runner script |

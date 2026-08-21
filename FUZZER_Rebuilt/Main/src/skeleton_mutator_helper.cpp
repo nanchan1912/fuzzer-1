@@ -582,7 +582,10 @@ static std::map<int, std::set<std::string>> global_explored_locations;
 static std::mutex explored_locations_mutex;
 
 extern "C" void dump_explored_locations() {
-    std::string out_dir = getenv("__AFL_OUT_DIR") ? getenv("__AFL_OUT_DIR") : "";
+    const char *out_env = getenv("SGF_CUSTOM_INFO_OUT");
+    if (!out_env) out_env = getenv("__SGF_OUT_DIR");
+    if (!out_env) out_env = getenv("__AFL_OUT_DIR");
+    std::string out_dir = out_env ? out_env : "";
     std::string filename = "locations.loc";
     filename = std::string(out_dir) + "/locations.loc";
     std::ofstream outfile(filename);
