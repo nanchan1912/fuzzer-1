@@ -1544,6 +1544,8 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   setenv("__AFL_OUT_DIR", sgf->out_dir, 1);
+  setenv("__SGF_OUT_DIR", sgf->out_dir, 1);
+  setenv("SGF_CUSTOM_INFO_OUT", sgf->out_dir, 1);
 
   if (get_afl_env("SGF_DISABLE_TRIM") || get_afl_env("SGF_NO_TRIM")) {
 

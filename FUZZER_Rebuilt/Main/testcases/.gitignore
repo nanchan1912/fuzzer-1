@@ -1,4 +1,23 @@
+# Build directories
 **/build/*
 !**/build/
 !**/build/*.sh
-out
+
+# Output directories
+out/
+out-*/
+output/
+fuzz_out/
+fuzz_out_*/
+
+# Compiled testcase binaries and objects
+mp
+sb
+lb
+isJson
+*.out
+*.o
+*.so
+
+# Generated location dumps
+*.loc
