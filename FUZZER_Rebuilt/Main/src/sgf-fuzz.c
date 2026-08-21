@@ -684,7 +684,7 @@ int main(int argc, char **argv_orig, char **envp) {
   exit_1 = !!sgf->sgf_env.sgf_bench_just_one;
 
   SAYF(cCYA "sgf-fuzz" VERSION cRST
-            " based on sgf by Michal Zalewski and a large online community\n");
+            " based on AFL by Michal Zalewski and a large online community\n");
 
   gettimeofday(&tv, &tz);
   rand_set_seed(sgf, tv.tv_sec ^ tv.tv_usec ^ getpid());
