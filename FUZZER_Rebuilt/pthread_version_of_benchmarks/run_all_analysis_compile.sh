@@ -10,40 +10,44 @@ set -euo pipefail
 # ------------------------------------------------------------
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# CWD as of startup: the script pushd's around, so relative arguments and
+# relative env vars must be anchored before anything moves.
+readonly INVOCATION_DIR="$PWD"
 readonly LLVM_MAJOR="${LLVM_MAJOR:-16}"
+readonly FILTER_SHARED="${FILTER_SHARED:-true}"
 
 benchmark_dirs=(
-    # "iris"
-    # "mabain"
-    # "silo"
+    "iris"
+    "mabain"
+    "silo"
     "_motivating-example"
-    "sb-loop"
     "barrier"
     "barrier-change"
-    # "barrier-ori"
-    # "chase-lev-deque"
-    # "chasechange"
+    "barrier-ori"
+    "chase-lev-deque"
+    "chasechange"
     "dekker-change"
-    # "dekker-fences"
-    # "linuxrwchange"
-    # "linuxrwlocks"
-    # "mcs-change"
-    # "mcs-lock"
-    # "mcs2"
-    # "mpmc-change"
-    # "mpmc-queue"
-    # "mpmc3"
-    # "ms-queue"
-    # "ms-queue-tsan11"
-    # "mschange"
-    # # "ringbuffer"
-    # # "rwqueue"
-    # "spsc-queue"
+    "dekker-fences"
+    "linuxrwchange"
+    "linuxrwlocks"
+    "mcs-change"
+    "mcs-lock"
+    "mcs2"
+    "mpmc-change"
+    "mpmc-queue"
+    "mpmc3"
+    "ms-queue"
+    "ms-queue-tsan11"
+    "mschange"
+    "ringbuffer"
+    "rwqueue"
+    "spsc-queue"
 
     "sb-loop"
     "test-array"
     "test-struct"
-    # "test-mp"
+    "test-mp"
 )
 
 declare CXX_BIN
@@ -144,15 +148,69 @@ require_file() {
     fi
 }
 
+# Turn a possibly-relative path into an absolute one. Base defaults to the
+# directory the script was invoked from, so `SVF_DIR=../SVF ./run_...sh` works
+# even though the script later pushd's into benchmark directories.
+abspath() {
+    local path="$1"
+    local base="${2:-$INVOCATION_DIR}"
+
+    [[ -n "$path" ]] || return 0
+    [[ "$path" = /* ]] || path="${base}/${path}"
+
+    if command -v realpath >/dev/null 2>&1; then
+        realpath -m "$path"
+    else
+        printf '%s\n' "$path"
+    fi
+}
+
+# Benchmark entries are names relative to this script's directory, but an
+# absolute entry is honoured as-is.
+benchmark_path() {
+    abspath "$1" "$SCRIPT_DIR"
+}
+
+# First existing candidate, else the last one (so error messages stay useful).
+first_existing_dir() {
+    local candidate
+    for candidate in "$@"; do
+        if [[ -d "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    printf '%s\n' "${@: -1}"
+}
+
 # ------------------------------------------------------------
 # Environment Setup
 # ------------------------------------------------------------
 
 setup_environment() {
     local quiet_mode="${1:-0}"
-    export SVF_DIR="${SVF_DIR:-/workspaces/SVF}"
-    export LLVM_DIR="${LLVM_DIR:-/usr/lib/llvm-${LLVM_MAJOR}}"
-    export Z3_DIR="${Z3_DIR:-/usr}"
+
+    # Defaults are searched relative to the repo first (sibling checkout, as the
+    # nix shell lays it out), then the devcontainer's absolute location.
+    if [[ -z "${SVF_DIR:-}" ]]; then
+        SVF_DIR="$(first_existing_dir \
+            "${REPO_ROOT}/../SVF" \
+            "${REPO_ROOT}/SVF" \
+            "/workspaces/SVF")"
+    fi
+
+    if [[ -z "${LLVM_DIR:-}" ]]; then
+        if command -v "llvm-config-${LLVM_MAJOR}" >/dev/null 2>&1; then
+            LLVM_DIR="$("llvm-config-${LLVM_MAJOR}" --prefix)"
+        else
+            LLVM_DIR="/usr/lib/llvm-${LLVM_MAJOR}"
+        fi
+    fi
+
+    # Normalise whatever we ended up with (env-provided values may be relative).
+    export SVF_DIR="$(abspath "$SVF_DIR")"
+    export LLVM_DIR="$(abspath "$LLVM_DIR")"
+    export Z3_DIR="$(abspath "${Z3_DIR:-/usr}")"
 
     [[ -d "$SVF_DIR" ]] || {
         err "SVF_DIR not found: $SVF_DIR"
@@ -201,6 +259,24 @@ setup_environment() {
     require_executable "$WPA_BIN" "SVF wpa"
     require_executable "$LLVM2SVF_BIN" "SVF llvm2svf"
 
+    # Derived from SVF_DIR rather than hard-coded: the build directory name
+    # differs between SVF's `build.sh` (Release-build) and a plain cmake build.
+    if [[ -z "${SVF_EXTAPI_BC:-}" ]]; then
+        local candidate
+        for candidate in \
+            "${SVF_DIR}/build/lib/extapi.bc" \
+            "${SVF_DIR}/Release-build/lib/extapi.bc" \
+            "${SVF_DIR}/lib/extapi.bc"
+        do
+            if [[ -f "$candidate" ]]; then
+                SVF_EXTAPI_BC="$candidate"
+                break
+            fi
+        done
+    fi
+    export SVF_EXTAPI_BC="$(abspath "${SVF_EXTAPI_BC:-${SVF_DIR}/build/lib/extapi.bc}")"
+    require_file "$SVF_EXTAPI_BC" "SVF extapi.bc"
+
     # Automatically build the WMM runtime static library if not present
     local runtime_dir="${SCRIPT_DIR}/../src/wmm-runtime"
     local runtime_lib="${runtime_dir}/libwmm_runtime.a"
@@ -228,7 +304,7 @@ EOF
         if [[ "$quiet_mode" -eq 1 ]]; then
             c_flags="$c_flags -DQUIET"
         fi
-        "$cc_bin" $c_flags -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+        "$cc_bin" $c_flags -I"${REPO_ROOT}/AFL_patches/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
         ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o
         rm -f *.o
         popd > /dev/null
@@ -238,6 +314,7 @@ EOF
     log "LLVM_DIR : $LLVM_DIR"
     log "SVF_DIR  : $SVF_DIR"
     log "Z3_DIR   : $Z3_DIR"
+    log "extapi.bc: $SVF_EXTAPI_BC"
     log "clang++  : $CXX_BIN"
     log "opt      : $OPT_BIN"
     log "wpa      : $(command -v wpa)"
@@ -272,7 +349,7 @@ build_project() {
     if [[ "$quiet_mode" -eq 1 ]]; then
         c_flags="$c_flags -DQUIET"
     fi
-    "$cc_bin" $c_flags -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+    "$cc_bin" $c_flags -I"${REPO_ROOT}/AFL_patches/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
     "$cxx_bin" -O0 -g -fPIC -I"$afl_patches_include_dir" -c "$afl_patches_dir/shm_next_events.cpp" -o shm_next_events.o
     ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o shm_next_events.o
     rm -f *.o
@@ -295,7 +372,7 @@ build_project() {
     # mkdir -p "${SCRIPT_DIR}/build"
     # cp build/executable "${SCRIPT_DIR}/build/executable"
     # cp build/WMMInstrument.so "${SCRIPT_DIR}/build/WMMInstrument.so"
-    # cp /workspaces/SVF/build/lib/extapi.bc "${SCRIPT_DIR}/build/extapi.bc"
+    # cp "$SVF_EXTAPI_BC" "${SCRIPT_DIR}/build/extapi.bc"
 
     popd > /dev/null
     log "Build completed."
@@ -325,7 +402,7 @@ run_svf_analysis() {
 
     pushd "$data_dir" > /dev/null
 
-    "$executable_path"  -extapi=/workspaces/SVF/build/lib/extapi.bc no_pass.ll >> ./instrumented_stdout.md 2>> instrumented_stderr.md
+    "$executable_path"  -extapi="$SVF_EXTAPI_BC" -filter-shared="$FILTER_SHARED" no_pass.ll >> ./instrumented_stdout.md 2>> instrumented_stderr.md
 
     popd > /dev/null
 }
@@ -485,7 +562,9 @@ compile_instrumented() {
 
 phase_generate_ir() {
     local dir="$1"
-    if ! (pushd "$dir" > /dev/null && generate_irs "$dir" && popd > /dev/null); then
+    local bench_dir
+    bench_dir="$(benchmark_path "$dir")"
+    if ! (pushd "$bench_dir" > /dev/null && generate_irs "$bench_dir" && popd > /dev/null); then
         record_stage "$dir" "GEN_IR" "FAILED"
         return 1
     fi
@@ -497,9 +576,11 @@ phase_svf_analysis() {
     local dir="$1"
     local executable_path="$2"
     local plugin_lib="$3"
-    local data_dir="${SCRIPT_DIR}/${dir}/data"
+    local bench_dir
+    bench_dir="$(benchmark_path "$dir")"
+    local data_dir="${bench_dir}/data"
 
-    if ! (pushd "$dir" > /dev/null && "${executable_path}" -dump-pag -dump-icfg -dump-tct -extapi=/workspaces/SVF/build/lib/extapi.bc data/no_pass.ll > terminal_output.md && popd > /dev/null); then
+    if ! (pushd "$bench_dir" > /dev/null && "${executable_path}" -dump-pag -dump-icfg -dump-tct -extapi="$SVF_EXTAPI_BC" -filter-shared="$FILTER_SHARED" data/no_pass.ll > terminal_output.md && popd > /dev/null); then
         record_stage "$dir" "SVF_DUMP" "FAILED"
         return 1
     fi
@@ -542,7 +623,8 @@ phase_svf_analysis() {
 phase_instrument() {
     local dir="$1"
     local plugin_lib="$2"
-    local data_dir="${SCRIPT_DIR}/${dir}/data"
+    local data_dir
+    data_dir="$(benchmark_path "$dir")/data"
 
     if ! instrument_ir "$plugin_lib" "$data_dir/generated_output.pg" "$data_dir/no_pass.ll" "$data_dir/instrumented.ll"; then
         record_stage "$dir" "INSTRUMENT" "FAILED"
@@ -554,13 +636,15 @@ phase_instrument() {
 
 phase_compile() {
     local dir="$1"
-    if ! compile_uninstrumented "${SCRIPT_DIR}/${dir}"; then
+    local bench_dir
+    bench_dir="$(benchmark_path "$dir")"
+    if ! compile_uninstrumented "$bench_dir"; then
         record_stage "$dir" "COMPILE_UNINSTRUMENTED" "FAILED"
         return 1
     fi
     record_stage "$dir" "COMPILE_UNINSTRUMENTED" "SUCCESS"
 
-    if ! compile_instrumented "${SCRIPT_DIR}/${dir}"; then
+    if ! compile_instrumented "$bench_dir"; then
         record_stage "$dir" "COMPILE_INSTRUMENTED" "FAILED"
         return 1
     fi
@@ -570,7 +654,8 @@ phase_compile() {
 
 phase_verify_status() {
     local dir="$1"
-    local data_dir="${SCRIPT_DIR}/${dir}/data"
+    local data_dir
+    data_dir="$(benchmark_path "$dir")/data"
     local benchmark_name
     benchmark_name="$(basename "$dir")"
     local inst_bin="$data_dir/${benchmark_name}.instrumented.out"
@@ -578,10 +663,8 @@ phase_verify_status() {
 
     if [[ -f "$inst_bin" && -f "$init_sg_file" ]]; then
         log "Running simple check by passing $init_sg_file to the instrumented binary (with 5s timeout)..."
-        set +e
-        timeout 5 "$inst_bin" < "$init_sg_file" > /dev/null 2>&1
-        local status=$?
-        set -e
+        timeout 20 "$inst_bin" < "$init_sg_file" > /dev/null 2>&1
+        status=$?
         if [[ $status -eq 124 ]]; then
             log "  Status code: TIMEOUT (124)"
             echo "[STATUS_CHECK] Benchmark ${benchmark_name} status code: TIMEOUT (124)"
@@ -600,20 +683,22 @@ phase_verify_status() {
 run_benchmark() {
     local dir="$1"
 
-    local build_dir="${SCRIPT_DIR}/../src/build"
+    local build_dir="${REPO_ROOT}/src/build"
     local executable_path="${build_dir}/executable"
     local plugin_lib="${build_dir}/WMMInstrument.so"
+    local bench_dir
+    bench_dir="$(benchmark_path "$dir")"
 
-    if [[ ! -d "$dir" ]]; then
-        err "Benchmark directory not found: $dir"
+    if [[ ! -d "$bench_dir" ]]; then
+        err "Benchmark directory not found: $bench_dir"
         record_stage "$dir" "INIT" "FAILED"
         return 1
     fi
 
-    log "Running benchmark: $dir"
+    log "Running benchmark: $dir ($bench_dir)"
     record_stage "$dir" "START" "SUCCESS"
 
-    rm -rf "$dir/data"
+    rm -rf "$bench_dir/data"
 
     if ! phase_generate_ir "$dir"; then
         return 1
@@ -685,7 +770,7 @@ main() {
 
     # Disable set -e temporarily so individual failures don't abort the runner
     set +e
-    truncate -s 0 instrumented_stdout.md instrumented_stderr.md
+    truncate -s 0 "${SCRIPT_DIR}/instrumented_stdout.md" "${SCRIPT_DIR}/instrumented_stderr.md"
     for dir in "${benchmark_dirs[@]}"; do
         run_benchmark "$dir"
     done

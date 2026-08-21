@@ -11,7 +11,7 @@
 #include "assert.h"
 #include "scheduler.h"
 //TODO: This path is hardcoded..change it later
-#include "/workspaces/EGF/AFL_patches/include/shm_next_events.h"
+#include "/home/aritra/fuzzer-1/FUZZER_Rebuilt/Main/include/shm_next_events.h"
 #include <sys/shm.h>
 #include "eg.h"
 

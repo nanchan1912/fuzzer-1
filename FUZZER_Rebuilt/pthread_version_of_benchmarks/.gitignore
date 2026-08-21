@@ -1,4 +1,3 @@
-# Markdown report logs
 terminal_output.md
 instrumented_stdout.md
 instrumented_stderr.md
@@ -9,31 +8,35 @@ instrumented_output.md
 pts_to_info.txt
 
 build/
+data/
 
-# LLVM IR and graphviz intermediate files
+*.pg
+*.ccfg
 *.dot
 *.ll
 *.bc
 
-# Fuzzing directories
+*.out
+*.instrumented.out
+
+# Directories and AFL inputs/outputs
 in/
 out/
 in-*/
 out-*/
-fuzz_in/
-fuzz_out/
-fuzz_out_*/
+in
+out
+in-*
+out-*
 *.log
 
 # C11Fuzzer temporary files
 *C11FuzzerTmp*
 C11FuzzerTmp*
 
-# Output text files and shared libraries
+# Output/log text files and shared libraries
 *.txt
 *.so
-*.o
-*.loc
 
 # Compiled benchmark binaries
 **/barrier
@@ -54,8 +57,6 @@ C11FuzzerTmp*
 **/mpmc3
 **/ms-queue
 **/spsc-queue
-**/sb-loop
 **/:wq
 
 core
-core.*

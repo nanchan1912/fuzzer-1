@@ -12,7 +12,7 @@
 #include <time.h>
 
 // TODO: This path is hardcoded - change it!
-#include "/workspaces/EGF/AFL_patches/include/shm_next_events.h"
+#include "/home/aritra/fuzzer-1/FUZZER_Rebuilt/Main/include/shm_next_events.h"
 
 
 struct SHM_next_events *g_next_events = NULL;
