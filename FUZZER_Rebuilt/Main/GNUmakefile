@@ -21,11 +21,11 @@ HASH=\#
 
 PREFIX      ?= /usr/local
 BIN_PATH     = $(PREFIX)/bin
-HELPER_PATH  = $(PREFIX)/lib/afl
-DOC_PATH     = $(PREFIX)/share/doc/afl
-MISC_PATH    = $(PREFIX)/share/afl
+HELPER_PATH  = $(PREFIX)/lib/sgf
+DOC_PATH     = $(PREFIX)/share/doc/sgf
+MISC_PATH    = $(PREFIX)/share/sgf
 MAN_PATH     = $(PREFIX)/share/man/man8
-INCLUDE_PATH = $(PREFIX)/include/afl
+INCLUDE_PATH = $(PREFIX)/include/sgf
 
 PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
@@ -39,7 +39,7 @@ ASAN_OPTIONS=detect_leaks=0
 SYS = $(shell uname -s)
 ARCH = $(shell uname -m)
 
-$(info [*] Compiling AFL++ for OS $(SYS) on ARCH $(ARCH))
+$(info [*] Compiling SGF for OS $(SYS) on ARCH $(ARCH))
 
 ifdef NO_UTF
   override CFLAGS_OPT += -DFANCY_BOXES_NO_UTF
@@ -796,20 +796,6 @@ all_done: test_build
 .PHONY: clean
 clean:
 	rm -rf $(PROGS) sgf-fuzz-document as sgf-as afl-g++ sgf-clang sgf-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ sgf-clang sgf-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
-	-$(MAKE) -f GNUmakefile.llvm clean
-	-$(MAKE) -f GNUmakefile.gcc_plugin clean
-	-$(MAKE) -C utils/libdislocator clean
-	-$(MAKE) -C utils/libtokencap clean
-	-$(MAKE) -C utils/aflpp_driver clean
-	-$(MAKE) -C utils/afl_network_proxy clean
-	-$(MAKE) -C utils/socket_fuzzing clean
-	-$(MAKE) -C utils/argv_fuzzing clean
-	-$(MAKE) -C utils/plot_ui clean
-	-$(MAKE) -C qemu_mode/unsigaction clean
-	-$(MAKE) -C qemu_mode/fastexit clean
-	-$(MAKE) -C qemu_mode/libcompcov clean
-	-$(MAKE) -C qemu_mode/libqasan clean
-	-$(MAKE) -C frida_mode clean
 	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
 ifeq "$(IN_REPO)" "1"
 	-test -e coresight_mode/coresight-trace/Makefile && $(MAKE) -C coresight_mode/coresight-trace clean || true

@@ -282,7 +282,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
          does not own it -- AFL's queue linked list retains ownership for the
          lifetime of the campaign, so eviction merely drops the pointer. */
       if (sgf->bounded_queue) {
-        if (afl_queue_enqueue(sgf->bounded_queue, child->id, child, new_score) != 0) {
+        if (sgf_queue_enqueue(sgf->bounded_queue, child->id, child, new_score) != 0) {
           WARNF("bounded queue enqueue failed for entry %u", child->id);
         }
       }

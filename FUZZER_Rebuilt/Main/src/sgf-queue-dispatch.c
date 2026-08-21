@@ -117,7 +117,7 @@ struct sgf_queue {
  * Public API (dispatch through ops table)
  * ============================================================================ */
 
-sgf_queue_t *afl_queue_create(const char *impl_name,
+sgf_queue_t *sgf_queue_create(const char *impl_name,
                                size_t m, size_t r,
                                size_t initial_bad_cap) {
   if (!impl_name) {
@@ -158,13 +158,13 @@ sgf_queue_t *afl_queue_create(const char *impl_name,
   return q;
 }
 
-void afl_queue_destroy(sgf_queue_t *q) {
+void sgf_queue_destroy(sgf_queue_t *q) {
   if (!q) return;
   q->ops->destroy(q->impl_state);
   free(q);
 }
 
-int afl_queue_enqueue(sgf_queue_t *q,
+int sgf_queue_enqueue(sgf_queue_t *q,
                       uint32_t entry_id,
                       void *graph_data,
                       double score) {
@@ -172,22 +172,22 @@ int afl_queue_enqueue(sgf_queue_t *q,
   return q->ops->enqueue(q->impl_state, entry_id, graph_data, score);
 }
 
-SgfQueueEntry *afl_queue_dequeue(sgf_queue_t *q) {
+SgfQueueEntry *sgf_queue_dequeue(sgf_queue_t *q) {
   if (!q) return NULL;
   return q->ops->dequeue(q->impl_state);
 }
 
-int afl_queue_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
+int sgf_queue_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
   if (!q) return -1;
   return q->ops->update_score(q->impl_state, entry_id, new_score);
 }
 
-size_t afl_queue_size(sgf_queue_t *q) {
+size_t sgf_queue_size(sgf_queue_t *q) {
   if (!q) return 0;
   return q->ops->size(q->impl_state);
 }
 
-void afl_queue_stats(sgf_queue_t *q) {
+void sgf_queue_stats(sgf_queue_t *q) {
   if (!q) return;
   q->ops->stats(q->impl_state);
 }

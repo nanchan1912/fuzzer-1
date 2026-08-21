@@ -178,7 +178,7 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   if (!impl_name) { impl_name = "maxheap"; }  /* MaxHeap is the default */
 
   sgf->queue_impl_name = impl_name;
-  sgf->bounded_queue = afl_queue_create(impl_name, 500, 100, 100000);
+  sgf->bounded_queue = sgf_queue_create(impl_name, 500, 100, 100000);
 
   if (!sgf->bounded_queue) {
     FATAL("Failed to initialize queue implementation: %s", impl_name);

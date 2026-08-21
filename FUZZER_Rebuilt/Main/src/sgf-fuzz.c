@@ -2897,7 +2897,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       struct queue_entry *q = sgf->queue_buf[entry];
       if (!q || q->disabled) { continue; }
-      if (afl_queue_enqueue(sgf->bounded_queue, q->id, q,
+      if (sgf_queue_enqueue(sgf->bounded_queue, q->id, q,
                             q->perf_score) == 0) {
         ++seeded;
       }
@@ -3281,9 +3281,9 @@ int main(int argc, char **argv_orig, char **envp) {
          we only substitute the entry actually handed to fuzz_one(). If the
          bounded queue is empty or hands back a disabled entry we silently keep
          AFL's own choice. */
-      if (sgf->bounded_queue && afl_queue_size(sgf->bounded_queue) > 0) {
+      if (sgf->bounded_queue && sgf_queue_size(sgf->bounded_queue) > 0) {
 
-        SgfQueueEntry *bq = afl_queue_dequeue(sgf->bounded_queue);
+        SgfQueueEntry *bq = sgf_queue_dequeue(sgf->bounded_queue);
         if (bq && bq->graph_data) {
 
           struct queue_entry *sel = (struct queue_entry *)bq->graph_data;

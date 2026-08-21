@@ -38,14 +38,14 @@ typedef struct {
  * @param initial_bad_cap  initial capacity of overflow buffer
  * @return            opaque handle, or NULL on error
  */
-sgf_queue_t *afl_queue_create(const char *impl_name, 
+sgf_queue_t *sgf_queue_create(const char *impl_name, 
                                size_t m, size_t r, 
                                size_t initial_bad_cap);
 
 /**
  * Destroy queue and free all resources.
  */
-void afl_queue_destroy(sgf_queue_t *q);
+void sgf_queue_destroy(sgf_queue_t *q);
 
 /**
  * Insert (enqueue) a new entry with score.
@@ -62,7 +62,7 @@ void afl_queue_destroy(sgf_queue_t *q);
  * In sgf-fuzz this is a `struct queue_entry *` owned by AFL's queue linked
  * list, which lives for the whole campaign, so eviction is always safe.
  */
-int afl_queue_enqueue(sgf_queue_t *q, 
+int sgf_queue_enqueue(sgf_queue_t *q, 
                       uint32_t entry_id,
                       void *graph_data, 
                       double score);
@@ -77,7 +77,7 @@ int afl_queue_enqueue(sgf_queue_t *q,
  * Caller should use the returned entry immediately or copy its contents;
  * the pointer may be invalidated by the next queue operation.
  */
-SgfQueueEntry *afl_queue_dequeue(sgf_queue_t *q);
+SgfQueueEntry *sgf_queue_dequeue(sgf_queue_t *q);
 
 /**
  * Update score for an existing entry (lazy re-enqueue).
@@ -87,16 +87,16 @@ SgfQueueEntry *afl_queue_dequeue(sgf_queue_t *q);
  * @param new_score   new perf_score
  * @return            0 on success, -1 on error
  */
-int afl_queue_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
+int sgf_queue_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
 
 /**
  * Get current total size (entries across all buckets).
  */
-size_t afl_queue_size(sgf_queue_t *q);
+size_t sgf_queue_size(sgf_queue_t *q);
 
 /**
  * Print internal statistics for benchmarking/debugging.
  */
-void afl_queue_stats(sgf_queue_t *q);
+void sgf_queue_stats(sgf_queue_t *q);
 
 #endif /* SGF_QUEUE_H */
