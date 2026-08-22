@@ -365,7 +365,7 @@ def main():
             print("Exhaustive check cancelled by user.")
             return 0
 
-    base_dir = Path("/workspaces/EGF/pthread_version_of_benchmarks")
+    base_dir = Path(__file__).resolve().parent
     
     if args.benchmark:
         benchmarks = [base_dir / args.benchmark]

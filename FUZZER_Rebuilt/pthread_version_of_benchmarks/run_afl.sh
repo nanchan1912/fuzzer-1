@@ -50,7 +50,7 @@ RUN_QUEUE_VISUALIZER=${RUN_QUEUE_VISUALIZER:-1}
 COPY_LOCATIONS=${COPY_LOCATIONS:-1}
 AFL_TIMEOUT_GRACE=${AFL_TIMEOUT_GRACE:-30}
 
-AFL_FUZZ="${AFL_FUZZ:-afl-fuzz}"
+SGF_FUZZ="${SGF_FUZZ:-sgf-fuzz}"
 # Still default to the caller's directory, but pinned to an absolute path so
 # every later reference agrees no matter where the script was launched from.
 INPUT_DIR="$(abspath "${INPUT_DIR:-in}")"
@@ -196,7 +196,7 @@ timeout --foreground $((MAX_TIME + AFL_TIMEOUT_GRACE)) env \
     AFL_POTENTIAL_LOCATIONS_FILE="$AFL_POTENTIAL_LOCATIONS_FILE" \
     AFL_INTERESTING_LOCATIONS_FILE="$AFL_INTERESTING_LOCATIONS_FILE" \
     AFL_CUTOFF_PERCENTILE="$AFL_CUTOFF_PERCENTILE" \
-	$AFL_FUZZ -i "$INPUT_DIR" -o "$OUTPUT_DIR" -V $MAX_TIME \
+	$SGF_FUZZ -i "$INPUT_DIR" -o "$OUTPUT_DIR" -V $MAX_TIME \
     -t 30000 \
     -v ${STATIC_GRAPH} \
     -- "$TARGET"
