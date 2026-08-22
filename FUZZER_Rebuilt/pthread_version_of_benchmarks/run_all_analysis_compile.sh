@@ -510,25 +510,21 @@ compile_uninstrumented() {
 }
 
 compile_instrumented() {
-    # use AFL fast
-    local AFL_CXX
-    AFL_CXX="$(command -v afl-clang-fast++ || true)"
-
-    if [[ -z "$AFL_CXX" ]]; then
-        err "afl-clang-fast++ not found"
-        return 1
-    fi
+    # Uses the same clang++ this whole pipeline already relies on
+    # (CXX_BIN, set up in setup_environment). The wmm-instrument LLVM
+    # pass (opt -load-pass-plugin) is what injects the scheduler hooks;
+    # it has no AFL dependency, so no AFL toolchain is used here.
     local benchmark_dir="$1"
     local data_dir="${benchmark_dir}/data"
     local benchmark_name
     benchmark_name="$(basename "$benchmark_dir")"
 
-    require_executable "$AFL_CXX" "afl-clang-fast++"
+    require_executable "$CXX_BIN" "clang++"
 
     log "Compiling instrumented LLVM IR to native executable..."
     if grep -Eq '^define .*@main\(' "$data_dir/no_pass.ll"; then
         log "  Detected direct main() in LLVM IR. Compiling without stub.c..."
-        "$AFL_CXX" \
+        "$CXX_BIN" \
             -O0 -g \
             -fno-discard-value-names \
             "$data_dir/instrumented.ll" \
@@ -541,7 +537,7 @@ compile_instrumented() {
             -o "$data_dir/${benchmark_name}.instrumented.out"
     else
         log "  Detected user_main() in LLVM IR. Compiling with stub.c..."
-        "$AFL_CXX" \
+        "$CXX_BIN" \
             -O0 -g \
             -fno-discard-value-names \
             "$data_dir/instrumented.ll" \
