@@ -15,7 +15,7 @@ if [[ ! -x "./testcases/msg_passing/mp" ]]; then
     gcc -O0 -pthread testcases/msg_passing/mp.c -o testcases/msg_passing/mp
 fi
 
-for impl in maxheap structure1 structure2 structure3; do
+for impl in maxheap threshold_bucket runner_up maxheap_bucket; do
     echo "================================================="
     echo "Testing Queue Implementation: $impl"
     echo "================================================="

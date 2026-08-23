@@ -2,7 +2,7 @@
  * sgf-queue-dispatch.c -- Dispatch mechanism for runtime queue implementation selection.
  *
  * Implements the public API in sgf-queue.h by routing calls through function-pointer
- * tables to the appropriate implementation (structure1, structure2, or structure3).
+ * tables to the appropriate implementation (threshold_bucket, runner_up, or maxheap_bucket).
  */
 
 #include <stdio.h>
@@ -15,31 +15,31 @@
  * ============================================================================ */
 
 /* Structure 1: ThresholdBucketQueue */
-sgf_queue_t *s1_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
-void s1_destroy(sgf_queue_t *q);
-int s1_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
-SgfQueueEntry *s1_dequeue(sgf_queue_t *q);
-int s1_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
-size_t s1_size(sgf_queue_t *q);
-void s1_stats(sgf_queue_t *q);
+sgf_queue_t *tbq_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
+void tbq_destroy(sgf_queue_t *q);
+int tbq_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
+SgfQueueEntry *tbq_dequeue(sgf_queue_t *q);
+int tbq_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
+size_t tbq_size(sgf_queue_t *q);
+void tbq_stats(sgf_queue_t *q);
 
 /* Structure 2: RunnerUpQueue */
-sgf_queue_t *s2_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
-void s2_destroy(sgf_queue_t *q);
-int s2_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
-SgfQueueEntry *s2_dequeue(sgf_queue_t *q);
-int s2_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
-size_t s2_size(sgf_queue_t *q);
-void s2_stats(sgf_queue_t *q);
+sgf_queue_t *rup_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
+void rup_destroy(sgf_queue_t *q);
+int rup_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
+SgfQueueEntry *rup_dequeue(sgf_queue_t *q);
+int rup_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
+size_t rup_size(sgf_queue_t *q);
+void rup_stats(sgf_queue_t *q);
 
 /* Structure 3: MaxHeapBucketQueue */
-sgf_queue_t *s3_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
-void s3_destroy(sgf_queue_t *q);
-int s3_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
-SgfQueueEntry *s3_dequeue(sgf_queue_t *q);
-int s3_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
-size_t s3_size(sgf_queue_t *q);
-void s3_stats(sgf_queue_t *q);
+sgf_queue_t *mhb_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
+void mhb_destroy(sgf_queue_t *q);
+int mhb_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score);
+SgfQueueEntry *mhb_dequeue(sgf_queue_t *q);
+int mhb_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score);
+size_t mhb_size(sgf_queue_t *q);
+void mhb_stats(sgf_queue_t *q);
 
 /* MaxHeap: Baseline pure max-heap (ground-truth reference) */
 sgf_queue_t *maxheap_create(const char *impl_name, size_t m, size_t r, size_t bad_cap);
@@ -64,34 +64,34 @@ typedef struct {
   void (*stats)(sgf_queue_t *);
 } SgfQueueOps;
 
-static const SgfQueueOps ops_structure1 = {
-  .create = s1_create,
-  .destroy = s1_destroy,
-  .enqueue = s1_enqueue,
-  .dequeue = s1_dequeue,
-  .update_score = s1_update_score,
-  .size = s1_size,
-  .stats = s1_stats,
+static const SgfQueueOps ops_threshold_bucket = {
+  .create = tbq_create,
+  .destroy = tbq_destroy,
+  .enqueue = tbq_enqueue,
+  .dequeue = tbq_dequeue,
+  .update_score = tbq_update_score,
+  .size = tbq_size,
+  .stats = tbq_stats,
 };
 
-static const SgfQueueOps ops_structure2 = {
-  .create = s2_create,
-  .destroy = s2_destroy,
-  .enqueue = s2_enqueue,
-  .dequeue = s2_dequeue,
-  .update_score = s2_update_score,
-  .size = s2_size,
-  .stats = s2_stats,
+static const SgfQueueOps ops_runner_up = {
+  .create = rup_create,
+  .destroy = rup_destroy,
+  .enqueue = rup_enqueue,
+  .dequeue = rup_dequeue,
+  .update_score = rup_update_score,
+  .size = rup_size,
+  .stats = rup_stats,
 };
 
-static const SgfQueueOps ops_structure3 = {
-  .create = s3_create,
-  .destroy = s3_destroy,
-  .enqueue = s3_enqueue,
-  .dequeue = s3_dequeue,
-  .update_score = s3_update_score,
-  .size = s3_size,
-  .stats = s3_stats,
+static const SgfQueueOps ops_maxheap_bucket = {
+  .create = mhb_create,
+  .destroy = mhb_destroy,
+  .enqueue = mhb_enqueue,
+  .dequeue = mhb_dequeue,
+  .update_score = mhb_update_score,
+  .size = mhb_size,
+  .stats = mhb_stats,
 };
 
 static const SgfQueueOps ops_maxheap = {
@@ -110,7 +110,7 @@ static const SgfQueueOps ops_maxheap = {
 
 struct sgf_queue {
   const SgfQueueOps *ops;
-  void *impl_state;  /* Pointer to s1_queue_t, s2_queue_t, or s3_queue_t */
+  void *impl_state;  /* Pointer to tbq_queue_t, rup_queue_t, or mhb_queue_t */
 };
 
 /* ============================================================================
@@ -127,25 +127,25 @@ sgf_queue_t *sgf_queue_create(const char *impl_name,
   sgf_queue_t *q = malloc(sizeof(*q));
   if (!q) return NULL;
   
-  if (strcmp(impl_name, "structure1") == 0) {
-    q->ops = &ops_structure1;
-    q->impl_state = s1_create(impl_name, m, r, initial_bad_cap);
-    fprintf(stderr, "[SGF Queue] Using Structure 1 (ThresholdBucketQueue)\n");
-  } else if (strcmp(impl_name, "structure2") == 0) {
-    q->ops = &ops_structure2;
-    q->impl_state = s2_create(impl_name, m, r, initial_bad_cap);
-    fprintf(stderr, "[SGF Queue] Using Structure 2 (RunnerUpQueue)\n");
-  } else if (strcmp(impl_name, "structure3") == 0) {
-    q->ops = &ops_structure3;
-    q->impl_state = s3_create(impl_name, m, r, initial_bad_cap);
-    fprintf(stderr, "[SGF Queue] Using Structure 3 (MaxHeapBucketQueue)\n");
+  if (strcmp(impl_name, "threshold_bucket") == 0) {
+    q->ops = &ops_threshold_bucket;
+    q->impl_state = tbq_create(impl_name, m, r, initial_bad_cap);
+    fprintf(stderr, "[SGF Queue] Using ThresholdBucketQueue\n");
+  } else if (strcmp(impl_name, "runner_up") == 0) {
+    q->ops = &ops_runner_up;
+    q->impl_state = rup_create(impl_name, m, r, initial_bad_cap);
+    fprintf(stderr, "[SGF Queue] Using RunnerUpQueue\n");
+  } else if (strcmp(impl_name, "maxheap_bucket") == 0) {
+    q->ops = &ops_maxheap_bucket;
+    q->impl_state = mhb_create(impl_name, m, r, initial_bad_cap);
+    fprintf(stderr, "[SGF Queue] Using MaxHeapBucketQueue\n");
   } else if (strcmp(impl_name, "maxheap") == 0) {
     q->ops = &ops_maxheap;
     q->impl_state = maxheap_create(impl_name, m, r, initial_bad_cap);
     fprintf(stderr, "[SGF Queue] Using MaxHeap (baseline, unbounded)\n");
   } else {
     fprintf(stderr, "[SGF Queue] ERROR: Unknown implementation '%s'\n", impl_name);
-    fprintf(stderr, "           Available: structure1, structure2, structure3, maxheap\n");
+    fprintf(stderr, "           Available: threshold_bucket, runner_up, maxheap_bucket, maxheap\n");
     free(q);
     return NULL;
   }

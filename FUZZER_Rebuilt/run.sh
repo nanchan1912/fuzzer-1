@@ -12,8 +12,9 @@
 #   ./run.sh sb
 #   ./run.sh load_buffering
 #   ./run.sh barrier
-#   SGF_QUEUE_IMPL=structure2 ./run.sh msg_passing
-#   ./run.sh --queue structure1 --time 30 msg_passing
+#   SGF_QUEUE_IMPL=runner_up ./run.sh msg_passing
+#   ./run.sh --queue threshold_bucket --time 30 msg_passing
+#   ./run.sh barrier --until-crash
 #   ./run.sh test_queues
 # ==============================================================================
 
@@ -40,6 +41,7 @@ TESTCASES_DIR="$MAIN_DIR/testcases"
 # Defaults
 QUEUE_IMPL="${SGF_QUEUE_IMPL:-maxheap}"
 RUN_TIME="${RUN_TIME:-${MAX_TIME:-10}}"
+UNTIL_CRASH=0
 INPUT_SRC=""
 OUTPUT_DIR=""
 STATIC_GRAPH=""
@@ -74,18 +76,20 @@ SPECIAL COMMANDS:
 
 OPTIONS:
   -q, --queue <NAME>      Queue data structure: maxheap (default),
-                          structure1, structure2, structure3
+                          threshold_bucket, runner_up, maxheap_bucket
   -t, --time <SECONDS>    Fuzzing duration in seconds (default: 10)
+  -c, --until-crash       Run until the first crash is found (no time limit)
   -i, --input <PATH>      Seed input directory or JSON seed file
   -o, --output <PATH>     Output directory (default: /tmp/sgf_out_<target>)
   -v, --graph <PATH>      Static abstraction graph (.ccfg / .eg / .pg)
   -h, --help              Show this help message
 
 ENVIRONMENT VARIABLES:
-  SGF_QUEUE_IMPL          Queue implementation (maxheap, structure1, structure2, structure3)
+  SGF_QUEUE_IMPL          Queue implementation (maxheap, threshold_bucket, runner_up, maxheap_bucket)
   SGF_ENABLE_FEEDBACK     Enable simulator feedback (0 or 1, default: 0)
   SGF_CHECK_DATA_RACE     Enable data race checking (0 or 1, default: 0)
   MAX_TIME / RUN_TIME     Fuzzing time limit in seconds (default: 10)
+  SGF_BENCH_UNTIL_CRASH   Set automatically by -c/--until-crash
 ==============================================================================
 EOF
 }
@@ -127,6 +131,10 @@ while [[ $# -gt 0 ]]; do
         -t|--time|-V)
             RUN_TIME="$2"
             shift 2
+            ;;
+        -c|--until-crash)
+            UNTIL_CRASH=1
+            shift
             ;;
         -i|--input)
             INPUT_SRC="$2"
@@ -253,14 +261,14 @@ if [[ $CUSTOM_MODE -eq 0 || -z "$STATIC_GRAPH" || -z "$INPUT_SRC" || ${#TARGET_C
             if [[ -d "$BENCHMARKS_DIR/$TARGET_NAME/data" ]]; then
                 BM_DATA="$BENCHMARKS_DIR/$TARGET_NAME/data"
                 INST_BIN="$(find "$BM_DATA" -maxdepth 1 \( -name "*.instrumented.out" -o -name "*.out" \) -executable | head -n 1)"
-                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DATA" -maxdepth 1 \( -name "generated_output.ccfg" -o -name "generated_output.pg" -o -name "*.eg" \) | head -n 1)}"
+                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DATA" -maxdepth 1 \( -name "generated_output.ccfg" -o -name "*.eg" \) | head -n 1)}"
                 INPUT_SRC="${INPUT_SRC:-$(find "$BM_DATA" -maxdepth 1 \( -name "init.sg.json" -o -name "*.json" \) | head -n 1)}"
                 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/sgf_out_$TARGET_NAME}"
                 TARGET_CMD=("$INST_BIN")
             elif [[ -d "$BENCHMARKS_DIR/$TARGET_NAME" ]]; then
                 BM_DIR="$BENCHMARKS_DIR/$TARGET_NAME"
                 INST_BIN="$(find "$BM_DIR" -maxdepth 2 \( -name "*.instrumented.out" -o -name "*.out" \) -executable | head -n 1)"
-                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DIR" -maxdepth 2 \( -name "generated_output.ccfg" -o -name "generated_output.pg" -o -name "*.eg" \) | head -n 1)}"
+                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DIR" -maxdepth 2 \( -name "generated_output.ccfg" -o -name "*.eg" \) | head -n 1)}"
                 INPUT_SRC="${INPUT_SRC:-$(find "$BM_DIR" -maxdepth 2 \( -name "init.sg.json" -o -name "*.json" \) | head -n 1)}"
                 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/sgf_out_$TARGET_NAME}"
                 if [[ -n "$INST_BIN" ]]; then
@@ -269,7 +277,7 @@ if [[ $CUSTOM_MODE -eq 0 || -z "$STATIC_GRAPH" || -z "$INPUT_SRC" || ${#TARGET_C
             elif [[ -f "$TARGET_NAME" ]]; then
                 # Target binary passed as path
                 TARGET_BIN_DIR="$(dirname "$TARGET_NAME")"
-                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$TARGET_BIN_DIR" -maxdepth 1 -name "generated_output.ccfg" -o -name "generated_output.pg" -o -name "*.eg" | head -n 1)}"
+                STATIC_GRAPH="${STATIC_GRAPH:-$(find "$TARGET_BIN_DIR" -maxdepth 1 \( -name "generated_output.ccfg" -o -name "*.eg" \) | head -n 1)}"
                 if [[ -f "$TARGET_BIN_DIR/init.sg.json" ]]; then
                     INPUT_SRC="${INPUT_SRC:-$TARGET_BIN_DIR/init.sg.json}"
                 elif [[ -d "$TARGET_BIN_DIR/seeds" ]]; then
@@ -338,9 +346,16 @@ export SGF_SKIP_CPUFREQ=1
 export SGF_NO_AFFINITY=1
 export SGF_EXIT_WHEN_DONE=1
 
+SGF_TIME_ARGS=()
+if [[ "$UNTIL_CRASH" -eq 1 ]]; then
+    export SGF_BENCH_UNTIL_CRASH=1
+else
+    SGF_TIME_ARGS=(-V "$RUN_TIME")
+fi
+
 set +e
 "$SGF_BIN" -n \
-    -V "$RUN_TIME" \
+    "${SGF_TIME_ARGS[@]}" \
     -i "$TEMP_IN_DIR" \
     -o "$OUTPUT_DIR" \
     -v "$STATIC_GRAPH" \

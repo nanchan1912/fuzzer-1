@@ -2,9 +2,9 @@
  * sgf-queue.h -- Public API for bounded queue implementations.
  *
  * Three implementations available at runtime:
- * - structure1: ThresholdBucketQueue (two-tier, periodic rebuild)
- * - structure2: RunnerUpQueue (three-tier, incremental, no rebuild)
- * - structure3: MaxHeapBucketQueue (three-tier, threshold-driven)
+ * - threshold_bucket: ThresholdBucketQueue (two-tier, periodic rebuild)
+ * - runner_up: RunnerUpQueue (three-tier, incremental, no rebuild)
+ * - maxheap_bucket: MaxHeapBucketQueue (three-tier, threshold-driven)
  *
  * All three implement the same interface; swap at runtime via SGF_QUEUE_IMPL env var.
  */
@@ -32,7 +32,7 @@ typedef struct {
 /**
  * Create a bounded queue of the specified implementation type.
  *
- * @param impl_name   "structure1", "structure2", or "structure3"
+ * @param impl_name   "threshold_bucket", "runner_up", or "maxheap_bucket"
  * @param m           capacity of good_pile (top candidates)
  * @param r           capacity of runner_up buffer (if applicable)
  * @param initial_bad_cap  initial capacity of overflow buffer

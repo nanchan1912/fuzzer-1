@@ -575,9 +575,9 @@ sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
           src/retgraph_shm.o \
           src/shm_next_events.o \
           src/sgf-queue-maxheap.o \
-          src/sgf-queue-structure1.o \
-          src/sgf-queue-structure2.o \
-          src/sgf-queue-structure3.o \
+          src/sgf-queue-threshold-bucket.o \
+          src/sgf-queue-runner-up.o \
+          src/sgf-queue-maxheap-bucket.o \
           src/sgf-queue-dispatch.o \
           include/cmplog.h include/envs.h | test_x86
 	$(CXX) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(SPECIAL_PERFORMANCE) \
@@ -596,9 +596,9 @@ sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
 	    src/retgraph_shm.o \
 	    src/shm_next_events.o \
 	    src/sgf-queue-maxheap.o \
-	    src/sgf-queue-structure1.o \
-	    src/sgf-queue-structure2.o \
-	    src/sgf-queue-structure3.o \
+	    src/sgf-queue-threshold-bucket.o \
+	    src/sgf-queue-runner-up.o \
+	    src/sgf-queue-maxheap-bucket.o \
 	    src/sgf-queue-dispatch.o \
 	    -o $@ $(PYFLAGS) $(LDFLAGS) -lm
 

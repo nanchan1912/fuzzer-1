@@ -304,7 +304,7 @@ EOF
         if [[ "$quiet_mode" -eq 1 ]]; then
             c_flags="$c_flags -DQUIET"
         fi
-        "$cc_bin" $c_flags -I"${REPO_ROOT}/AFL_patches/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+        "$cc_bin" $c_flags -I"${REPO_ROOT}/Main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
         ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o
         rm -f *.o
         popd > /dev/null
@@ -338,8 +338,8 @@ build_project() {
     # Rebuild WMM runtime static library
     log "Rebuilding WMM runtime static library..."
     local runtime_dir="${SCRIPT_DIR}/../src/wmm-runtime"
-    local afl_patches_dir="${SCRIPT_DIR}/../AFL_patches/src"
-    local afl_patches_include_dir="${SCRIPT_DIR}/../AFL_patches/include"
+    local wmm_src_dir="${SCRIPT_DIR}/../Main/src"
+    local wmm_include_dir="${SCRIPT_DIR}/../Main/include"
 
     pushd "$runtime_dir" > /dev/null
     local cc_bin="${CC_BIN}"
@@ -349,8 +349,8 @@ build_project() {
     if [[ "$quiet_mode" -eq 1 ]]; then
         c_flags="$c_flags -DQUIET"
     fi
-    "$cc_bin" $c_flags -I"${REPO_ROOT}/AFL_patches/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
-    "$cxx_bin" -O0 -g -fPIC -I"$afl_patches_include_dir" -c "$afl_patches_dir/shm_next_events.cpp" -o shm_next_events.o
+    "$cc_bin" $c_flags -I"${REPO_ROOT}/Main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+    "$cxx_bin" -O0 -g -fPIC -I"$wmm_include_dir" -c "$wmm_src_dir/shm_next_events.cpp" -o shm_next_events.o
     ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o shm_next_events.o
     rm -f *.o
     popd > /dev/null
@@ -402,7 +402,7 @@ run_svf_analysis() {
 
     pushd "$data_dir" > /dev/null
 
-    "$executable_path"  -extapi="$SVF_EXTAPI_BC" -filter-shared="$FILTER_SHARED" no_pass.ll >> ./instrumented_stdout.md 2>> instrumented_stderr.md
+    "$executable_path"  -extapi="$SVF_EXTAPI_BC" no_pass.ll >> ./instrumented_stdout.md 2>> instrumented_stderr.md
 
     popd > /dev/null
 }
@@ -576,7 +576,7 @@ phase_svf_analysis() {
     bench_dir="$(benchmark_path "$dir")"
     local data_dir="${bench_dir}/data"
 
-    if ! (pushd "$bench_dir" > /dev/null && "${executable_path}" -dump-pag -dump-icfg -dump-tct -extapi="$SVF_EXTAPI_BC" -filter-shared="$FILTER_SHARED" data/no_pass.ll > terminal_output.md && popd > /dev/null); then
+    if ! (pushd "$bench_dir" > /dev/null && "${executable_path}" -dump-pag -dump-icfg -dump-tct -extapi="$SVF_EXTAPI_BC" data/no_pass.ll > terminal_output.md && popd > /dev/null); then
         record_stage "$dir" "SVF_DUMP" "FAILED"
         return 1
     fi

@@ -26,9 +26,9 @@ Quick explanation about the files here:
 - `sgf-tmin.c`		- sgf-tmin binary tool
 - `sgf-queue-dispatch.c` - Queue runtime selection and dispatch abstraction
 - `sgf-queue-maxheap.c`  - MaxHeap bounded queue implementation (default)
-- `sgf-queue-structure1.c` - Structure 1: ThresholdBucketQueue
-- `sgf-queue-structure2.c` - Structure 2: RunnerUpQueue
-- `sgf-queue-structure3.c` - Structure 3: MaxHeapBucketQueue
+- `sgf-queue-threshold-bucket.c` - ThresholdBucketQueue
+- `sgf-queue-runner-up.c` - RunnerUpQueue
+- `sgf-queue-maxheap-bucket.c` - MaxHeapBucketQueue
 - `skeleton_graph_mutator.cpp` - skeleton mutation logic and static program abstraction parsing/ownership
 - `skeleton_potential.cpp` - Potential calculation and incremental update logic
 - `potential_nn.cpp` - Nearest-neighbor index for potential scoring

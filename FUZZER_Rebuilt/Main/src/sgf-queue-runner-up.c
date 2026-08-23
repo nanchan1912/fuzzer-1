@@ -1,14 +1,13 @@
 /*
- * sgf-queue-structure3.c -- MaxHeapBucketQueue implementation.
+ * sgf-queue-runner-up.c -- RunnerUpQueue implementation.
  *
- * Three-tier queue with sophisticated threshold-driven admission:
- * - good_pile:   MAX-heap of top m candidates (stored negated for min-heapq)
+ * Three-tier queue with no periodic rebuild:
+ * - good_pile:   min-heap of top m candidates
  * - runner_up:   small sorted list of next r best (ascending order)
  * - bad_pile:    unbounded overflow list
- * - threshold:   monotonic lower-bound on good_pile minimum (prevents bloat)
  *
- * select() pops MAX from good_pile (O(log m)), promotes runner_up max.
- * enqueue() only admits if score beats threshold.
+ * select() is O(1) leaf removal + O(log m) promotion from runner_up.
+ * enqueue() is O(log m) or O(r) depending on which tier.
  */
 
 #include <stdio.h>
@@ -17,7 +16,7 @@
 #include "sgf-queue.h"
 
 /* ============================================================================
- * Internal structures
+ * Internal structures (opaque to caller)
  * ============================================================================ */
 
 typedef struct {
@@ -30,7 +29,7 @@ typedef struct {
   QueueEntryNode **entries;
   size_t size;
   size_t capacity;
-} MaxHeap;
+} MinHeap;
 
 typedef struct {
   QueueEntryNode **entries;
@@ -45,20 +44,18 @@ typedef struct {
 } DynamicArray;
 
 typedef struct {
-  MaxHeap good_pile;
+  MinHeap good_pile;
   SortedArray runner_up;
   DynamicArray bad_pile;
   size_t m;
   size_t r;
-  double threshold;  /* admission threshold: candidates must beat this */
-  int filling;       /* true while good_pile hasn't reached capacity m */
-} S3Queue;
+} RunnerUpQueue;
 
 /* ============================================================================
- * Max-heap operations (using negated scores as min-heap proxy)
+ * Min-heap operations (for good_pile)
  * ============================================================================ */
 
-static void s3_heappush(MaxHeap *heap, uint32_t id, void *gd, double score) {
+static void rup_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
   if (heap->size == heap->capacity) {
     heap->capacity = heap->capacity ? heap->capacity * 2 : 128;
     heap->entries = realloc(heap->entries, heap->capacity * sizeof(void *));
@@ -67,16 +64,16 @@ static void s3_heappush(MaxHeap *heap, uint32_t id, void *gd, double score) {
   QueueEntryNode *node = malloc(sizeof(*node));
   node->entry_id = id;
   node->graph_data = gd;
-  node->score = score;  /* store actual score, negate only for comparisons */
+  node->score = score;
   
   size_t pos = heap->size;
   heap->entries[pos] = node;
   heap->size++;
   
-  /* Sift-up: bubble node up while score > parent (max-heap) */
+  /* Sift-up: bubble node up while score < parent */
   while (pos > 0) {
     size_t parent_idx = (pos - 1) / 2;
-    if (heap->entries[parent_idx]->score < score) {
+    if (heap->entries[parent_idx]->score > score) {
       heap->entries[pos] = heap->entries[parent_idx];
       pos = parent_idx;
     } else {
@@ -86,45 +83,45 @@ static void s3_heappush(MaxHeap *heap, uint32_t id, void *gd, double score) {
   heap->entries[pos] = node;
 }
 
-static QueueEntryNode *s3_heappop(MaxHeap *heap) {
+static QueueEntryNode *rup_heappop(MinHeap *heap) {
   if (heap->size == 0) return NULL;
   
-  QueueEntryNode *max = heap->entries[0];
+  QueueEntryNode *min = heap->entries[0];
   heap->size--;
   
-  if (heap->size == 0) return max;
+  if (heap->size == 0) return min;
   
   QueueEntryNode *last = heap->entries[heap->size];
   size_t pos = 0;
   double last_score = last->score;
   
-  /* Sift-down: bubble last node down (max-heap) */
+  /* Sift-down: bubble last node down */
   while (2 * pos + 1 < heap->size) {
     size_t left = 2 * pos + 1;
     size_t right = 2 * pos + 2;
-    size_t largest = left;
+    size_t smallest = left;
     
-    if (right < heap->size && heap->entries[right]->score > heap->entries[left]->score) {
-      largest = right;
+    if (right < heap->size && heap->entries[right]->score < heap->entries[left]->score) {
+      smallest = right;
     }
     
-    if (heap->entries[largest]->score > last_score) {
-      heap->entries[pos] = heap->entries[largest];
-      pos = largest;
+    if (heap->entries[smallest]->score < last_score) {
+      heap->entries[pos] = heap->entries[smallest];
+      pos = smallest;
     } else {
       break;
     }
   }
   heap->entries[pos] = last;
   
-  return max;
+  return min;
 }
 
 /* ============================================================================
  * Sorted array operations (for runner_up) -- ascending order
  * ============================================================================ */
 
-static void s3_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double score) {
+static void rup_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double score) {
   if (arr->size == arr->capacity) {
     arr->capacity = arr->capacity ? arr->capacity * 2 : 64;
     arr->entries = realloc(arr->entries, arr->capacity * sizeof(void *));
@@ -154,7 +151,7 @@ static void s3_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double sco
   arr->size++;
 }
 
-static QueueEntryNode *s3_sorted_pop_max(SortedArray *arr) {
+static QueueEntryNode *rup_sorted_pop_max(SortedArray *arr) {
   if (arr->size == 0) return NULL;
   QueueEntryNode *max = arr->entries[arr->size - 1];
   arr->size--;
@@ -165,7 +162,7 @@ static QueueEntryNode *s3_sorted_pop_max(SortedArray *arr) {
  * Dynamic array operations (for bad_pile)
  * ============================================================================ */
 
-static void s3_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double score) {
+static void rup_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double score) {
   if (arr->size == arr->capacity) {
     arr->capacity = arr->capacity ? arr->capacity * 2 : 1024;
     arr->entries = realloc(arr->entries, arr->capacity * sizeof(void *));
@@ -183,20 +180,20 @@ static void s3_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double s
  * Core queue operations
  * ============================================================================ */
 
-static void s3_admit_to_runner_up(S3Queue *q, uint32_t id, void *gd, double score) {
+static void rup_admit_to_runner_up(RunnerUpQueue *q, uint32_t id, void *gd, double score) {
   SortedArray *ru = &q->runner_up;
   
   if (q->r == 0) {
-    s3_dynamic_append(&q->bad_pile, id, gd, score);
+    rup_dynamic_append(&q->bad_pile, id, gd, score);
     return;
   }
   
   if (ru->size < ru->capacity) {
-    s3_sorted_insert(ru, id, gd, score);
+    rup_sorted_insert(ru, id, gd, score);
   } else if (ru->size > 0 && score > ru->entries[0]->score) {
     /* Evict worst from runner_up, insert new */
     QueueEntryNode *evicted = ru->entries[0];
-    s3_dynamic_append(&q->bad_pile, evicted->entry_id, evicted->graph_data, evicted->score);
+    rup_dynamic_append(&q->bad_pile, evicted->entry_id, evicted->graph_data, evicted->score);
     free(evicted);
     ru->size--;
     
@@ -205,14 +202,14 @@ static void s3_admit_to_runner_up(S3Queue *q, uint32_t id, void *gd, double scor
       ru->entries[i] = ru->entries[i + 1];
     }
     
-    s3_sorted_insert(ru, id, gd, score);
+    rup_sorted_insert(ru, id, gd, score);
   } else {
-    s3_dynamic_append(&q->bad_pile, id, gd, score);
+    rup_dynamic_append(&q->bad_pile, id, gd, score);
   }
 }
 
-static void s3_rebuild_from_bad(S3Queue *q) {
-  MaxHeap *gp = &q->good_pile;
+static void rup_rebuild_from_bad(RunnerUpQueue *q) {
+  MinHeap *gp = &q->good_pile;
   
   if (q->bad_pile.size == 0) return;
   
@@ -222,27 +219,16 @@ static void s3_rebuild_from_bad(S3Queue *q) {
   }
   gp->size = 0;
   
-  /* Take top m from bad_pile */
+  /* Take top m from bad_pile by a simple O(n log m) approach:
+   * scan bad_pile, maintain a min-heap of size m */
   for (size_t i = 0; i < q->bad_pile.size; i++) {
     QueueEntryNode *node = q->bad_pile.entries[i];
-    s3_heappush(gp, node->entry_id, node->graph_data, node->score);
+    rup_heappush(gp, node->entry_id, node->graph_data, node->score);
     
     if (gp->size > q->m) {
-      QueueEntryNode *evicted = s3_heappop(gp);
+      QueueEntryNode *evicted = rup_heappop(gp);
       free(evicted);
     }
-  }
-  
-  /* Update threshold to min of new good_pile */
-  if (gp->size > 0) {
-    q->threshold = gp->entries[gp->size - 1]->score;
-    for (size_t i = 0; i < gp->size; i++) {
-      if (gp->entries[i]->score < q->threshold) {
-        q->threshold = gp->entries[i]->score;
-      }
-    }
-  } else {
-    q->threshold = 0.0;
   }
   
   /* Clear bad_pile and runner_up */
@@ -258,17 +244,15 @@ static void s3_rebuild_from_bad(S3Queue *q) {
 }
 
 /* ============================================================================
- * Public API
+ * Public API implementation
  * ============================================================================ */
 
-sgf_queue_t *s3_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
+sgf_queue_t *rup_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
   (void)impl_name;
   
-  S3Queue *impl = malloc(sizeof(*impl));
+  RunnerUpQueue *impl = malloc(sizeof(*impl));
   impl->m = m;
   impl->r = r;
-  impl->threshold = 0.0;
-  impl->filling = 1;
   
   impl->good_pile.capacity = m;
   impl->good_pile.size = 0;
@@ -285,8 +269,8 @@ sgf_queue_t *s3_create(const char *impl_name, size_t m, size_t r, size_t bad_cap
   return (sgf_queue_t *)impl;
 }
 
-void s3_destroy(sgf_queue_t *q) {
-  S3Queue *impl = (S3Queue *)q;
+void rup_destroy(sgf_queue_t *q) {
+  RunnerUpQueue *impl = (RunnerUpQueue *)q;
   
   for (size_t i = 0; i < impl->good_pile.size; i++) {
     free(impl->good_pile.entries[i]);
@@ -306,61 +290,35 @@ void s3_destroy(sgf_queue_t *q) {
   free(impl);
 }
 
-int s3_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
-  S3Queue *impl = (S3Queue *)q;
-  MaxHeap *gp = &impl->good_pile;
+int rup_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
+  RunnerUpQueue *impl = (RunnerUpQueue *)q;
+  MinHeap *gp = &impl->good_pile;
   
   if (gp->size < impl->m) {
-    s3_heappush(gp, entry_id, graph_data, score);
-    if (impl->filling) {
-      if (gp->size == 1) {
-        impl->threshold = score;
-      } else if (score < impl->threshold) {
-        impl->threshold = score;
-      }
-    }
-    if (gp->size == impl->m) {
-      impl->filling = 0;
-      /* Set threshold to minimum in good_pile */
-      impl->threshold = gp->entries[gp->size - 1]->score;
-      for (size_t i = 0; i < gp->size; i++) {
-        if (gp->entries[i]->score < impl->threshold) {
-          impl->threshold = gp->entries[i]->score;
-        }
-      }
-    }
-  } else if (score > impl->threshold) {
-    /* Evict from good_pile, insert new */
-    QueueEntryNode *evicted = s3_heappop(gp);
-    s3_heappush(gp, entry_id, graph_data, score);
-    s3_admit_to_runner_up(impl, evicted->entry_id, evicted->graph_data, evicted->score);
+    rup_heappush(gp, entry_id, graph_data, score);
+  } else if (score > gp->entries[0]->score) {
+    QueueEntryNode *evicted = rup_heappop(gp);
+    rup_heappush(gp, entry_id, graph_data, score);
+    rup_admit_to_runner_up(impl, evicted->entry_id, evicted->graph_data, evicted->score);
     free(evicted);
-    
-    /* Update threshold to new minimum */
-    impl->threshold = gp->entries[gp->size - 1]->score;
-    for (size_t i = 0; i < gp->size; i++) {
-      if (gp->entries[i]->score < impl->threshold) {
-        impl->threshold = gp->entries[i]->score;
-      }
-    }
   } else {
-    s3_admit_to_runner_up(impl, entry_id, graph_data, score);
+    rup_admit_to_runner_up(impl, entry_id, graph_data, score);
   }
   
   return 0;
 }
 
-SgfQueueEntry *s3_dequeue(sgf_queue_t *q) {
+SgfQueueEntry *rup_dequeue(sgf_queue_t *q) {
   static SgfQueueEntry result;
   
-  S3Queue *impl = (S3Queue *)q;
-  MaxHeap *gp = &impl->good_pile;
+  RunnerUpQueue *impl = (RunnerUpQueue *)q;
+  MinHeap *gp = &impl->good_pile;
   SortedArray *ru = &impl->runner_up;
   
   if (gp->size == 0 && ru->size == 0) {
-    s3_rebuild_from_bad(impl);
+    rup_rebuild_from_bad(impl);
     if (gp->size == 0) {
-      return NULL;
+      return NULL;  /* Truly empty */
     }
   }
   
@@ -368,13 +326,19 @@ SgfQueueEntry *s3_dequeue(sgf_queue_t *q) {
     return NULL;
   }
   
-  /* Pop max from good_pile (root, O(log m)) */
-  QueueEntryNode *selected = s3_heappop(gp);
-  
-  /* Promote runner_up max if available */
+  /* O(1) leaf removal. gp->size - 1 is the last element in the array-based
+     heap; removing a leaf never violates the heap property, so no sift-down
+     is needed here. (The previous version re-read this same now-shrunk slot
+     as "last" and wrote it straight back into the array -- since `selected`
+     and `last` were the same pointer, that put a soon-to-be-freed node back
+     into gp->entries[], a use-after-free the next read of that slot would
+     hit. Same bug, same fix, as sgf-queue-threshold-bucket.c.) */
+  QueueEntryNode *selected = gp->entries[gp->size - 1];
+  gp->size--;
+  /* Promote runner_up max into good_pile */
   if (ru->size > 0) {
-    QueueEntryNode *promoted = s3_sorted_pop_max(ru);
-    s3_heappush(gp, promoted->entry_id, promoted->graph_data, promoted->score);
+    QueueEntryNode *promoted = rup_sorted_pop_max(ru);
+    rup_heappush(gp, promoted->entry_id, promoted->graph_data, promoted->score);
     free(promoted);
   }
   
@@ -387,23 +351,22 @@ SgfQueueEntry *s3_dequeue(sgf_queue_t *q) {
   return &result;
 }
 
-int s3_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
-  return s3_enqueue(q, entry_id, NULL, new_score);
+int rup_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
+  /* Lazy update: just re-enqueue */
+  return rup_enqueue(q, entry_id, NULL, new_score);
 }
 
-size_t s3_size(sgf_queue_t *q) {
-  S3Queue *impl = (S3Queue *)q;
+size_t rup_size(sgf_queue_t *q) {
+  RunnerUpQueue *impl = (RunnerUpQueue *)q;
   return impl->good_pile.size + impl->runner_up.size + impl->bad_pile.size;
 }
 
-void s3_stats(sgf_queue_t *q) {
-  S3Queue *impl = (S3Queue *)q;
-  fprintf(stderr,
-    "[Queue S3] good=%zu (cap %zu), runner=%zu (cap %zu), bad=%zu (cap %zu), "
-    "threshold=%.6f, total=%zu\n",
+void rup_stats(sgf_queue_t *q) {
+  RunnerUpQueue *impl = (RunnerUpQueue *)q;
+  fprintf(stderr, 
+    "[Queue S2] good=%zu (cap %zu), runner=%zu (cap %zu), bad=%zu (cap %zu), total=%zu\n",
     impl->good_pile.size, impl->good_pile.capacity,
     impl->runner_up.size, impl->runner_up.capacity,
     impl->bad_pile.size, impl->bad_pile.capacity,
-    impl->threshold,
     impl->good_pile.size + impl->runner_up.size + impl->bad_pile.size);
 }

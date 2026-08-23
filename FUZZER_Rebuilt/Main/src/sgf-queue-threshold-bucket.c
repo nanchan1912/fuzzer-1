@@ -1,5 +1,5 @@
 /*
- * sgf-queue-structure1.c -- ThresholdBucketQueue implementation.
+ * sgf-queue-threshold-bucket.c -- ThresholdBucketQueue implementation.
  *
  * Two-tier queue with periodic rebuild:
  * - good_pile:   min-heap of top m candidates
@@ -42,13 +42,13 @@ typedef struct {
   size_t m;
   int T;  /* rebuild threshold (ops between rebuilds), -1 = never */
   size_t ops_since_rebuild;
-} S1Queue;
+} ThresholdBucketQueue;
 
 /* ============================================================================
  * Min-heap operations (same as Structure2)
  * ============================================================================ */
 
-static void s1_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
+static void tbq_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
   if (heap->size == heap->capacity) {
     heap->capacity = heap->capacity ? heap->capacity * 2 : 128;
     heap->entries = realloc(heap->entries, heap->capacity * sizeof(void *));
@@ -75,7 +75,7 @@ static void s1_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
   heap->entries[pos] = node;
 }
 
-static QueueEntryNode *s1_heappop(MinHeap *heap) {
+static QueueEntryNode *tbq_heappop(MinHeap *heap) {
   if (heap->size == 0) return NULL;
   
   QueueEntryNode *min = heap->entries[0];
@@ -108,7 +108,7 @@ static QueueEntryNode *s1_heappop(MinHeap *heap) {
   return min;
 }
 
-static void s1_heapify(MinHeap *heap) {
+static void tbq_heapify(MinHeap *heap) {
   if (heap->size == 0) return;
   
   /* Build heap from array in-place: start from last non-leaf and sift down */
@@ -149,7 +149,7 @@ static int compare_nodes_desc(const void *a, const void *b) {
   return 0;
 }
 
-static void s1_rebuild(S1Queue *q) {
+static void tbq_rebuild(ThresholdBucketQueue *q) {
   MinHeap *gp = &q->good_pile;
   DynamicArray *bp = &q->bad_pile;
   
@@ -177,7 +177,7 @@ static void s1_rebuild(S1Queue *q) {
     gp->entries[i] = all[i];
   }
   gp->size = take_m;
-  s1_heapify(gp);
+  tbq_heapify(gp);
   
   /* Rest go to bad_pile */
   for (size_t i = take_m; i < total; i++) {
@@ -193,11 +193,11 @@ static void s1_rebuild(S1Queue *q) {
  * Public API
  * ============================================================================ */
 
-sgf_queue_t *s1_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
+sgf_queue_t *tbq_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
   (void)impl_name;
   (void)r;  /* Structure1 doesn't use r */
   
-  S1Queue *impl = malloc(sizeof(*impl));
+  ThresholdBucketQueue *impl = malloc(sizeof(*impl));
   impl->m = m;
   impl->T = 2000;  /* Default: rebuild every 2000 ops */
   impl->ops_since_rebuild = 0;
@@ -213,8 +213,8 @@ sgf_queue_t *s1_create(const char *impl_name, size_t m, size_t r, size_t bad_cap
   return (sgf_queue_t *)impl;
 }
 
-void s1_destroy(sgf_queue_t *q) {
-  S1Queue *impl = (S1Queue *)q;
+void tbq_destroy(sgf_queue_t *q) {
+  ThresholdBucketQueue *impl = (ThresholdBucketQueue *)q;
   
   for (size_t i = 0; i < impl->good_pile.size; i++) {
     free(impl->good_pile.entries[i]);
@@ -229,16 +229,16 @@ void s1_destroy(sgf_queue_t *q) {
   free(impl);
 }
 
-int s1_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
-  S1Queue *impl = (S1Queue *)q;
+int tbq_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
+  ThresholdBucketQueue *impl = (ThresholdBucketQueue *)q;
   MinHeap *gp = &impl->good_pile;
   DynamicArray *bp = &impl->bad_pile;
   
   if (gp->size < impl->m) {
-    s1_heappush(gp, entry_id, graph_data, score);
+    tbq_heappush(gp, entry_id, graph_data, score);
   } else if (score > gp->entries[0]->score) {
-    QueueEntryNode *evicted = s1_heappop(gp);
-    s1_heappush(gp, entry_id, graph_data, score);
+    QueueEntryNode *evicted = tbq_heappop(gp);
+    tbq_heappush(gp, entry_id, graph_data, score);
     
     /* Add evicted to bad_pile */
     if (bp->size == bp->capacity) {
@@ -262,57 +262,37 @@ int s1_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score
   
   impl->ops_since_rebuild++;
   if (impl->T > 0 && impl->ops_since_rebuild >= (size_t)impl->T) {
-    s1_rebuild(impl);
+    tbq_rebuild(impl);
   }
   
   return 0;
 }
 
-SgfQueueEntry *s1_dequeue(sgf_queue_t *q) {
+SgfQueueEntry *tbq_dequeue(sgf_queue_t *q) {
   static SgfQueueEntry result;
   
-  S1Queue *impl = (S1Queue *)q;
+  ThresholdBucketQueue *impl = (ThresholdBucketQueue *)q;
   MinHeap *gp = &impl->good_pile;
   
   if (gp->size == 0) {
-    s1_rebuild(impl);
+    tbq_rebuild(impl);
     if (gp->size == 0) {
       return NULL;
     }
   }
   
-  /* O(1) leaf removal */
+  /* O(1) leaf removal. gp->size - 1 is the last element in the array-based
+     heap; removing a leaf never violates the heap property, so no sift-down
+     is needed here. (The previous version re-read this same now-shrunk slot
+     as "last" and wrote it straight back into the array -- since `selected`
+     and `last` were the same pointer, that put a soon-to-be-freed node back
+     into gp->entries[], a use-after-free the next read of that slot would
+     hit.) */
   QueueEntryNode *selected = gp->entries[gp->size - 1];
   gp->size--;
-  
-  /* Restore heap property */
-  if (gp->size > 0) {
-    QueueEntryNode *last = gp->entries[gp->size];
-    size_t pos = 0;
-    double last_score = last->score;
-    
-    while (2 * pos + 1 < gp->size) {
-      size_t left = 2 * pos + 1;
-      size_t right = 2 * pos + 2;
-      size_t smallest = left;
-      
-      if (right < gp->size && gp->entries[right]->score < gp->entries[left]->score) {
-        smallest = right;
-      }
-      
-      if (gp->entries[smallest]->score < last_score) {
-        gp->entries[pos] = gp->entries[smallest];
-        pos = smallest;
-      } else {
-        break;
-      }
-    }
-    gp->entries[pos] = last;
-  }
-  
   impl->ops_since_rebuild++;
   if (impl->T > 0 && impl->ops_since_rebuild >= (size_t)impl->T) {
-    s1_rebuild(impl);
+    tbq_rebuild(impl);
   }
   
   result.entry_id = selected->entry_id;
@@ -324,17 +304,17 @@ SgfQueueEntry *s1_dequeue(sgf_queue_t *q) {
   return &result;
 }
 
-int s1_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
-  return s1_enqueue(q, entry_id, NULL, new_score);
+int tbq_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
+  return tbq_enqueue(q, entry_id, NULL, new_score);
 }
 
-size_t s1_size(sgf_queue_t *q) {
-  S1Queue *impl = (S1Queue *)q;
+size_t tbq_size(sgf_queue_t *q) {
+  ThresholdBucketQueue *impl = (ThresholdBucketQueue *)q;
   return impl->good_pile.size + impl->bad_pile.size;
 }
 
-void s1_stats(sgf_queue_t *q) {
-  S1Queue *impl = (S1Queue *)q;
+void tbq_stats(sgf_queue_t *q) {
+  ThresholdBucketQueue *impl = (ThresholdBucketQueue *)q;
   fprintf(stderr,
     "[Queue S1] good=%zu (cap %zu), bad=%zu (cap %zu), ops_since_rebuild=%zu, total=%zu\n",
     impl->good_pile.size, impl->good_pile.capacity,

@@ -1,13 +1,14 @@
 /*
- * sgf-queue-structure2.c -- RunnerUpQueue implementation.
+ * sgf-queue-maxheap-bucket.c -- MaxHeapBucketQueue implementation.
  *
- * Three-tier queue with no periodic rebuild:
- * - good_pile:   min-heap of top m candidates
+ * Three-tier queue with sophisticated threshold-driven admission:
+ * - good_pile:   MAX-heap of top m candidates (stored negated for min-heapq)
  * - runner_up:   small sorted list of next r best (ascending order)
  * - bad_pile:    unbounded overflow list
+ * - threshold:   monotonic lower-bound on good_pile minimum (prevents bloat)
  *
- * select() is O(1) leaf removal + O(log m) promotion from runner_up.
- * enqueue() is O(log m) or O(r) depending on which tier.
+ * select() pops MAX from good_pile (O(log m)), promotes runner_up max.
+ * enqueue() only admits if score beats threshold.
  */
 
 #include <stdio.h>
@@ -16,7 +17,7 @@
 #include "sgf-queue.h"
 
 /* ============================================================================
- * Internal structures (opaque to caller)
+ * Internal structures
  * ============================================================================ */
 
 typedef struct {
@@ -29,7 +30,7 @@ typedef struct {
   QueueEntryNode **entries;
   size_t size;
   size_t capacity;
-} MinHeap;
+} MaxHeap;
 
 typedef struct {
   QueueEntryNode **entries;
@@ -44,18 +45,20 @@ typedef struct {
 } DynamicArray;
 
 typedef struct {
-  MinHeap good_pile;
+  MaxHeap good_pile;
   SortedArray runner_up;
   DynamicArray bad_pile;
   size_t m;
   size_t r;
-} S2Queue;
+  double threshold;  /* admission threshold: candidates must beat this */
+  int filling;       /* true while good_pile hasn't reached capacity m */
+} MaxHeapBucketQueue;
 
 /* ============================================================================
- * Min-heap operations (for good_pile)
+ * Max-heap operations (using negated scores as min-heap proxy)
  * ============================================================================ */
 
-static void s2_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
+static void mhb_heappush(MaxHeap *heap, uint32_t id, void *gd, double score) {
   if (heap->size == heap->capacity) {
     heap->capacity = heap->capacity ? heap->capacity * 2 : 128;
     heap->entries = realloc(heap->entries, heap->capacity * sizeof(void *));
@@ -64,16 +67,16 @@ static void s2_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
   QueueEntryNode *node = malloc(sizeof(*node));
   node->entry_id = id;
   node->graph_data = gd;
-  node->score = score;
+  node->score = score;  /* store actual score, negate only for comparisons */
   
   size_t pos = heap->size;
   heap->entries[pos] = node;
   heap->size++;
   
-  /* Sift-up: bubble node up while score < parent */
+  /* Sift-up: bubble node up while score > parent (max-heap) */
   while (pos > 0) {
     size_t parent_idx = (pos - 1) / 2;
-    if (heap->entries[parent_idx]->score > score) {
+    if (heap->entries[parent_idx]->score < score) {
       heap->entries[pos] = heap->entries[parent_idx];
       pos = parent_idx;
     } else {
@@ -83,45 +86,45 @@ static void s2_heappush(MinHeap *heap, uint32_t id, void *gd, double score) {
   heap->entries[pos] = node;
 }
 
-static QueueEntryNode *s2_heappop(MinHeap *heap) {
+static QueueEntryNode *mhb_heappop(MaxHeap *heap) {
   if (heap->size == 0) return NULL;
   
-  QueueEntryNode *min = heap->entries[0];
+  QueueEntryNode *max = heap->entries[0];
   heap->size--;
   
-  if (heap->size == 0) return min;
+  if (heap->size == 0) return max;
   
   QueueEntryNode *last = heap->entries[heap->size];
   size_t pos = 0;
   double last_score = last->score;
   
-  /* Sift-down: bubble last node down */
+  /* Sift-down: bubble last node down (max-heap) */
   while (2 * pos + 1 < heap->size) {
     size_t left = 2 * pos + 1;
     size_t right = 2 * pos + 2;
-    size_t smallest = left;
+    size_t largest = left;
     
-    if (right < heap->size && heap->entries[right]->score < heap->entries[left]->score) {
-      smallest = right;
+    if (right < heap->size && heap->entries[right]->score > heap->entries[left]->score) {
+      largest = right;
     }
     
-    if (heap->entries[smallest]->score < last_score) {
-      heap->entries[pos] = heap->entries[smallest];
-      pos = smallest;
+    if (heap->entries[largest]->score > last_score) {
+      heap->entries[pos] = heap->entries[largest];
+      pos = largest;
     } else {
       break;
     }
   }
   heap->entries[pos] = last;
   
-  return min;
+  return max;
 }
 
 /* ============================================================================
  * Sorted array operations (for runner_up) -- ascending order
  * ============================================================================ */
 
-static void s2_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double score) {
+static void mhb_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double score) {
   if (arr->size == arr->capacity) {
     arr->capacity = arr->capacity ? arr->capacity * 2 : 64;
     arr->entries = realloc(arr->entries, arr->capacity * sizeof(void *));
@@ -151,7 +154,7 @@ static void s2_sorted_insert(SortedArray *arr, uint32_t id, void *gd, double sco
   arr->size++;
 }
 
-static QueueEntryNode *s2_sorted_pop_max(SortedArray *arr) {
+static QueueEntryNode *mhb_sorted_pop_max(SortedArray *arr) {
   if (arr->size == 0) return NULL;
   QueueEntryNode *max = arr->entries[arr->size - 1];
   arr->size--;
@@ -162,7 +165,7 @@ static QueueEntryNode *s2_sorted_pop_max(SortedArray *arr) {
  * Dynamic array operations (for bad_pile)
  * ============================================================================ */
 
-static void s2_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double score) {
+static void mhb_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double score) {
   if (arr->size == arr->capacity) {
     arr->capacity = arr->capacity ? arr->capacity * 2 : 1024;
     arr->entries = realloc(arr->entries, arr->capacity * sizeof(void *));
@@ -180,20 +183,20 @@ static void s2_dynamic_append(DynamicArray *arr, uint32_t id, void *gd, double s
  * Core queue operations
  * ============================================================================ */
 
-static void s2_admit_to_runner_up(S2Queue *q, uint32_t id, void *gd, double score) {
+static void mhb_admit_to_runner_up(MaxHeapBucketQueue *q, uint32_t id, void *gd, double score) {
   SortedArray *ru = &q->runner_up;
   
   if (q->r == 0) {
-    s2_dynamic_append(&q->bad_pile, id, gd, score);
+    mhb_dynamic_append(&q->bad_pile, id, gd, score);
     return;
   }
   
   if (ru->size < ru->capacity) {
-    s2_sorted_insert(ru, id, gd, score);
+    mhb_sorted_insert(ru, id, gd, score);
   } else if (ru->size > 0 && score > ru->entries[0]->score) {
     /* Evict worst from runner_up, insert new */
     QueueEntryNode *evicted = ru->entries[0];
-    s2_dynamic_append(&q->bad_pile, evicted->entry_id, evicted->graph_data, evicted->score);
+    mhb_dynamic_append(&q->bad_pile, evicted->entry_id, evicted->graph_data, evicted->score);
     free(evicted);
     ru->size--;
     
@@ -202,14 +205,14 @@ static void s2_admit_to_runner_up(S2Queue *q, uint32_t id, void *gd, double scor
       ru->entries[i] = ru->entries[i + 1];
     }
     
-    s2_sorted_insert(ru, id, gd, score);
+    mhb_sorted_insert(ru, id, gd, score);
   } else {
-    s2_dynamic_append(&q->bad_pile, id, gd, score);
+    mhb_dynamic_append(&q->bad_pile, id, gd, score);
   }
 }
 
-static void s2_rebuild_from_bad(S2Queue *q) {
-  MinHeap *gp = &q->good_pile;
+static void mhb_rebuild_from_bad(MaxHeapBucketQueue *q) {
+  MaxHeap *gp = &q->good_pile;
   
   if (q->bad_pile.size == 0) return;
   
@@ -219,16 +222,27 @@ static void s2_rebuild_from_bad(S2Queue *q) {
   }
   gp->size = 0;
   
-  /* Take top m from bad_pile by a simple O(n log m) approach:
-   * scan bad_pile, maintain a min-heap of size m */
+  /* Take top m from bad_pile */
   for (size_t i = 0; i < q->bad_pile.size; i++) {
     QueueEntryNode *node = q->bad_pile.entries[i];
-    s2_heappush(gp, node->entry_id, node->graph_data, node->score);
+    mhb_heappush(gp, node->entry_id, node->graph_data, node->score);
     
     if (gp->size > q->m) {
-      QueueEntryNode *evicted = s2_heappop(gp);
+      QueueEntryNode *evicted = mhb_heappop(gp);
       free(evicted);
     }
+  }
+  
+  /* Update threshold to min of new good_pile */
+  if (gp->size > 0) {
+    q->threshold = gp->entries[gp->size - 1]->score;
+    for (size_t i = 0; i < gp->size; i++) {
+      if (gp->entries[i]->score < q->threshold) {
+        q->threshold = gp->entries[i]->score;
+      }
+    }
+  } else {
+    q->threshold = 0.0;
   }
   
   /* Clear bad_pile and runner_up */
@@ -244,15 +258,17 @@ static void s2_rebuild_from_bad(S2Queue *q) {
 }
 
 /* ============================================================================
- * Public API implementation
+ * Public API
  * ============================================================================ */
 
-sgf_queue_t *s2_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
+sgf_queue_t *mhb_create(const char *impl_name, size_t m, size_t r, size_t bad_cap) {
   (void)impl_name;
   
-  S2Queue *impl = malloc(sizeof(*impl));
+  MaxHeapBucketQueue *impl = malloc(sizeof(*impl));
   impl->m = m;
   impl->r = r;
+  impl->threshold = 0.0;
+  impl->filling = 1;
   
   impl->good_pile.capacity = m;
   impl->good_pile.size = 0;
@@ -269,8 +285,8 @@ sgf_queue_t *s2_create(const char *impl_name, size_t m, size_t r, size_t bad_cap
   return (sgf_queue_t *)impl;
 }
 
-void s2_destroy(sgf_queue_t *q) {
-  S2Queue *impl = (S2Queue *)q;
+void mhb_destroy(sgf_queue_t *q) {
+  MaxHeapBucketQueue *impl = (MaxHeapBucketQueue *)q;
   
   for (size_t i = 0; i < impl->good_pile.size; i++) {
     free(impl->good_pile.entries[i]);
@@ -290,35 +306,61 @@ void s2_destroy(sgf_queue_t *q) {
   free(impl);
 }
 
-int s2_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
-  S2Queue *impl = (S2Queue *)q;
-  MinHeap *gp = &impl->good_pile;
+int mhb_enqueue(sgf_queue_t *q, uint32_t entry_id, void *graph_data, double score) {
+  MaxHeapBucketQueue *impl = (MaxHeapBucketQueue *)q;
+  MaxHeap *gp = &impl->good_pile;
   
   if (gp->size < impl->m) {
-    s2_heappush(gp, entry_id, graph_data, score);
-  } else if (score > gp->entries[0]->score) {
-    QueueEntryNode *evicted = s2_heappop(gp);
-    s2_heappush(gp, entry_id, graph_data, score);
-    s2_admit_to_runner_up(impl, evicted->entry_id, evicted->graph_data, evicted->score);
+    mhb_heappush(gp, entry_id, graph_data, score);
+    if (impl->filling) {
+      if (gp->size == 1) {
+        impl->threshold = score;
+      } else if (score < impl->threshold) {
+        impl->threshold = score;
+      }
+    }
+    if (gp->size == impl->m) {
+      impl->filling = 0;
+      /* Set threshold to minimum in good_pile */
+      impl->threshold = gp->entries[gp->size - 1]->score;
+      for (size_t i = 0; i < gp->size; i++) {
+        if (gp->entries[i]->score < impl->threshold) {
+          impl->threshold = gp->entries[i]->score;
+        }
+      }
+    }
+  } else if (score > impl->threshold) {
+    /* Evict from good_pile, insert new */
+    QueueEntryNode *evicted = mhb_heappop(gp);
+    mhb_heappush(gp, entry_id, graph_data, score);
+    mhb_admit_to_runner_up(impl, evicted->entry_id, evicted->graph_data, evicted->score);
     free(evicted);
+    
+    /* Update threshold to new minimum */
+    impl->threshold = gp->entries[gp->size - 1]->score;
+    for (size_t i = 0; i < gp->size; i++) {
+      if (gp->entries[i]->score < impl->threshold) {
+        impl->threshold = gp->entries[i]->score;
+      }
+    }
   } else {
-    s2_admit_to_runner_up(impl, entry_id, graph_data, score);
+    mhb_admit_to_runner_up(impl, entry_id, graph_data, score);
   }
   
   return 0;
 }
 
-SgfQueueEntry *s2_dequeue(sgf_queue_t *q) {
+SgfQueueEntry *mhb_dequeue(sgf_queue_t *q) {
   static SgfQueueEntry result;
   
-  S2Queue *impl = (S2Queue *)q;
-  MinHeap *gp = &impl->good_pile;
+  MaxHeapBucketQueue *impl = (MaxHeapBucketQueue *)q;
+  MaxHeap *gp = &impl->good_pile;
   SortedArray *ru = &impl->runner_up;
   
   if (gp->size == 0 && ru->size == 0) {
-    s2_rebuild_from_bad(impl);
+    mhb_rebuild_from_bad(impl);
     if (gp->size == 0) {
-      return NULL;  /* Truly empty */
+      return NULL;
     }
   }
   
@@ -326,39 +368,13 @@ SgfQueueEntry *s2_dequeue(sgf_queue_t *q) {
     return NULL;
   }
   
-  /* O(1) leaf removal from good_pile */
-  QueueEntryNode *selected = gp->entries[gp->size - 1];
-  gp->size--;
+  /* Pop max from good_pile (root, O(log m)) */
+  QueueEntryNode *selected = mhb_heappop(gp);
   
-  /* Restore heap property (sift-down from root if we removed the last) */
-  if (gp->size > 0 && gp->size > 0) {
-    QueueEntryNode *last = gp->entries[gp->size];
-    size_t pos = 0;
-    double last_score = last->score;
-    
-    while (2 * pos + 1 < gp->size) {
-      size_t left = 2 * pos + 1;
-      size_t right = 2 * pos + 2;
-      size_t smallest = left;
-      
-      if (right < gp->size && gp->entries[right]->score < gp->entries[left]->score) {
-        smallest = right;
-      }
-      
-      if (gp->entries[smallest]->score < last_score) {
-        gp->entries[pos] = gp->entries[smallest];
-        pos = smallest;
-      } else {
-        break;
-      }
-    }
-    gp->entries[pos] = last;
-  }
-  
-  /* Promote runner_up max into good_pile */
+  /* Promote runner_up max if available */
   if (ru->size > 0) {
-    QueueEntryNode *promoted = s2_sorted_pop_max(ru);
-    s2_heappush(gp, promoted->entry_id, promoted->graph_data, promoted->score);
+    QueueEntryNode *promoted = mhb_sorted_pop_max(ru);
+    mhb_heappush(gp, promoted->entry_id, promoted->graph_data, promoted->score);
     free(promoted);
   }
   
@@ -371,22 +387,23 @@ SgfQueueEntry *s2_dequeue(sgf_queue_t *q) {
   return &result;
 }
 
-int s2_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
-  /* Lazy update: just re-enqueue */
-  return s2_enqueue(q, entry_id, NULL, new_score);
+int mhb_update_score(sgf_queue_t *q, uint32_t entry_id, double new_score) {
+  return mhb_enqueue(q, entry_id, NULL, new_score);
 }
 
-size_t s2_size(sgf_queue_t *q) {
-  S2Queue *impl = (S2Queue *)q;
+size_t mhb_size(sgf_queue_t *q) {
+  MaxHeapBucketQueue *impl = (MaxHeapBucketQueue *)q;
   return impl->good_pile.size + impl->runner_up.size + impl->bad_pile.size;
 }
 
-void s2_stats(sgf_queue_t *q) {
-  S2Queue *impl = (S2Queue *)q;
-  fprintf(stderr, 
-    "[Queue S2] good=%zu (cap %zu), runner=%zu (cap %zu), bad=%zu (cap %zu), total=%zu\n",
+void mhb_stats(sgf_queue_t *q) {
+  MaxHeapBucketQueue *impl = (MaxHeapBucketQueue *)q;
+  fprintf(stderr,
+    "[Queue S3] good=%zu (cap %zu), runner=%zu (cap %zu), bad=%zu (cap %zu), "
+    "threshold=%.6f, total=%zu\n",
     impl->good_pile.size, impl->good_pile.capacity,
     impl->runner_up.size, impl->runner_up.capacity,
     impl->bad_pile.size, impl->bad_pile.capacity,
+    impl->threshold,
     impl->good_pile.size + impl->runner_up.size + impl->bad_pile.size);
 }
