@@ -542,7 +542,7 @@ typedef struct sgf_env_vars {
       sgf_sha1_filenames, sgf_no_sync, sgf_no_fastresume, sgf_forksrv_uid_set,
       sgf_forksrv_gid_set,
       // By us
-      check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile;
+      check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode;
 
   u16 sgf_forksrv_nb_supl_gids;
 
@@ -1037,6 +1037,7 @@ typedef struct sgf_state {
   u8 skeleton_graph_stage_max;          /* Highest skeleton-graph step count */
   u8 check_data_race;                   /* Enable data race tracking        */
   u8 enable_feedback;                   /* Enable simulator feedback mode   */
+  u8 sc_mode;                            /* Enable SC consistency filtering  */
   // End changes by us
 } sgf_state_t;
 
@@ -1358,6 +1359,7 @@ bool skeleton_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *gr
 u8 save_if_interesting_skeleton(sgf_state_t *, const struct SkeletonGraph *,
                                 u8);
 void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *sgi);
+bool is_sc_consistent_c(const struct SkeletonGraph *graph);
 
 // Opaque race-pair store managed by data_race.cpp.
 // The pointer is intentionally untyped here so callers only use the helper API.

@@ -23,4 +23,17 @@ set<EventID> find_consistent_writes(const SkeletonGraph& graph,
 									const std::string& target_location,
                   bool is_rmw_or_cas_success);
 
+/*
+  Checks if the skeleton graph is SC-consistent.
+  This function checks whether the skeleton graph satisfies Sequential Consistency (SC) by verifying that the union of
+  program order (PO), reads-from (RF), modification order (MO), and from-read (FR) relations is acyclic. It constructs
+  the combined relation and performs a cycle detection algorithm to determine if the graph is SC-consistent.
+
+  @param graph The skeleton graph containing all events and their relationships.
+  @return True if the graph is SC-consistent; false otherwise.
+*/
+bool is_sc_consistent(const SkeletonGraph& graph);
+
+extern "C" bool is_sc_consistent_c(const struct SkeletonGraph* graph);
+
 #endif // CONSISTENCY_H

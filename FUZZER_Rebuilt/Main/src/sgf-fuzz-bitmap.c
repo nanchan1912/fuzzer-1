@@ -1190,6 +1190,12 @@ u8 save_if_interesting_skeleton(sgf_state_t *sgf, const struct SkeletonGraph *gr
       break;
 
     case FSRV_RUN_CRASH:
+      // When SC_MODE is enabled, only mark/save crash if the graph is SC-consistent
+      if (sgf->sc_mode && !is_sc_consistent_c(graph)) {
+        free(buf);
+        return 0;
+      }
+
 
       ++sgf->total_crashes;
       if (sgf->saved_crashes >= KEEP_UNIQUE_CRASH) {

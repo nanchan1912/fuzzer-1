@@ -263,12 +263,19 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
             }
           } else if(!strncmp(env, "SGF_CHECK_DATA_RACE", sgf_environment_variable_len)){
             // 1. Actually fetch the variable
-            sgf->sgf_env.check_data_race = 
+            sgf->sgf_env.check_data_race =
                 atoi((u8 *)get_afl_env(sgf_environment_variables[i]));
-
             // 2. Parse it if it exists
             if (sgf->sgf_env.check_data_race) {
                 sgf->check_data_race = sgf->sgf_env.check_data_race;
+            }
+          } else if(!strncmp(env, "SGF_SC_MODE", sgf_environment_variable_len)){
+            // 1. Actually fetch the variable
+            sgf->sgf_env.sc_mode =
+                atoi((u8 *)get_afl_env(sgf_environment_variables[i]));
+            // 2. Parse it if it exists
+            if (sgf->sgf_env.sc_mode) {
+                sgf->sc_mode = sgf->sgf_env.sc_mode;
             }
 
             // 3. Fallback to default
