@@ -267,7 +267,7 @@ struct SkeletonGraphData{
     double mo_footprint_score;              /* MO footprint score */
 
     double decay_ratio;
-
+    // Can become useful to decide the energy through decay.
     u32 children_enqueued;                /* Number of children enqueued from this parent */
 
     // TODO: remove if not used.
