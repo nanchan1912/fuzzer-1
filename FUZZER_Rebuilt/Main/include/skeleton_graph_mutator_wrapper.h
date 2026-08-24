@@ -188,7 +188,7 @@ void incremental_update_on_rmw(void* potential, const SkeletonGraph* graph,
 /**
  * @brief Compute MO-footprint score from a skeleton graph.
  */
-u32 skeleton_graph_mo_footprint_calc(SkeletonGraph* graph);
+double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph);
 
 // not using this anymore
 // /**

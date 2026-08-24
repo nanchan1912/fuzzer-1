@@ -9,7 +9,7 @@ extern "C"{
 #include "skeleton_graph.hpp"
 #include "skeleton_graph_events.hpp"
 
-u32 skeleton_graph_mo_footprint_calc(SkeletonGraph* graph);
+double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph);
 
 
 #endif

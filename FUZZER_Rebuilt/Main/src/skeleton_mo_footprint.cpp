@@ -175,15 +175,21 @@ const uint32_t get_sum_mo_frequencies_from_source(EventTriple from_event_id){
 }
 
 
-extern "C" u32 skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
-    double score = 1.0;
+extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
+    if (!graph) return 1.0;
 
-    if (!graph) return 1;
+    // Track total ratio and number of MO edges to compute the average rarity ratio
+    // across all MO edges in the graph instead of compounding multiplicatively.
+    // Reason: Multiplicative scoring (score *= (1 + ratio) >= 2.0 per edge) scaled exponentially
+    // with graph size (>= 2^k), causing any graph with >= 7 writes to always saturate to 100.0
+    // regardless of whether its edges were rare or common.
+    double total_ratio = 0.0;
+    size_t edge_count = 0;
 
     // Iterate over all memory locations and their MO orderings
     for (const auto& [location, mo_list] : graph->get_mo_by_location()){
         if (mo_list.size() < 2) continue; // Need at least 2 writes for an MO edge
-        
+
         // For each write event in the MO ordering (except the last one)
         for (size_t i = 0; i < mo_list.size() - 1; i++){
             const EventID& from_event_id_tuple = mo_list[i];
@@ -197,34 +203,15 @@ extern "C" u32 skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
             //get the count of all edges from from_event_id encountered so far
             const uint32_t sum_all_mo_next_freq = get_sum_mo_frequencies_from_source(from_event_id);
 
-
-    //         // Get event details for the from and to events
-    //         const int from_tid = std::get<0>(from_event_id);
-    //         const long long from_iid = std::get<1>(from_event_id);
-    //         const int from_vid = std::get<2>(from_event_id);
-
-    //         const int to_tid = std::get<0>(to_event_id);
-    //         const long long to_iid = std::get<1>(to_event_id);
-    //         const int to_vid = std::get<2>(to_event_id);
-
-    //         // Get the sum of frequencies for ALL mo-next edges from this source write
-    //         // (across all possible destinations explored so far)
-
-    //         MoFreqSumContext ctx = {from_tid, from_iid, from_vid, 0};
-    //         for_each_mo_edge(sum_mo_frequencies_callback, &ctx);
-    //         const uint32_t sum_all_mo_next_freq = ctx.total_freq;
-
-    //         // Get the frequency of the specific MO edge in the current graph
-    //         const uint32_t current_edge_freq = get_mo_edge_frequency(from_tid, from_iid, from_vid,
-    //                                                                   to_tid, to_iid, to_vid);
-
             // Compute the ratio: sum / current_edge_freq
             // Higher sum with lower current_edge_freq = this specific path is less explored
 
+            double ratio = 1.0;
             if (current_edge_freq > 0 && sum_all_mo_next_freq > 0){
-                const double ratio = (double)sum_all_mo_next_freq / (double)current_edge_freq;
-                score *= (1.0 + ratio);
+                ratio = (double)sum_all_mo_next_freq / (double)current_edge_freq;
             } else if (current_edge_freq == 0){
+                // Completely unexplored source write - assign maximum rarity reward (100.0)
+                ratio = 100.0;
                 // Completely unexplored source write - maximum boost
                 ACTF("MO Edge: (%d, %lld, %d) -> (%d, %lld, %d), current_edge_freq: %u, sum_all_mo_next_freq: %u",
                      from_event_id.thread_id, from_event_id.instruction_id, from_event_id.visit_id,
@@ -234,17 +221,31 @@ extern "C" u32 skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
                 assert(0 && "This case should not be possible: current_edge_freq is 0");
                 // TODO: what should I do with score here
             } else{
-                // Edge exists in graph but not in diversity tracker yet
+                // Edge exists in graph but not in diversity tracker yet - fallback to default
+                ratio = 1.0;
                 ACTF("THIS CASE IS ALSO NOT POSSIBLE");
                 assert(0 && "This case should not be possible: sum_all_mo_next_freq is 0");
                 //TODO: what should I do with score here
             }
+
+            // Clamp individual edge ratio to [1.0, 100.0]
+            if (ratio < 1.0) ratio = 1.0;
+            if (ratio > 100.0) ratio = 100.0;
+
+            total_ratio += ratio;
+            edge_count++;
         }
     }
 
-    u32 final_score = (u32)score;
-    if (final_score < 1) final_score = 1;
-    if (final_score > 100) final_score = 100;
+    // If no MO edges exist in the graph, default score is 1.0
+    if (edge_count == 0) {
+        return 1.0;
+    }
+
+    // Compute average edge diversity across all MO edges, clamped to [1.0, 100.0]
+    double final_score = total_ratio / (double)edge_count;
+    if (final_score < 1.0) final_score = 1.0;
+    if (final_score > 100.0) final_score = 100.0;
 
     return final_score;
 }
