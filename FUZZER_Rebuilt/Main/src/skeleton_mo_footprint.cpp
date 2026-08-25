@@ -206,29 +206,12 @@ extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
             // Compute the ratio: sum / current_edge_freq
             // Higher sum with lower current_edge_freq = this specific path is less explored
 
-            double ratio = 1.0;
-            if (current_edge_freq > 0 && sum_all_mo_next_freq > 0){
-                ratio = (double)sum_all_mo_next_freq / (double)current_edge_freq;
-            } else if (current_edge_freq == 0){
-                // Completely unexplored source write - assign maximum rarity reward (100.0)
-                ratio = 100.0;
-                // Completely unexplored source write - maximum boost
-                ACTF("MO Edge: (%d, %lld, %d) -> (%d, %lld, %d), current_edge_freq: %u, sum_all_mo_next_freq: %u",
-                     from_event_id.thread_id, from_event_id.instruction_id, from_event_id.visit_id,
-                     to_event_id.thread_id, to_event_id.instruction_id, to_event_id.visit_id,
-                     current_edge_freq, sum_all_mo_next_freq);
-                ACTF("THIS CASE IS NOT POSSIBLE");
-                assert(0 && "This case should not be possible: current_edge_freq is 0");
-                // TODO: what should I do with score here
-            } else{
-                // Edge exists in graph but not in diversity tracker yet - fallback to default
-                ratio = 1.0;
-                ACTF("THIS CASE IS ALSO NOT POSSIBLE");
-                assert(0 && "This case should not be possible: sum_all_mo_next_freq is 0");
-                //TODO: what should I do with score here
-            }
+            assert(sum_all_mo_next_freq > 0 && current_edge_freq > 0);
+            double ratio = (double)sum_all_mo_next_freq / (double)current_edge_freq;
 
             // Clamp individual edge ratio to [1.0, 100.0]
+            // Clamping per edge ensures individual edge contributions are bounded in [1.0, 100.0],
+            // preventing a single extreme outlier edge from saturating the entire graph's average to 100.0.
             if (ratio < 1.0) ratio = 1.0;
             if (ratio > 100.0) ratio = 100.0;
 
