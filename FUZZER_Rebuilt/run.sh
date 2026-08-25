@@ -312,14 +312,20 @@ if [[ $CUSTOM_MODE -eq 0 || -z "$STATIC_GRAPH" || -z "$INPUT_SRC" || ${#TARGET_C
             # Check if it is a benchmark name in pthread_version_of_benchmarks
             if [[ -d "$BENCHMARKS_DIR/$TARGET_NAME/data" ]]; then
                 BM_DATA="$BENCHMARKS_DIR/$TARGET_NAME/data"
-                INST_BIN="$(find "$BM_DATA" -maxdepth 1 \( -name "*.instrumented.out" -o -name "*.out" \) -executable | head -n 1)"
+                INST_BIN="$(find "$BM_DATA" -maxdepth 1 -name "*.instrumented.out" -executable | head -n 1)"
+                if [[ -z "$INST_BIN" ]]; then
+                    INST_BIN="$(find "$BM_DATA" -maxdepth 1 -name "*.out" -executable | head -n 1)"
+                fi
                 STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DATA" -maxdepth 1 \( -name "generated_output.ccfg" -o -name "*.eg" \) | head -n 1)}"
                 INPUT_SRC="${INPUT_SRC:-$(find "$BM_DATA" -maxdepth 1 \( -name "init.sg.json" -o -name "*.json" \) | head -n 1)}"
                 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/sgf_out_$TARGET_NAME}"
                 TARGET_CMD=("$INST_BIN")
             elif [[ -d "$BENCHMARKS_DIR/$TARGET_NAME" ]]; then
                 BM_DIR="$BENCHMARKS_DIR/$TARGET_NAME"
-                INST_BIN="$(find "$BM_DIR" -maxdepth 2 \( -name "*.instrumented.out" -o -name "*.out" \) -executable | head -n 1)"
+                INST_BIN="$(find "$BM_DIR" -maxdepth 2 -name "*.instrumented.out" -executable | head -n 1)"
+                if [[ -z "$INST_BIN" ]]; then
+                    INST_BIN="$(find "$BM_DIR" -maxdepth 2 -name "*.out" -executable | head -n 1)"
+                fi
                 STATIC_GRAPH="${STATIC_GRAPH:-$(find "$BM_DIR" -maxdepth 2 \( -name "generated_output.ccfg" -o -name "*.eg" \) | head -n 1)}"
                 INPUT_SRC="${INPUT_SRC:-$(find "$BM_DIR" -maxdepth 2 \( -name "init.sg.json" -o -name "*.json" \) | head -n 1)}"
                 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/sgf_out_$TARGET_NAME}"
