@@ -47,6 +47,14 @@ OUTPUT_DIR=""
 STATIC_GRAPH=""
 TARGET_CMD=()
 CUSTOM_MODE=0
+EXEC_TIMEOUT="${SGF_EXEC_TIMEOUT:-3000}"
+ENABLE_FEEDBACK="${SGF_ENABLE_FEEDBACK:-1}"
+CHECK_DATA_RACE="${SGF_CHECK_DATA_RACE:-0}"
+SC_MODE="${SGF_SC_MODE:-0}"
+HIGHEST_STEP="${SGF_SKELETON_GRAPH_HIGHEST_STEP:-3}"
+CUTOFF_PERCENTILE="${SGF_CUTOFF_PERCENTILE:-0}"
+POTENTIAL_LOCATIONS=""
+INTERESTING_LOCATIONS=""
 
 show_help() {
     cat << 'EOF'
@@ -82,12 +90,24 @@ OPTIONS:
   -i, --input <PATH>      Seed input directory or JSON seed file
   -o, --output <PATH>     Output directory (default: /tmp/sgf_out_<target>)
   -v, --graph <PATH>      Static abstraction graph (.ccfg / .eg / .pg)
+  --exec-timeout <MS>     Per-execution timeout in milliseconds (default: 3000)
+  --feedback <0|1>        Enable simulator feedback (default: 1)
+  --race <0|1>            Enable data race checking (default: 0)
+  --sc-mode <0|1>         Enable SC-consistency crash filtering (default: 0)
+  --highest-step <N>      Skeleton graph highest step (default: 3)
+  --cutoff-percentile <N> Score cutoff percentile (default: 0)
+  --potential-locations <PATH>    Potential locations file (default: auto, next to target)
+  --interesting-locations <PATH>  Interesting locations file (default: auto, next to target)
   -h, --help              Show this help message
 
 ENVIRONMENT VARIABLES:
   SGF_QUEUE_IMPL          Queue implementation (maxheap, threshold_bucket, runner_up, maxheap_bucket)
-  SGF_ENABLE_FEEDBACK     Enable simulator feedback (0 or 1, default: 0)
+  SGF_EXEC_TIMEOUT        Per-execution timeout in milliseconds (default: 3000)
+  SGF_ENABLE_FEEDBACK     Enable simulator feedback (0 or 1, default: 1)
   SGF_CHECK_DATA_RACE     Enable data race checking (0 or 1, default: 0)
+  SGF_SC_MODE             Enable SC-consistency crash filtering (0 or 1, default: 0)
+  SGF_SKELETON_GRAPH_HIGHEST_STEP  Skeleton graph highest step (default: 3)
+  SGF_CUTOFF_PERCENTILE   Score cutoff percentile (default: 0)
   MAX_TIME / RUN_TIME     Fuzzing time limit in seconds (default: 10)
   SGF_BENCH_UNTIL_CRASH   Set automatically by -c/--until-crash
 ==============================================================================
@@ -148,6 +168,38 @@ while [[ $# -gt 0 ]]; do
         -v|--graph)
             STATIC_GRAPH="$2"
             CUSTOM_MODE=1
+            shift 2
+            ;;
+        --exec-timeout)
+            EXEC_TIMEOUT="$2"
+            shift 2
+            ;;
+        --feedback)
+            ENABLE_FEEDBACK="$2"
+            shift 2
+            ;;
+        --race)
+            CHECK_DATA_RACE="$2"
+            shift 2
+            ;;
+        --sc-mode)
+            SC_MODE="$2"
+            shift 2
+            ;;
+        --highest-step)
+            HIGHEST_STEP="$2"
+            shift 2
+            ;;
+        --cutoff-percentile)
+            CUTOFF_PERCENTILE="$2"
+            shift 2
+            ;;
+        --potential-locations)
+            POTENTIAL_LOCATIONS="$2"
+            shift 2
+            ;;
+        --interesting-locations)
+            INTERESTING_LOCATIONS="$2"
             shift 2
             ;;
         --)
@@ -313,6 +365,12 @@ if [[ ${#TARGET_CMD[@]} -eq 0 || ! -x "${TARGET_CMD[0]}" ]]; then
     exit 1
 fi
 
+# Auto-default the location files to the target's directory, matching
+# upstream behavior, if the user didn't pass them explicitly.
+TARGET_DIR_FOR_DEFAULTS="$(dirname "${TARGET_CMD[0]}")"
+POTENTIAL_LOCATIONS="${POTENTIAL_LOCATIONS:-$TARGET_DIR_FOR_DEFAULTS/locations.loc}"
+INTERESTING_LOCATIONS="${INTERESTING_LOCATIONS:-$TARGET_DIR_FOR_DEFAULTS/interesting_locations.loc}"
+
 # Prepare input directory
 TEMP_IN_DIR="/tmp/sgf_in_$$"
 rm -rf "$TEMP_IN_DIR"
@@ -345,6 +403,13 @@ export SGF_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 export SGF_SKIP_CPUFREQ=1
 export SGF_NO_AFFINITY=1
 export SGF_EXIT_WHEN_DONE=1
+export SGF_ENABLE_FEEDBACK="$ENABLE_FEEDBACK"
+export SGF_CHECK_DATA_RACE="$CHECK_DATA_RACE"
+export SGF_SC_MODE="$SC_MODE"
+export SGF_SKELETON_GRAPH_HIGHEST_STEP="$HIGHEST_STEP"
+export SGF_CUTOFF_PERCENTILE="$CUTOFF_PERCENTILE"
+export SGF_POTENTIAL_LOCATIONS_FILE="$POTENTIAL_LOCATIONS"
+export SGF_INTERESTING_LOCATIONS_FILE="$INTERESTING_LOCATIONS"
 
 SGF_TIME_ARGS=()
 if [[ "$UNTIL_CRASH" -eq 1 ]]; then
@@ -358,6 +423,7 @@ set +e
     "${SGF_TIME_ARGS[@]}" \
     -i "$TEMP_IN_DIR" \
     -o "$OUTPUT_DIR" \
+    -t "$EXEC_TIMEOUT" \
     -v "$STATIC_GRAPH" \
     -- "${TARGET_CMD[@]}"
 RET=$?
