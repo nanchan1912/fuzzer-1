@@ -728,7 +728,7 @@ void add_to_queue(sgf_state_t *sgf, u8 *fname, u32 len, u8 passed_det) {
       (struct queue_entry *)ck_alloc(sizeof(struct queue_entry));
 
   q->fname = ck_strdup(fname);
-  q->len = len;
+  q->len = len ? len : 1;
 
   q->depth = sgf->cur_depth + 1;
   q->passed_det = passed_det;
@@ -1464,6 +1464,17 @@ inline u8 *queue_testcase_get(sgf_state_t *sgf, struct queue_entry *q) {
 
   if (likely(q->testcase_buf)) { return q->testcase_buf; }
 
+  // If the skeleton graph is in memory in q->graph_data, construct testcase_buf directly from memory
+  if (q->graph_data && q->graph_data->skeleton_graph) {
+    uint8_t *sbuf = NULL;
+    uint32_t slen = 0;
+    if (serialize_graph_c(q->graph_data->skeleton_graph, &sbuf, &slen) == 0 && sbuf) {
+      q->len = slen;
+      q->testcase_buf = sbuf;
+      return q->testcase_buf;
+    }
+  }
+
   u32    len = q->len;
   double weight = q->weight;
 
@@ -1476,11 +1487,11 @@ inline u8 *queue_testcase_get(sgf_state_t *sgf, struct queue_entry *q) {
 
     if (likely(q == sgf->queue_cur)) {
 
-      buf = (u8 *)afl_realloc((void **)&sgf->testcase_buf, len);
+      buf = (u8 *)afl_realloc((void **)&sgf->testcase_buf, len ? len : 1);
 
     } else {
 
-      buf = (u8 *)afl_realloc((void **)&sgf->splicecase_buf, len);
+      buf = (u8 *)afl_realloc((void **)&sgf->splicecase_buf, len ? len : 1);
 
     }
 
@@ -1492,7 +1503,18 @@ inline u8 *queue_testcase_get(sgf_state_t *sgf, struct queue_entry *q) {
 
     int fd = open((char *)q->fname, O_RDONLY);
 
-    if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
+    if (unlikely(fd < 0)) {
+      if (q->graph_data && q->graph_data->skeleton_graph) {
+        uint8_t *sbuf = NULL;
+        uint32_t slen = 0;
+        if (serialize_graph_c(q->graph_data->skeleton_graph, &sbuf, &slen) == 0 && sbuf) {
+          q->len = slen;
+          q->testcase_buf = sbuf;
+          return q->testcase_buf;
+        }
+      }
+      PFATAL("Unable to open '%s'", (char *)q->fname);
+    }
 
     ck_read(fd, buf, len, q->fname);
     close(fd);
@@ -1583,9 +1605,23 @@ inline u8 *queue_testcase_get(sgf_state_t *sgf, struct queue_entry *q) {
 
   int fd = open((char *)q->fname, O_RDONLY);
 
-  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", (char *)q->fname); }
+  if (unlikely(fd < 0)) {
+    if (q->graph_data && q->graph_data->skeleton_graph) {
+      uint8_t *sbuf = NULL;
+      uint32_t slen = 0;
+      if (serialize_graph_c(q->graph_data->skeleton_graph, &sbuf, &slen) == 0 && sbuf) {
+        q->len = slen;
+        q->testcase_buf = sbuf;
+        sgf->q_testcase_cache[tid] = q;
+        sgf->q_testcase_cache_size += slen;
+        ++sgf->q_testcase_cache_count;
+        return q->testcase_buf;
+      }
+    }
+    PFATAL("Unable to open '%s'", (char *)q->fname);
+  }
 
-  q->testcase_buf = (u8 *)malloc(len);
+  q->testcase_buf = (u8 *)malloc(len ? len : 1);
 
   if (unlikely(!q->testcase_buf)) {
 

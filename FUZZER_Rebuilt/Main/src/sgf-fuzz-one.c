@@ -143,8 +143,8 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     default: break;
   }
 
-  /* Skip duplicates */
-  if (skeleton_graph_seen_or_add(sgf, working_graph)) {
+  /* Skip duplicates already in queue/seen set */
+  if (skeleton_graph_seen(sgf, working_graph)) {
     destroy_SkeletonGraph(working_graph);
     destroy_skeleton_potential(potential_obj);
     return NULL;
@@ -240,9 +240,16 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   bool has_no_children = (parent && parent->graph_data && parent->graph_data->children_enqueued == 0);
 
   if (new_score > sgf->cutoff_score || sgf->queued_items == 0 || (sgf->check_data_race && mutated_graph_metadata->is_racy) || has_no_children) {
+
+    /* Mark graph as seen now that it passed cutoff and is being added to queue */
+    skeleton_graph_seen_or_add(sgf, mutated_graph_metadata->skeleton_graph);
+
     /* Write graph */
     char *filename = alloc_printf("%s/queue/id:%06u,src:%06u.json", sgf->out_dir, sgf->queued_items, parent->id);
-    size_t json_len = write_to_json(filename, mutated_graph_metadata->skeleton_graph);
+    size_t json_len = 0;
+    if (!sgf->no_queue_files) {
+      json_len = write_to_json(filename, mutated_graph_metadata->skeleton_graph);
+    }
 
     /* Enqueue */
     add_to_queue(sgf, (u8 *)filename, (u32)json_len, 0);
@@ -676,34 +683,38 @@ u8 fuzz_one_original(sgf_state_t *sgf) {
 
   }
 
-  if (likely(sgf->pending_favored)) {
+  if (!sgf->queue_cur || !sgf->queue_cur->graph_data || !sgf->queue_cur->graph_data->skeleton_graph) {
 
-    /* If we have any favored, non-fuzzed new arrivals in the queue,
-       possibly skip to them at the expense of already-fuzzed or non-favored
-       cases. */
+    if (likely(sgf->pending_favored)) {
 
-    if ((sgf->queue_cur->fuzz_level || !sgf->queue_cur->favored) &&
-        likely(rand_below(sgf, 100) < SKIP_TO_NEW_PROB)) {
+      /* If we have any favored, non-fuzzed new arrivals in the queue,
+         possibly skip to them at the expense of already-fuzzed or non-favored
+         cases. */
 
-      return 1;
+      if ((sgf->queue_cur->fuzz_level || !sgf->queue_cur->favored) &&
+          likely(rand_below(sgf, 100) < SKIP_TO_NEW_PROB)) {
 
-    }
+        return 1;
 
-  } else if (!sgf->non_instrumented_mode && !sgf->queue_cur->favored &&
+      }
 
-             sgf->queued_items > 10) {
+    } else if (!sgf->non_instrumented_mode && !sgf->queue_cur->favored &&
 
-    /* Otherwise, still possibly skip non-favored cases, albeit less often.
-       The odds of skipping stuff are higher for already-fuzzed inputs and
-       lower for never-fuzzed entries. */
+               sgf->queued_items > 10) {
 
-    if (sgf->queue_cycle > 1 && !sgf->queue_cur->fuzz_level) {
+      /* Otherwise, still possibly skip non-favored cases, albeit less often.
+         The odds of skipping stuff are higher for already-fuzzed inputs and
+         lower for never-fuzzed entries. */
 
-      if (likely(rand_below(sgf, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
+      if (sgf->queue_cycle > 1 && !sgf->queue_cur->fuzz_level) {
 
-    } else {
+        if (likely(rand_below(sgf, 100) < SKIP_NFAV_NEW_PROB)) { return 1; }
 
-      if (likely(rand_below(sgf, 100) < SKIP_NFAV_OLD_PROB)) { return 1; }
+      } else {
+
+        if (likely(rand_below(sgf, 100) < SKIP_NFAV_OLD_PROB)) { return 1; }
+
+      }
 
     }
 
@@ -881,9 +892,11 @@ havoc_stage:
       // Will be required for seed
       // exit(1);
       if (!sgf->queue_cur->graph_data->skeleton_graph) {
-        // No skeleton graph yet, read from JSON
-        sgf->queue_cur->graph_data->skeleton_graph = read_from_json(sgf->queue_cur->fname);
-        // If reading from JSON fails, create an empty skeleton graph
+        // No skeleton graph yet, read from JSON if file exists
+        if (sgf->queue_cur->fname && access((char *)sgf->queue_cur->fname, R_OK) == 0) {
+          sgf->queue_cur->graph_data->skeleton_graph = read_from_json(sgf->queue_cur->fname);
+        }
+        // If reading from JSON fails or file does not exist, create an empty skeleton graph
         if (!sgf->queue_cur->graph_data->skeleton_graph) {
           sgf->queue_cur->graph_data->skeleton_graph = empty_skeleton_graph();
         }

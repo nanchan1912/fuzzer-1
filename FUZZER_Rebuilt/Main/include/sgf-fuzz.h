@@ -1029,6 +1029,7 @@ typedef struct sgf_state {
   u64 *skel_hash_table;                 /* Skeleton graph dedup table       */
   u32  skel_hash_cap;                   /* Dedup table capacity (power of 2)*/
   u32  skel_hash_count;                 /* Dedup table entries count        */  
+  u8   no_queue_files;                  /* Skip writing queue entries to disk (I/O opt) */
   u64 *race_set_hashes;                 /* Hash set for unique race pairs   */
   u32 race_set_size;                    /* Capacity of race set             */
   u32 race_set_count;                   /* Count of unique race pairs       */
@@ -1355,6 +1356,7 @@ void        deinit_py(void *);
 // Begin changes by us
 size_t write_to_temp_json(sgf_state_t *sgf, struct SkeletonGraphData *sgi);
 u8 skeleton_graph_fuzz_stuff(sgf_state_t *sgf, struct SkeletonGraphData *sgi);
+bool skeleton_graph_seen(sgf_state_t *sgf, const struct SkeletonGraph *graph);
 bool skeleton_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *graph);
 u8 save_if_interesting_skeleton(sgf_state_t *, const struct SkeletonGraph *,
                                 u8);
@@ -1384,6 +1386,7 @@ void  race_pair_store_update_incremental(void* store,
 int serialize_graph_c(const struct SkeletonGraph *graph,
                         uint8_t **out_buf,
                         uint32_t *out_len);
+uint64_t hash_skeleton_graph(const struct SkeletonGraph *graph);
 // End changes by us
 
 

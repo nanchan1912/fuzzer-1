@@ -59,7 +59,7 @@ void save_non_instantiable_skeleton_graph(sgf_state_t *sgf,
                                              u8 exit_code,
                                              u32 graph_id) {
 
-  if (unlikely(!sgf || !graph)) { return; }
+  if (unlikely(!sgf || !graph || sgf->no_queue_files)) { return; }
 
   char *dir = alloc_printf("%s/non_instantiable", sgf->out_dir);
   if (mkdir(dir, 0700) && errno != EEXIST) {
@@ -122,18 +122,34 @@ static void skel_hash_rehash(sgf_state_t *sgf, u32 new_cap) {
   ck_free(old_table);
 }
 
+bool skeleton_graph_seen(sgf_state_t *sgf, const struct SkeletonGraph *graph) {
+  if (!sgf || !graph || !sgf->skel_hash_table || sgf->skel_hash_cap == 0) { return false; }
+
+  u64 h = hash_skeleton_graph(graph);
+  if (!h) { return false; }
+
+  u64 key = h ^ 0x9e3779b97f4a7c15ULL;
+  if (key == 0) { key = 1; }
+
+  u32 mask = sgf->skel_hash_cap - 1;
+  u32 idx = (u32)key & mask;
+  while (1) {
+    u64 slot = sgf->skel_hash_table[idx];
+    if (!slot) {
+      return false;
+    }
+    if (slot == key) {
+      return true;
+    }
+    idx = (idx + 1) & mask;
+  }
+}
+
 bool skeleton_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *graph) {
   if (!sgf || !graph) { return false; }
 
-  uint8_t *buf = NULL;
-  uint32_t len = 0;
-  if (serialize_graph_c(graph, &buf, &len) != 0 || !buf || !len) {
-    if (buf) { free(buf); }
-    return false;
-  }
-
-  u64 h = hash64(buf, len, 0);
-  free(buf);
+  u64 h = hash_skeleton_graph(graph);
+  if (!h) { return false; }
 
   // Avoid zero sentinel values in table
   u64 key = h ^ 0x9e3779b97f4a7c15ULL;

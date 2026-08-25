@@ -51,6 +51,7 @@ std::string event_type_to_string(Event_Type t) {
         case Event_Type::RMW:   return "RMW";
         case Event_Type::CAS_SUCCESS: return "CAS_SUCCESS";
         case Event_Type::FENCE: return "F";
+        case Event_Type::CAS:   return "CAS";
     }
     throw std::runtime_error("Unknown Event_Type enum value");
 }
@@ -391,15 +392,100 @@ extern "C" SkeletonGraph* read_from_json(const char *filename) {
     return graph;
 }
 
-std::string serialize_graph_cpp(const SkeletonGraph& graph) {
-    SkeletonGraph tmp = graph;
-    // tmp.canonicalize();
+static inline uint64_t hash_combine64(uint64_t h, uint64_t k) {
+    k *= 0xc6a4a7935bd1e995ULL;
+    k ^= k >> 47;
+    k *= 0xc6a4a7935bd1e995ULL;
+    h ^= k;
+    h *= 0xc6a4a7935bd1e995ULL;
+    return h;
+}
 
+static inline uint64_t hash_event_id_val(const EventID& id) {
+    uint64_t h = 0x9e3779b97f4a7c15ULL;
+    h = hash_combine64(h, (uint64_t)(uint32_t)std::get<0>(id));
+    h = hash_combine64(h, (uint64_t)std::get<1>(id));
+    h = hash_combine64(h, (uint64_t)(uint32_t)std::get<2>(id));
+    return h;
+}
+
+static inline uint64_t hash_string_val(const std::string& s) {
+    uint64_t h = 0xcbf29ce484222325ULL;
+    for (char c : s) {
+        h = (h ^ (uint8_t)c) * 0x100000001b3ULL;
+    }
+    return h;
+}
+
+extern "C" uint64_t hash_skeleton_graph(const SkeletonGraph* graph) {
+    if (!graph) return 0;
+
+    uint64_t h = 0x84222325cbf29ce4ULL;
+
+    uint64_t events_h = 0;
+    for (const auto& kv : graph->get_events()) {
+        const Event& e = kv.second;
+        uint64_t eh = hash_event_id_val(e.get_event_id());
+        eh = hash_combine64(eh, (uint64_t)e.get_access_mode());
+        eh = hash_combine64(eh, (uint64_t)e.get_event_type());
+        eh = hash_combine64(eh, hash_string_val(e.get_location()));
+        events_h += (eh ^ (eh >> 31));
+    }
+    h = hash_combine64(h, events_h);
+
+    uint64_t rf_h = 0;
+    for (const auto& [src, dsts] : graph->get_rf()) {
+        uint64_t src_h = hash_event_id_val(src);
+        for (const auto& dst : dsts) {
+            uint64_t edge_h = hash_combine64(src_h, hash_event_id_val(dst));
+            rf_h += (edge_h ^ (edge_h >> 31));
+        }
+    }
+    h = hash_combine64(h, rf_h);
+
+    uint64_t sw_h = 0;
+    for (const auto& [src, dsts] : graph->get_sw()) {
+        uint64_t src_h = hash_event_id_val(src);
+        for (const auto& dst : dsts) {
+            uint64_t edge_h = hash_combine64(src_h, hash_event_id_val(dst));
+            sw_h += (edge_h ^ (edge_h >> 31));
+        }
+    }
+    h = hash_combine64(h, sw_h);
+
+    uint64_t tcj_h = 0;
+    for (const auto& [src, dsts] : graph->get_tcj()) {
+        uint64_t src_h = hash_event_id_val(src);
+        for (const auto& dst : dsts) {
+            uint64_t edge_h = hash_combine64(src_h, hash_event_id_val(dst));
+            tcj_h += (edge_h ^ (edge_h >> 31));
+        }
+    }
+    h = hash_combine64(h, tcj_h);
+
+    for (const auto& [tid, lst] : graph->get_threadwise_po()) {
+        h = hash_combine64(h, (uint64_t)(uint32_t)tid);
+        for (const auto& ev_id : lst) {
+            h = hash_combine64(h, hash_event_id_val(ev_id));
+        }
+    }
+
+    for (const auto& [loc, lst] : graph->get_mo_by_location()) {
+        h = hash_combine64(h, hash_string_val(loc));
+        for (const auto& ev_id : lst) {
+            h = hash_combine64(h, hash_event_id_val(ev_id));
+        }
+    }
+
+    return h == 0 ? 1 : h;
+}
+
+std::string serialize_graph_cpp(const SkeletonGraph& graph) {
     json j;
 
     // Collect events and sort by EventID for stable output
-    std::vector<const Event*> evs; evs.reserve(tmp.get_events().size());
-    for (const auto& kv : tmp.get_events()) evs.push_back(&kv.second);
+    std::vector<const Event*> evs; evs.reserve(graph.get_events().size());
+    for (const auto& kv : graph.get_events()) evs.push_back(&kv.second);
     std::sort(evs.begin(), evs.end(), [](const Event* a, const Event* b){
         if (a->get_thread_id() != b->get_thread_id()) return a->get_thread_id() < b->get_thread_id();
         if (a->get_instruction_id() != b->get_instruction_id()) return a->get_instruction_id() < b->get_instruction_id();
@@ -420,10 +506,10 @@ std::string serialize_graph_cpp(const SkeletonGraph& graph) {
         j["nodes"].push_back(node);
     }
 
-    write_adj_list(j, "rf_edges", tmp.get_rf());
-    write_adj_list(j, "sw_edges", tmp.get_sw());
-    write_adj_list(j, "tcj_edges", tmp.get_tcj());
-    for (const auto& [tid, lst] : tmp.get_threadwise_po()) {
+    write_adj_list(j, "rf_edges", graph.get_rf());
+    write_adj_list(j, "sw_edges", graph.get_sw());
+    write_adj_list(j, "tcj_edges", graph.get_tcj());
+    for (const auto& [tid, lst] : graph.get_threadwise_po()) {
         json entry;
         entry["thread_id"] = tid;
         json list_array = json::array();
@@ -434,7 +520,7 @@ std::string serialize_graph_cpp(const SkeletonGraph& graph) {
         j["po_per_thread"].push_back(entry);
     }
 
-    for (const auto& [loc, lst] : tmp.get_mo_by_location()) {
+    for (const auto& [loc, lst] : graph.get_mo_by_location()) {
         json entry;
         entry["location"] = loc;
         json list_array = json::array();
@@ -454,10 +540,7 @@ extern "C" int serialize_graph_c(const SkeletonGraph *graph,
     if (!graph || !out_buf || !out_len) return -1;
 
     try {
-        SkeletonGraph tmp = *graph;
-        // tmp.canonicalize();
-
-        std::string s = serialize_graph_cpp(tmp);
+        std::string s = serialize_graph_cpp(*graph);
 
         if (s.empty()) return -1;
 
