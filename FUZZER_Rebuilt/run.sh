@@ -435,6 +435,13 @@ set +e
 RET=$?
 set -e
 
+# Copy explored locations back into the target's directory so a subsequent
+# run against the same target can warm-start from them (matches upstream
+# run.sh's behavior; sgf-fuzz always writes this file into $OUTPUT_DIR).
+if [[ -f "$OUTPUT_DIR/locations.loc" ]]; then
+    cp "$OUTPUT_DIR/locations.loc" "$TARGET_DIR_FOR_DEFAULTS/locations.loc"
+fi
+
 # Cleanup temporary input dir
 rm -rf "$TEMP_IN_DIR"
 
