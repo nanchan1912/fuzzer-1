@@ -3,6 +3,7 @@
 #include "skeleton_graph.hpp"
 #include "skeleton_graph_mutator.hpp"
 #include <cassert>
+#include <cmath>
 
 extern "C" {
   #include "skeleton_graph_mutator_wrapper.h"
@@ -205,10 +206,11 @@ extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
     // with graph size (>= 2^k), causing any graph with >= 7 writes to always saturate to 100.0
     // regardless of whether its edges were rare or common.
     double total_ratio = 0.0;
-    size_t edge_count = 0;
+    size_t total_writes = 0;
 
     // Iterate over all memory locations and their MO orderings
     for (const auto& [location, mo_list] : graph->get_mo_by_location()){
+        total_writes += mo_list.size();
         if (mo_list.size() < 2) continue; // Need at least 2 writes for an MO edge
 
         // For each write event in the MO ordering (except the last one)
@@ -224,30 +226,31 @@ extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
             //get the count of all edges from from_event_id encountered so far
             const uint32_t sum_all_mo_next_freq = get_sum_mo_frequencies_from_source(from_event_id);
 
-            // Compute the ratio: sum / current_edge_freq
-            // Higher sum with lower current_edge_freq = this specific path is less explored
+            // Compute ratio: current_edge_freq / sum_all_mo_next_freq
+            double ratio = 0.0;
+            if (sum_all_mo_next_freq > 0) {
+                ratio = (double)current_edge_freq / (double)sum_all_mo_next_freq;
+                if (ratio > 1.0) ratio = 1.0;
+                if (ratio < 0.0) ratio = 0.0;
+            }
 
-            assert(sum_all_mo_next_freq > 0 && current_edge_freq > 0);
-            double ratio = (double)sum_all_mo_next_freq / (double)current_edge_freq;
-
-            // Clamp individual edge ratio to [1.0, 100.0]
-            // Clamping per edge ensures individual edge contributions are bounded in [1.0, 100.0],
-            // preventing a single extreme outlier edge from saturating the entire graph's average to 100.0.
-            if (ratio < 1.0) ratio = 1.0;
-            if (ratio > 100.0) ratio = 100.0;
-
-            total_ratio += ratio;
-            edge_count++;
+            // Weight by (1 - ratio) * (1 / (1 + log(i + 1)))
+            // (i is 0-indexed, so i + 1 gives 1-indexed write position in MO: log(1) = 0 for the first edge)
+            double discount = 1.0 / (1.0 + std::log((double)(i + 1)));
+            total_ratio += (1.0 - ratio) * discount;
         }
     }
 
     // If no MO edges exist in the graph, default score is 1.0
-    if (edge_count == 0) {
+    if (total_writes == 0) {
         return 1.0;
     }
 
-    // Compute average edge diversity across all MO edges, clamped to [1.0, 100.0]
-    double final_score = total_ratio / (double)edge_count;
+    // Divide by total number of writes in the graph (giving a value in [0, 1])
+    double normalized_score = total_ratio / (double)total_writes;
+
+    // Scale to [1.0, 100.0]
+    double final_score = 1.0 + normalized_score * 99.0;
     if (final_score < 1.0) final_score = 1.0;
     if (final_score > 100.0) final_score = 100.0;
 
