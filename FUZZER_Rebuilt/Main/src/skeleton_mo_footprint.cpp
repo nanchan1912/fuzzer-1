@@ -1,7 +1,7 @@
 #include "diversity_checker.h"
 #include "sgf-fuzz.h"
 #include "skeleton_graph.hpp"
-
+#include "skeleton_graph_mutator.hpp"
 #include <cassert>
 
 extern "C" {
@@ -99,6 +99,9 @@ int update_mo_coverage(EventTriple from_event_id, EventTriple to_event_id){
 }
 
 void update_mo_coverage_for_graph(SkeletonGraph* graph){
+    if (!graph) return;
+    const auto& po_map = graph->get_threadwise_po();
+
     for (const auto& [location, mo_list] : graph->get_mo_by_location()){
         if (mo_list.size() < 2) continue; // Need at least 2 writes for an MO edge
             
@@ -113,6 +116,24 @@ void update_mo_coverage_for_graph(SkeletonGraph* graph){
             
             //updating the freq of this edge
             update_mo_coverage(from_event_id, to_event_id);
+
+            // Update MO-guided thread bias for cross-thread writes
+            ThreadID from_tid = std::get<0>(from_event_id_tuple);
+            ThreadID to_tid = std::get<0>(to_event_id_tuple);
+            if (from_tid != to_tid) {
+                int from_count = 0;
+                int to_count = 0;
+                auto it_from = po_map.find(from_tid);
+                if (it_from != po_map.end()) {
+                    from_count = static_cast<int>(it_from->second.size());
+                }
+                auto it_to = po_map.find(to_tid);
+                if (it_to != po_map.end()) {
+                    to_count = static_cast<int>(it_to->second.size());
+                }
+                int k = std::abs(to_count - from_count) + 1;
+                add_mo_thread_bias(to_tid, k);
+            }
         }
     }
 }

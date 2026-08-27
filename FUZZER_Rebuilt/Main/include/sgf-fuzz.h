@@ -1030,6 +1030,9 @@ typedef struct sgf_state {
   u32  skel_hash_cap;                   /* Dedup table capacity (power of 2)*/
   u32  skel_hash_count;                 /* Dedup table entries count        */  
   u8   no_queue_files;                  /* Skip writing queue entries to disk (I/O opt) */
+  u64 *crash_hash_table;                /* Unique crash graph dedup table    */
+  u32  crash_hash_cap;                  /* Crash dedup table capacity (power of 2) */
+  u32  crash_hash_count;                /* Crash dedup table entries count   */
   u64 *race_set_hashes;                 /* Hash set for unique race pairs   */
   u32 race_set_size;                    /* Capacity of race set             */
   u32 race_set_count;                   /* Count of unique race pairs       */
@@ -1358,6 +1361,7 @@ size_t write_to_temp_json(sgf_state_t *sgf, struct SkeletonGraphData *sgi);
 u8 skeleton_graph_fuzz_stuff(sgf_state_t *sgf, struct SkeletonGraphData *sgi);
 bool skeleton_graph_seen(sgf_state_t *sgf, const struct SkeletonGraph *graph);
 bool skeleton_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *graph);
+bool crash_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *graph);
 u8 save_if_interesting_skeleton(sgf_state_t *, const struct SkeletonGraph *,
                                 u8);
 void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *sgi);

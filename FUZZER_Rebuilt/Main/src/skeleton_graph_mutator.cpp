@@ -27,6 +27,57 @@ static bool thread_counts_loaded = false;
 static bool thread_counts_valid = true;
 static std::unordered_map<ThreadID, int> expected_thread_counts;
 
+
+static std::unordered_map<ThreadID, uint64_t> mo_thread_weights;
+static const uint64_t MAX_BIAS_THRESHOLD = 1000000000ULL; // 10^9
+
+void add_mo_thread_bias(ThreadID tid, int k) {
+    if (k <= 0) return;
+    mo_thread_weights[tid] += static_cast<uint64_t>(k);
+
+    if (mo_thread_weights[tid] >= MAX_BIAS_THRESHOLD) {
+        for (auto& entry : mo_thread_weights) {
+            entry.second = (entry.second + 1) / 2;
+        }
+    }
+}
+
+uint64_t get_mo_thread_weight(ThreadID tid) {
+    auto it = mo_thread_weights.find(tid);
+    if (it != mo_thread_weights.end()) {
+        return it->second;
+    }
+    return 0;
+}
+
+void reset_mo_thread_bias() {
+    mo_thread_weights.clear();
+}
+
+void record_mo_thread_bias(const SkeletonGraph* graph, const Event* earlier_event, const Event* current_event) {
+    if (!graph || !earlier_event || !current_event) return;
+
+    ThreadID earlier_tid = earlier_event->get_thread_id();
+    ThreadID curr_tid = current_event->get_thread_id();
+    if (earlier_tid == curr_tid) return;
+
+    const auto& po_map = graph->get_threadwise_po();
+    int curr_count = 0;
+    int earlier_count = 0;
+
+    auto it_curr = po_map.find(curr_tid);
+    if (it_curr != po_map.end()) {
+        curr_count = static_cast<int>(it_curr->second.size());
+    }
+
+    auto it_earlier = po_map.find(earlier_tid);
+    if (it_earlier != po_map.end()) {
+        earlier_count = static_cast<int>(it_earlier->second.size());
+    }
+
+    int k = std::abs(curr_count - earlier_count) + 1;
+    add_mo_thread_bias(curr_tid, k);
+}
 extern "C" {
   #include "skeleton_graph_mutator_wrapper.h"
 }
@@ -1462,19 +1513,22 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
     // }
 
     if (selected_index < 0) {
-        if (thread_counts_valid) {
-            std::unordered_map<ThreadID, std::vector<int>> enabled_by_thread;
-            for (size_t i = 0; i < enabled.size(); ++i) {
-                if (enabled[i].event) {
-                    ThreadID tid = enabled[i].event->get_thread_id();
-                    enabled_by_thread[tid].push_back((int)i);
-                }
+        // 1. Group enabled candidate event indices by thread
+        std::unordered_map<ThreadID, std::vector<int>> enabled_by_thread;
+        for (size_t i = 0; i < enabled.size(); ++i) {
+            if (enabled[i].event) {
+                ThreadID tid = enabled[i].event->get_thread_id();
+                enabled_by_thread[tid].push_back(static_cast<int>(i));
             }
+        }
 
-            std::vector<std::pair<ThreadID, int>> thread_weights;
-            int total_weight = 0;
+        // 2. Compute weights for each enabled thread
+        std::vector<std::pair<ThreadID, uint64_t>> thread_weights;
+        uint64_t total_weight = 0;
+
+        if (thread_counts_valid) {
+            // Strategy A: If THREAD_EVENT_COUNTS is specified and valid, bias by remaining expected events
             const auto& po_map = graph->get_threadwise_po();
-
             for (const auto& pair : enabled_by_thread) {
                 ThreadID tid = pair.first;
                 int expected_count = 0;
@@ -1486,41 +1540,57 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
                 int current_count = 0;
                 auto po_it = po_map.find(tid);
                 if (po_it != po_map.end()) {
-                    current_count = (int)po_it->second.size();
+                    current_count = static_cast<int>(po_it->second.size());
                 }
 
-                int weight = std::max(0, expected_count - current_count);
+                uint64_t weight = static_cast<uint64_t>(std::max(0, expected_count - current_count));
                 thread_weights.push_back({tid, weight});
                 total_weight += weight;
             }
+        }
 
-            if (total_weight > 0) {
-                u32 r = skel_rand_below((u32)total_weight);
-                int cumulative = 0;
-                ThreadID selected_tid = -1;
-                for (const auto& tw : thread_weights) {
-                    cumulative += tw.second;
-                    if (r < (u32)cumulative) {
-                        selected_tid = tw.first;
-                        break;
-                    }
+        if (total_weight == 0) {
+            // Strategy B: MO-guided dynamic thread bias (when THREAD_EVENT_COUNTS is absent/invalid or exhausted)
+            // BASE_WEIGHT = 1 ensures equal non-zero baseline probability for all enabled threads
+            thread_weights.clear();
+            total_weight = 0;
+            const uint64_t BASE_WEIGHT = 1;
+
+            for (const auto& pair : enabled_by_thread) {
+                ThreadID tid = pair.first;
+                uint64_t weight = BASE_WEIGHT + get_mo_thread_weight(tid);
+                thread_weights.push_back({tid, weight});
+                total_weight += weight;
+            }
+        }
+
+        // 3. Sample a thread proportionally to its weight, then pick a random candidate from that thread
+        if (total_weight > 0) {
+            u32 r = skel_rand_below(static_cast<u32>(total_weight));
+            uint64_t cumulative = 0;
+            ThreadID selected_tid = -1;
+            for (const auto& tw : thread_weights) {
+                cumulative += tw.second;
+                if (r < cumulative) {
+                    selected_tid = tw.first;
+                    break;
                 }
+            }
 
-                if (selected_tid != -1) {
-                    const auto& event_indices = enabled_by_thread[selected_tid];
-                    if (!event_indices.empty()) {
-                        u32 r_ev = skel_rand_below((u32)event_indices.size());
-                        selected_index = event_indices[r_ev];
-                    }
+            if (selected_tid != -1) {
+                const auto& event_indices = enabled_by_thread[selected_tid];
+                if (!event_indices.empty()) {
+                    u32 r_ev = skel_rand_below(static_cast<u32>(event_indices.size()));
+                    selected_index = event_indices[r_ev];
                 }
             }
         }
 
+        // Fallback: Uniform random selection if no thread was chosen
         if (selected_index < 0) {
-            selected_index = skel_rand_below((u32)enabled.size());
+            selected_index = skel_rand_below(static_cast<u32>(enabled.size()));
         }
     }
-
     return choose_event(enabled, selected_index);
 }
 

@@ -179,6 +179,74 @@ bool skeleton_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *gr
   }
 }
 
+static void crash_hash_init(sgf_state_t *sgf, u32 cap) {
+  if (!cap) { cap = 4096; }
+  u32 p = 1;
+  while (p < cap) { p <<= 1; }
+  sgf->crash_hash_cap = p;
+  sgf->crash_hash_count = 0;
+  sgf->crash_hash_table = ck_alloc(sizeof(u64) * sgf->crash_hash_cap);
+  memset(sgf->crash_hash_table, 0, sizeof(u64) * sgf->crash_hash_cap);
+}
+
+static void crash_hash_rehash(sgf_state_t *sgf, u32 new_cap) {
+  u64 *old_table = sgf->crash_hash_table;
+  u32 old_cap = sgf->crash_hash_cap;
+  crash_hash_init(sgf, new_cap);
+  if (!old_table) { return; }
+  for (u32 i = 0; i < old_cap; i++) {
+    u64 key = old_table[i];
+    if (!key) { continue; }
+    u32 mask = sgf->crash_hash_cap - 1;
+    u32 idx = (u32)key & mask;
+    while (sgf->crash_hash_table[idx]) {
+      idx = (idx + 1) & mask;
+    }
+    sgf->crash_hash_table[idx] = key;
+    sgf->crash_hash_count++;
+  }
+  ck_free(old_table);
+}
+
+// Returns true if this exact crashing skeleton graph structure has been seen
+// before (a duplicate crash), false and records it if it is genuinely new.
+// Independent of non_instrumented_mode, since this project's instrumented
+// binaries don't emit an AFL-style coverage bitmap -- the virgin_crash check
+// in save_if_interesting_skeleton is a no-op for these targets, so this is
+// the only real crash-uniqueness signal available.
+bool crash_graph_seen_or_add(sgf_state_t *sgf, const struct SkeletonGraph *graph) {
+  if (!sgf || !graph) { return false; }
+
+  u64 h = hash_skeleton_graph(graph);
+  if (!h) { return false; }
+
+  u64 key = h ^ 0x9e3779b97f4a7c15ULL;
+  if (key == 0) { key = 1; }
+
+  if (!sgf->crash_hash_table || sgf->crash_hash_cap == 0) {
+    crash_hash_init(sgf, 4096);
+  }
+
+  if (sgf->crash_hash_count * 100 >= sgf->crash_hash_cap * 70) {
+    crash_hash_rehash(sgf, sgf->crash_hash_cap << 1);
+  }
+
+  u32 mask = sgf->crash_hash_cap - 1;
+  u32 idx = (u32)key & mask;
+  while (1) {
+    u64 slot = sgf->crash_hash_table[idx];
+    if (!slot) {
+      sgf->crash_hash_table[idx] = key;
+      sgf->crash_hash_count++;
+      return false;
+    }
+    if (slot == key) {
+      return true;
+    }
+    idx = (idx + 1) & mask;
+  }
+}
+
 
 #ifdef PROFILING
 u64 time_spent_working = 0;

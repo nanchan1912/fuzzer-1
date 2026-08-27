@@ -358,6 +358,8 @@ static void usage(u8 *argv0, int more_help) {
       "SGF_POTENTIAL_LOCATIONS_FILE: path to location file for potential calculation\n"
       "SGF_INTERESTING_LOCATIONS_FILE: path to location file for interesting locations\n"
       "SGF_CUTOFF_PERCENTILE: percentile for cutoff in graph scoring (default: 1)\n"
+      "SGF_SC_MODE: set whether sc check is performed in the end or not (default: 0)\n"
+      "SGF_NO_QUEUE_FILES: do not write queue files to the disk\n"
       "SGF_SKELETON_GRAPH_HIGHEST_STEP: set the maximum skeleton graph step size (default: 3)\n"
       "SGF_EXIT_WHEN_DONE: exit when all inputs are run and no new finds are found\n"
       "SGF_EXIT_ON_TIME: exit when no new coverage is found within the specified time\n"

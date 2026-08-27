@@ -1198,6 +1198,19 @@ u8 save_if_interesting_skeleton(sgf_state_t *sgf, const struct SkeletonGraph *gr
 
 
       ++sgf->total_crashes;
+
+      /* Check uniqueness via the crashing skeleton graph's structural hash.
+         This is independent of non_instrumented_mode: this project's
+         instrumented binaries emit skeleton-graph events, not an AFL-style
+         coverage bitmap, so the virgin_crash check below is a no-op for
+         them. This hash-based check is the real uniqueness signal. */
+      if (crash_graph_seen_or_add(sgf, graph)) {
+
+        free(buf);
+        return 0;
+
+      }
+
       if (sgf->saved_crashes >= KEEP_UNIQUE_CRASH) {
 
         free(buf);

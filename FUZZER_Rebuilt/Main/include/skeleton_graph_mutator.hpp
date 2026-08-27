@@ -20,3 +20,9 @@ void update_mo_coverage_for_graph(SkeletonGraph* graph);
 uint32_t get_mo_coverage_count();
 void print_mo_edge_frequencies();
 const uint32_t get_mo_edge_freq(EventTriple from_event_id, EventTriple to_event_id);
+
+// MO-guided thread bias functions
+void add_mo_thread_bias(ThreadID tid, int k);
+uint64_t get_mo_thread_weight(ThreadID tid);
+void record_mo_thread_bias(const SkeletonGraph* graph, const Event* earlier_event, const Event* current_event);
+void reset_mo_thread_bias();
