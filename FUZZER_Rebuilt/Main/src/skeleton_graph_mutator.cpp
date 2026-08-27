@@ -272,8 +272,8 @@ static void add_release_chain_sw_to_acquire(SkeletonGraph* graph,
 }
 
 // Forward declarations for functions implemented later in this file
-SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool skel_feedback_enabled);
-SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential);
+SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* forbidden_mutations = nullptr);
+SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations = nullptr);
 void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, vector<Event*> parent_events);
 
 // What happens in Potential Mode 1, check?
@@ -432,6 +432,81 @@ extern "C" void destroy_SkeletonGraph(SkeletonGraph* graph) {
     delete graph;
 }
 
+struct EventIDPairHash {
+    std::size_t operator()(const std::pair<EventID, EventID>& p) const noexcept {
+        TripleHash th;
+        std::size_t h1 = th(p.first);
+        std::size_t h2 = th(p.second);
+        return h1 ^ (h2 << 1);
+    }
+};
+
+class ForbiddenMutations {
+public:
+    std::unordered_set<EventID, TripleHash> forbidden_events;
+    std::unordered_set<std::pair<EventID, EventID>, EventIDPairHash> forbidden_rf_edges;
+
+    void add_forbidden_event(const EventTriple& ev) {
+        forbidden_events.insert(std::make_tuple(ev.thread_id, ev.instruction_id, ev.visit_id));
+    }
+
+    bool is_event_forbidden(const EventTriple& ev) const {
+        return forbidden_events.find(std::make_tuple(ev.thread_id, ev.instruction_id, ev.visit_id)) != forbidden_events.end();
+    }
+
+    bool is_event_id_forbidden(const EventID& ev_id) const {
+        return forbidden_events.find(ev_id) != forbidden_events.end();
+    }
+
+    void add_forbidden_rf(const EventTriple& src_write, const EventTriple& dest_read) {
+        EventID src = std::make_tuple(src_write.thread_id, src_write.instruction_id, src_write.visit_id);
+        EventID dest = std::make_tuple(dest_read.thread_id, dest_read.instruction_id, dest_read.visit_id);
+        forbidden_rf_edges.insert({src, dest});
+    }
+
+    bool is_rf_forbidden(const EventTriple& src_write, const EventTriple& dest_read) const {
+        EventID src = std::make_tuple(src_write.thread_id, src_write.instruction_id, src_write.visit_id);
+        EventID dest = std::make_tuple(dest_read.thread_id, dest_read.instruction_id, dest_read.visit_id);
+        return forbidden_rf_edges.find({src, dest}) != forbidden_rf_edges.end();
+    }
+
+    bool is_rf_id_forbidden(const EventID& src_id, const EventID& dest_id) const {
+        return forbidden_rf_edges.find({src_id, dest_id}) != forbidden_rf_edges.end();
+    }
+};
+
+extern "C" void* forbidden_mutations_create(void) {
+    return new ForbiddenMutations();
+}
+
+extern "C" void forbidden_mutations_destroy(void* fm) {
+    if (fm) {
+        delete static_cast<ForbiddenMutations*>(fm);
+    }
+}
+
+extern "C" void forbidden_mutations_add_event(void* fm, EventTriple ev) {
+    if (fm) {
+        static_cast<ForbiddenMutations*>(fm)->add_forbidden_event(ev);
+    }
+}
+
+extern "C" bool forbidden_mutations_is_event_forbidden(const void* fm, EventTriple ev) {
+    if (!fm) return false;
+    return static_cast<const ForbiddenMutations*>(fm)->is_event_forbidden(ev);
+}
+
+extern "C" void forbidden_mutations_add_rf(void* fm, EventTriple src_write, EventTriple dest_read) {
+    if (fm) {
+        static_cast<ForbiddenMutations*>(fm)->add_forbidden_rf(src_write, dest_read);
+    }
+}
+
+extern "C" bool forbidden_mutations_is_rf_forbidden(const void* fm, EventTriple src_write, EventTriple dest_read) {
+    if (!fm) return false;
+    return static_cast<const ForbiddenMutations*>(fm)->is_rf_forbidden(src_write, dest_read);
+}
+
 
 //REVISIT: This function is unnecessary but I am keeping it for now
 // Used in sgf-fuzz-one.c to create an empty skeleton graph for the first time
@@ -453,7 +528,8 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                                                     enum skeleton_graph_mutator_phase current_phase,
                                                     void* current_potential,
                                                     struct SHM_next_events* current_feedback,
-                                                    bool skel_feedback_enabled) {
+                                                    bool skel_feedback_enabled,
+                                                    void* forbidden_mutations = nullptr) {
     assert(original != NULL);
 
     //REVISIT: clonling seems unnecessary to me for now. Uncomment if necessary.
@@ -471,12 +547,12 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     // 3. Ensuring the transitivity relationships are maintained (for instance, mo edges should be transitive)
 
     auto try_add_node = [&]() {
-        add_new_node(new_graph, current_phase, current_potential, current_feedback, skel_feedback_enabled);
+        add_new_node(new_graph, current_phase, current_potential, current_feedback, skel_feedback_enabled, forbidden_mutations);
         return last_mutation_info.kind != MUT_NONE;
     };
 
     auto try_mutate_rf = [&]() {
-        mutate_rf_edge(new_graph, current_phase, current_potential);
+        mutate_rf_edge(new_graph, current_phase, current_potential, forbidden_mutations);
         return last_mutation_info.kind != MUT_NONE;
     };
 
@@ -520,7 +596,8 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                                void* current_potential,
                                                struct SHM_next_events* current_feedback,
                                                MutationInfo* out_info,
-                                               bool skel_feedback_enabled) {
+                                               bool skel_feedback_enabled,
+                                               void* forbidden_mutations) {
 
     // ACTF("Mutating skeleton graph with skel_feedback_enabled: %d", skel_feedback_enabled);
     //clearing last_mutation_info (as it is defined as static) before calling the mutate function 
@@ -552,7 +629,8 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                                 current_phase,
                                                 current_potential,
                                                 current_feedback,
-                                                skel_feedback_enabled);
+                                                skel_feedback_enabled,
+                                                forbidden_mutations);
     // ACTF("---> Mutated skeleton graph has %d events", (int)out->get_events().size());
 
     // if(skel_feedback_enabled){
@@ -751,7 +829,7 @@ static void insert_mo_after(SkeletonGraph* graph, const Location& loc, const Eve
 //REVISIT: can I choose an edge cleverly instead of a random rf edge
 // I could choose a more recently added event (assuming that the earlier read events would have less number of consistent writes to read from, besides, they would have undergone an rf edge mutation earlier - atleast, that seems more likely than the later read events undergoing muation of rf edge)
 
-SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential){
+SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations){
     // graph->finalize();
     int num_rf_edges = graph->get_rf_reverse().size();
     if(num_rf_edges == 0){
@@ -823,6 +901,12 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
 
     std::vector<EventID> available_writes;
     for (const auto& w_id : consistent_writes) {
+        if (forbidden_mutations) {
+            auto* fm = static_cast<const ForbiddenMutations*>(forbidden_mutations);
+            if (fm->is_rf_id_forbidden(w_id, read_event_id_copy)) {
+                continue;
+            }
+        }
         if (w_id != original_write_event) {
             available_writes.push_back(w_id);
         }
@@ -1290,7 +1374,7 @@ void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, ve
  * 
  * @param graph The SkeletonGraph to check for enabled events.
 */
-static std::vector<CandidateEvent> collect_enabled_events(SkeletonGraph* graph, int current_phase) {
+static std::vector<CandidateEvent> collect_enabled_events(SkeletonGraph* graph, int current_phase, void* forbidden_mutations = nullptr) {
     std::vector<CandidateEvent> enabled;
     std::unordered_set<EventID, TripleHash> seen_candidates;
 
@@ -1305,19 +1389,12 @@ static std::vector<CandidateEvent> collect_enabled_events(SkeletonGraph* graph, 
             return;
         }
 
-        // Validate that if this is a read or RMW, there is at least one consistent write to read from.
-        // Otherwise, adding this read is guaranteed to yield WMM_EXIT_NOT_INSTANTIABLE (exit 21).
-        // Is not required as INIT event ensure that there is atleast one write to read from. So, removing this check.
-        // if (e_copy->get_event_type() == Event_Type::READ || e_copy->get_event_type() == Event_Type::RMW) {
-        //     auto consistent_writes = get_consistent_writes(*graph,
-        //                                *parents[0],
-        //                                e_copy->get_location(),
-        //                                current_potential,
-        //                                e_copy->get_event_type() == Event_Type::RMW);
-        //     if (consistent_writes.empty()) {
-        //         return;
-        //     }
-        // }
+        if (forbidden_mutations) {
+            auto* fm = static_cast<const ForbiddenMutations*>(forbidden_mutations);
+            if (fm->is_event_id_forbidden(candidate_id)) {
+                return;
+            }
+        }
 
         seen_candidates.insert(candidate_id);
         
@@ -1604,7 +1681,7 @@ static std::pair<Event*, vector<Event*>> choose_event(std::vector<CandidateEvent
     return {selected, parents};
 }
 
-std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int current_phase, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* current_potential = nullptr) {
+std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int current_phase, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* current_potential = nullptr, void* forbidden_mutations = nullptr) {
     if(!thread_counts_loaded){
         thread_counts_valid = load_thread_event_counts(expected_thread_counts); 
         thread_counts_loaded = true;
@@ -1617,6 +1694,13 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
             //begin_update();
             for(int i=0;i<current_feedback->next_event_count;i++){
                 struct Shared_event* se=&current_feedback->next_events[i];
+                EventID se_id = std::make_tuple(se->tid, se->iid, se->vid);
+                if (forbidden_mutations) {
+                    auto* fm = static_cast<const ForbiddenMutations*>(forbidden_mutations);
+                    if (fm->is_event_id_forbidden(se_id)) {
+                        continue;
+                    }
+                }
                 CandidateEvent temp; 
                 std::stringstream loc_stream;
                 loc_stream << "0x" << std::hex << se->location;
@@ -1681,7 +1765,7 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
             initialize_skeleton_potential_cache();
             initialized = true;
         }
-        enabled = collect_enabled_events(graph, current_phase);
+        enabled = collect_enabled_events(graph, current_phase, forbidden_mutations);
     }
 
     if (enabled.empty()) {
@@ -1820,13 +1904,13 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
     return choose_event(enabled, selected_index);
 }
 
-SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool is_feedback_enabled) {
+SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool is_feedback_enabled, void* forbidden_mutations) {
     /*
     * FINDING NODE TO ADD LOGIC
     * Retrieve an event from the program abstraction or using feedback if in feedback mode.
     */
 
-    auto new_event_with_parent = get_a_new_event(graph, current_phase, current_feedback, is_feedback_enabled, current_potential);
+    auto new_event_with_parent = get_a_new_event(graph, current_phase, current_feedback, is_feedback_enabled, current_potential, forbidden_mutations);
     std::unique_ptr<Event> new_event(new_event_with_parent.first);
     if(!new_event){
         // ACTF("No new event to add to the skeleton graph");
@@ -1834,6 +1918,14 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
         return graph;
     }else{
         // ACTF("There is a new event to add to the skeleton graph");
+    }
+
+    if (forbidden_mutations) {
+        auto* fm = static_cast<const ForbiddenMutations*>(forbidden_mutations);
+        if (fm->is_event_forbidden(EventTriple{new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id()})) {
+            last_mutation_info.kind = MUT_NONE;
+            return graph;
+        }
     }
 
     //changed the variable name from parent to parents

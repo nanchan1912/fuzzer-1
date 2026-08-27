@@ -746,6 +746,7 @@ void add_to_queue(sgf_state_t *sgf, u8 *fname, u32 len, u8 passed_det) {
   q->graph_data->is_racy = 0;
   q->graph_data->racy_event_count = 0;
   q->graph_data->race_pairs = NULL;
+  q->graph_data->forbidden_mutations = forbidden_mutations_create();
   
   // Initialize skeleton_potential to NULL (will be set later if needed)
   q->graph_data->skeleton_potential = NULL;
@@ -884,6 +885,10 @@ void destroy_queue(sgf_state_t *sgf) {
       if (q->graph_data->race_pairs) {
         race_pair_store_destroy(q->graph_data->race_pairs);
         q->graph_data->race_pairs = NULL;
+      }
+      if (q->graph_data->forbidden_mutations) {
+        forbidden_mutations_destroy(q->graph_data->forbidden_mutations);
+        q->graph_data->forbidden_mutations = NULL;
       }
       destroy_queue_graph_feedback(q);
       ck_free(q->graph_data);

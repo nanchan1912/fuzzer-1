@@ -93,6 +93,18 @@ void update_cutoff(sgf_state_t *sgf, double current_cutoff, double new_score) {
   }
 }
 
+static inline void record_forbidden_mutation(struct queue_entry *parent, const MutationInfo *mut_info) {
+  if (!parent || !parent->graph_data || !mut_info) return;
+  if (!parent->graph_data->forbidden_mutations) {
+    parent->graph_data->forbidden_mutations = forbidden_mutations_create();
+  }
+  if (mut_info->kind >= MUT_ADD_READ && mut_info->kind <= MUT_ADD_FENCE) {
+    forbidden_mutations_add_event(parent->graph_data->forbidden_mutations, mut_info->dest_id);
+  } else if (mut_info->kind == MUT_MUTATE_RF) {
+    forbidden_mutations_add_rf(parent->graph_data->forbidden_mutations, mut_info->source_id, mut_info->dest_id);
+  }
+}
+
 /*
  * Function to mutate the parent, run and enque the mutations created if they 
  * are not duplicates and are interesting.
@@ -122,11 +134,15 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   }
 
   /* Perform mutation */
+  if (parent->graph_data && !parent->graph_data->forbidden_mutations) {
+    parent->graph_data->forbidden_mutations = forbidden_mutations_create();
+  }
   SkeletonGraph *working_graph = mutate_skeleton_graph_with_info(parent->graph_data->skeleton_graph, (int)sgf->current_phase,
                                                             potential_obj,
                                                             (sgf->enable_feedback && parent->graph_data) ?
                                                                parent->graph_data->simulator_feedback : NULL,
-                                                             &mut_info, sgf->enable_feedback);
+                                                             &mut_info, sgf->enable_feedback,
+                                                             parent->graph_data ? parent->graph_data->forbidden_mutations : NULL);
 
   if (!working_graph) {
     working_graph = empty_skeleton_graph();
@@ -163,8 +179,9 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   // IMPORTANT: mutated_graph_metadata should now have the feedback from the simulator if enabled, 
   // which is stored in the simulator_feedback field. This feedback will be used in subsequent mutations.
 
-  if (exit_code != FSRV_RUN_OK) {
-    // Crash or hang, we can choose to save it or skip it based on the fuzzing strategy
+  if(exit_code == EXIT_EVENT_MISMATCH || exit_code == EXIT_RF_TYPE_MISMATCH || exit_code == EXIT_NOT_INSTANTIABLE) {
+    // ACTF("Mutated graph is not instantiable or has event mismatches, skipping enqueue and marking forbidden on parent.");
+    record_forbidden_mutation(parent, &mut_info);
     if (mutated_graph_metadata->simulator_feedback) {
       destroy_simulator_feedback(mutated_graph_metadata->simulator_feedback);
       mutated_graph_metadata->simulator_feedback = NULL;
@@ -174,8 +191,8 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     return NULL;
   }
 
-  if(exit_code == EXIT_EVENT_MISMATCH || exit_code == EXIT_RF_TYPE_MISMATCH || exit_code == EXIT_NOT_INSTANTIABLE) {
-    ACTF("Mutated graph is not instantiable or has event mismatches, skipping enqueue.");
+  if (exit_code != FSRV_RUN_OK) {
+    // Crash or hang, we can choose to save it or skip it based on the fuzzing strategy
     if (mutated_graph_metadata->simulator_feedback) {
       destroy_simulator_feedback(mutated_graph_metadata->simulator_feedback);
       mutated_graph_metadata->simulator_feedback = NULL;

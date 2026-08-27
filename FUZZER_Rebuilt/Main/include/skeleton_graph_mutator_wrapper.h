@@ -80,7 +80,16 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                               void* current_potential,
                                               struct SHM_next_events* current_feedback,
                                               MutationInfo* out_info,
-                                              bool skel_feedback_enabled);
+                                              bool skel_feedback_enabled,
+                                              void* forbidden_mutations);
+
+// Forbidden mutations API
+void* forbidden_mutations_create(void);
+void forbidden_mutations_destroy(void* fm);
+void forbidden_mutations_add_event(void* fm, EventTriple ev);
+bool forbidden_mutations_is_event_forbidden(const void* fm, EventTriple ev);
+void forbidden_mutations_add_rf(void* fm, EventTriple src_write, EventTriple dest_read);
+bool forbidden_mutations_is_rf_forbidden(const void* fm, EventTriple src_write, EventTriple dest_read);
 
 /**
  * @brief Set mutator RNG state from SGF state.

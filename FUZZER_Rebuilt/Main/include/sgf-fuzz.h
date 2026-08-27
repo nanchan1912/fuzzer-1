@@ -250,6 +250,7 @@ struct SkeletonGraphData{
     // this need not be void*, we could just use the same struct defined in shm_next_events.h
     struct SHM_next_events* simulator_feedback;
     u8 non_instantiable;                  /* Is the entry returned as non-instantiable */
+    void* forbidden_mutations;            /* Opaque pointer to ForbiddenMutations */
 
     // Data related to race detection
     u8 is_racy;                           /* Data race detected for graph     */
