@@ -28,7 +28,9 @@ static void load_interesting_locations() {
     g_interesting_locations_loaded = true;
     
     char* filepath = getenv("SGF_INTERESTING_LOCATIONS_FILE");
-    if (!filepath) {
+    /* Runners pass the variable through unconditionally, so "unset" reaches us
+     * as an empty string. Opening "" only produces a confusing failure. */
+    if (!filepath || !*filepath) {
         return;
     }
     
@@ -96,7 +98,8 @@ size_t SkeletonPotential::total_writes() const {
 
 
 static void load_potential_locations(const char* filepath) {
-    if (!filepath) {
+    /* Empty means "not supplied" -- see load_interesting_locations. */
+    if (!filepath || !*filepath) {
         g_potential_locations_loaded = true;
         return;
     }

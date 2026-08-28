@@ -220,6 +220,22 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     } else {
       ACTF("Parents graph didn't had potential stored, so we calculate for it");
       race_pairs_obj = race_pair_store_collect(parent->graph_data->skeleton_graph);
+
+      /* The parent's own races are computed here and nowhere else. Without
+       * this, a race present in the *seed* graph is never reported: the only
+       * other call to save_race_if_interesting sits in the enqueue branch
+       * below and so only ever sees mutated children. Store the pairs on the
+       * parent too, so it is reported once and then reused rather than
+       * recomputed on every child. */
+      if (race_pairs_obj != NULL) {
+        parent->graph_data->race_pairs = race_pair_store_clone(race_pairs_obj);
+        parent->graph_data->racy_event_count =
+            (u32)race_pair_store_size(parent->graph_data->race_pairs);
+        parent->graph_data->is_racy = parent->graph_data->racy_event_count > 0;
+        if (parent->graph_data->is_racy) {
+          save_race_if_interesting(sgf, parent->graph_data);
+        }
+      }
     }
     /* Update race pairs */
     if (race_pairs_obj != NULL) {
@@ -237,7 +253,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
       race_pairs_obj = race_pair_store_create();
     }
     mutated_graph_metadata->race_pairs = race_pairs_obj;
-    mutated_graph_metadata->racy_event_count = (u8)race_pair_store_size(race_pairs_obj);
+    mutated_graph_metadata->racy_event_count = (u32)race_pair_store_size(race_pairs_obj);
     mutated_graph_metadata->is_racy = mutated_graph_metadata->racy_event_count > 0;
   }
 
@@ -254,7 +270,24 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
 
   bool has_no_children = (parent && parent->graph_data && parent->graph_data->children_enqueued == 0);
 
-  if (new_score > sgf->cutoff_score || sgf->queued_items == 0 || (sgf->check_data_race && mutated_graph_metadata->is_racy) || has_no_children) {
+  /* A parent with no remaining extensions is a *complete* schedule of the whole
+   * program, and its children are rf-permutations of it -- precisely where the
+   * deep bugs live. But completeness drives potential_count to 0, so
+   * calculate_potential_score returns the 1.0 floor and the relative cutoff
+   * (queued_mu + z*sigma, far above 1 once the corpus is large) rejects every
+   * one of them.
+   *
+   * The budget is what keeps this from backfiring: an unbounded exemption would
+   * let benchmarks with large maximal graphs flood the corpus with
+   * rf-permutations and starve graph growth elsewhere. */
+  const bool parent_is_complete =
+      parent->graph_data->skeleton_potential != NULL &&
+      get_potential_count_from_ptr(parent->graph_data->skeleton_potential) == 0;
+  const bool complete_parent_has_budget =
+      parent_is_complete &&
+      parent->graph_data->children_enqueued < sgf->complete_graph_budget;
+
+  if (new_score > sgf->cutoff_score || sgf->queued_items == 0 || (sgf->check_data_race && mutated_graph_metadata->is_racy) || has_no_children || complete_parent_has_budget) {
 
     /* Mark graph as seen now that it passed cutoff and is being added to queue */
     skeleton_graph_seen_or_add(sgf, mutated_graph_metadata->skeleton_graph);

@@ -1847,9 +1847,23 @@ void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *
 
   ++sgf->total_races;
 
-  EventTriple r0, r1;
-  if (!race_pair_store_get_pair(sgi->race_pairs, 0, &r0, &r1)) { return; }
-  u64 hash = race_pair_hash(r0, r1);
+  /* Fold every pair into the identity, not just pair 0. Hashing the first pair
+   * alone collapsed two graphs that happen to share it but differ everywhere
+   * else into a single saved race, undercounting distinct findings.
+   * NOTE: this changes dedup semantics, so saved_races is not comparable with
+   * numbers recorded before this change. */
+  u64    hash = 14695981039346656037ULL;
+  size_t pairs_read = 0;
+  for (size_t i = 0; i < rp_count; ++i) {
+
+    EventTriple a, b;
+    if (!race_pair_store_get_pair(sgi->race_pairs, i, &a, &b)) { continue; }
+    hash = (hash ^ race_pair_hash(a, b)) * 1099511628211ULL;
+    ++pairs_read;
+
+  }
+
+  if (!pairs_read) { return; }
   if (!race_set_add(sgf, hash)) { return; }
 
   if (sgf->saved_races >= KEEP_UNIQUE_RACE) { return; }
@@ -1861,17 +1875,21 @@ void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *
   s32 fd = permissive_create(sgf, fn);
   if (fd >= 0) {
 
+    /* Record every pair: the graph was saved because of the whole set, so
+     * reporting only the first makes the finding hard to reproduce. */
     char buf[256];
-    int  len = snprintf(buf, sizeof(buf),
-              "race_0: thread_id=%d instruction_id=%lld visit_id=%d\n"
-              "race_1: thread_id=%d instruction_id=%lld visit_id=%d\n",
-              r0.thread_id,
-              (long long)r0.instruction_id,
-              r0.visit_id,
-              r1.thread_id,
-              (long long)r1.instruction_id,
-              r1.visit_id);
-    if (len > 0) { ck_write(fd, buf, (u32)len, fn); }
+    for (size_t i = 0; i < rp_count; ++i) {
+
+      EventTriple a, b;
+      if (!race_pair_store_get_pair(sgi->race_pairs, i, &a, &b)) { continue; }
+      int len = snprintf(buf, sizeof(buf),
+                "race_%zu_0: thread_id=%d instruction_id=%lld visit_id=%d\n"
+                "race_%zu_1: thread_id=%d instruction_id=%lld visit_id=%d\n",
+                i, a.thread_id, (long long)a.instruction_id, a.visit_id,
+                i, b.thread_id, (long long)b.instruction_id, b.visit_id);
+      if (len > 0) { ck_write(fd, buf, (u32)len, fn); }
+
+    }
     close(fd);
 
   }

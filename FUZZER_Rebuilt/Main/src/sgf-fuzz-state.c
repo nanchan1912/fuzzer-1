@@ -118,12 +118,17 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   sgf->check_data_race = 0;
   sgf->enable_feedback = 0;
   sgf->cutoff_percentile = 1;
+  /* A complete graph has no remaining extensions, so its potential score is the
+     floor and the relative cutoff rejects every rf-variant of it -- exactly the
+     maximal graphs where deep bugs live. Let a bounded number through. */
+  sgf->complete_graph_budget = 32;
   sgf->log_graph_run_details = 0;
 
   sgf->sgf_env.skeleton_graph_stage_max = 3;
   sgf->sgf_env.check_data_race = 0;
   sgf->sgf_env.enable_feedback = 0;
   sgf->sgf_env.cutoff_percentile = 1;
+  sgf->sgf_env.complete_graph_budget = 32;
   sgf->sgf_env.log_graph_run_details = 0;
 
 #ifdef HAVE_AFFINITY
@@ -323,6 +328,14 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
             if (!sgf->cutoff_percentile) {
                 sgf->cutoff_percentile = 1;
             }
+
+          } else if(!strncmp(env, "SGF_COMPLETE_GRAPH_BUDGET", sgf_environment_variable_len)){
+            /* 0 is meaningful here (disable the exemption entirely), so unlike
+               the flags above this is read straight through rather than being
+               treated as "unset" when zero. */
+            u8 *val = (u8 *)get_afl_env(sgf_environment_variables[i]);
+            sgf->sgf_env.complete_graph_budget = val ? (u32)atoi((char *)val) : 32;
+            sgf->complete_graph_budget = sgf->sgf_env.complete_graph_budget;
 
           }
           else if (!strncmp(env, "SGF_SKIP_CPUFREQ", sgf_environment_variable_len)) {

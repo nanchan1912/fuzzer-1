@@ -254,7 +254,10 @@ struct SkeletonGraphData{
 
     // Data related to race detection
     u8 is_racy;                           /* Data race detected for graph     */
-    u8 racy_event_count;                  /* Number of racy event pairs stored */
+    u32 racy_event_count;                 /* Number of racy event pairs stored.
+                                             u32, not u8: a graph with exactly
+                                             256 pairs truncated to 0 and was
+                                             then recorded as not racy at all. */
     void* race_pairs;                     /* Opaque race-pair vector */
   
     // Data related to potential computation
@@ -546,7 +549,7 @@ typedef struct sgf_env_vars {
       sgf_forksrv_gid_set,
       // By us
       check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode,
-      log_graph_run_details;
+      log_graph_run_details, complete_graph_budget;
 
   u16 sgf_forksrv_nb_supl_gids;
 
@@ -1060,6 +1063,8 @@ typedef struct sgf_state {
   u8 check_data_race;                   /* Enable data race tracking        */
   u8 enable_feedback;                   /* Enable simulator feedback mode   */
   u8 sc_mode;                            /* Enable SC consistency filtering  */
+  u32 complete_graph_budget;            /* Cutoff-exempt children allowed per
+                                           complete (non-extendable) parent  */
   // End changes by us
 } sgf_state_t;
 
