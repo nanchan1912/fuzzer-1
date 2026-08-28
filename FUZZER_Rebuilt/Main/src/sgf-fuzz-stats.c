@@ -634,15 +634,41 @@ void maybe_update_plot_file(sgf_state_t *sgf, u32 t_bytes, double bitmap_cvg,
      favored_not_fuzzed, saved_crashes, saved_hangs, max_depth,
      execs_per_sec, edges_found */
 
-  fprintf(sgf->fsrv.plot_file,
-          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
-          "%u, %llu, %u, %u, %u",
-          ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
-          sgf->queue_cycle - 1, sgf->current_entry, sgf->queued_items,
-          sgf->pending_not_fuzzed, sgf->pending_favored, bitmap_cvg,
-          sgf->saved_crashes, sgf->saved_hangs, sgf->max_depth, eps,
-          sgf->plot_prev_ed, t_bytes, sgf->total_crashes,
-          (u32)sgf->san_binary_length, sgf->mo_coverage, sgf->rf_coverage);                    /* ignore errors */
+  if (sgf->log_graph_run_details) {
+
+    double cur_score = sgf->queue_cur ? sgf->queue_cur->perf_score : 0.0;
+    double cur_pot = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                       sgf->queue_cur->graph_data->potential_score : 0.0;
+    double cur_mo = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                      sgf->queue_cur->graph_data->mo_footprint_score : 0.0;
+    u32 cur_children = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                         sgf->queue_cur->graph_data->children_enqueued : 0;
+
+    fprintf(sgf->fsrv.plot_file,
+            "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+            "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %u",
+            ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
+            sgf->queue_cycle ? sgf->queue_cycle - 1 : 0, sgf->current_entry, sgf->queued_items,
+            sgf->pending_not_fuzzed, sgf->pending_favored, bitmap_cvg,
+            sgf->saved_crashes, sgf->saved_hangs, sgf->max_depth, eps,
+            sgf->plot_prev_ed, t_bytes, sgf->total_crashes,
+            (u32)sgf->san_binary_length, sgf->mo_coverage, sgf->rf_coverage,
+            cur_score, cur_pot, cur_mo, cur_children,
+            0, 0.0, 0.0, 0.0, 0);
+
+  } else {
+
+    fprintf(sgf->fsrv.plot_file,
+            "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+            "%u, %llu, %u, %u, %u",
+            ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
+            sgf->queue_cycle ? sgf->queue_cycle - 1 : 0, sgf->current_entry, sgf->queued_items,
+            sgf->pending_not_fuzzed, sgf->pending_favored, bitmap_cvg,
+            sgf->saved_crashes, sgf->saved_hangs, sgf->max_depth, eps,
+            sgf->plot_prev_ed, t_bytes, sgf->total_crashes,
+            (u32)sgf->san_binary_length, sgf->mo_coverage, sgf->rf_coverage);                    /* ignore errors */
+
+  }
 
   for (u32 i = 0; i < sgf->san_binary_length; i++) {
 
@@ -652,6 +678,68 @@ void maybe_update_plot_file(sgf_state_t *sgf, u32 t_bytes, double bitmap_cvg,
 
   fprintf(sgf->fsrv.plot_file, "\n");
 
+  fflush(sgf->fsrv.plot_file);
+
+}
+
+void log_graph_candidate_to_plot_file(sgf_state_t *sgf,
+                                     struct queue_entry *parent,
+                                     struct SkeletonGraphData *mutated_graph_metadata,
+                                     double new_score,
+                                     u8 added_to_queue) {
+
+  if (!sgf || !sgf->log_graph_run_details || !sgf->fsrv.plot_file) return;
+
+  double cur_score = sgf->queue_cur ? sgf->queue_cur->perf_score : 0.0;
+  double cur_pot = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                     sgf->queue_cur->graph_data->potential_score : 0.0;
+  double cur_mo = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                    sgf->queue_cur->graph_data->mo_footprint_score : 0.0;
+  u32 cur_children = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                       sgf->queue_cur->graph_data->children_enqueued : 0;
+
+  u32 parent_id = parent ? parent->id : 0;
+  double cand_pot = mutated_graph_metadata ? mutated_graph_metadata->potential_score : 0.0;
+  double cand_mo = mutated_graph_metadata ? mutated_graph_metadata->mo_footprint_score : 0.0;
+  double cand_score = new_score;
+
+  fprintf(sgf->fsrv.plot_file,
+          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+          "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %u",
+          ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
+          sgf->queue_cycle ? sgf->queue_cycle - 1 : 0,
+          sgf->queue_cur ? sgf->queue_cur->id : sgf->current_entry,
+          sgf->queued_items,
+          sgf->pending_not_fuzzed,
+          sgf->pending_favored,
+          0.0,
+          sgf->saved_crashes,
+          sgf->saved_hangs,
+          sgf->max_depth,
+          sgf->stats_avg_exec,
+          sgf->fsrv.total_execs,
+          0,
+          sgf->total_crashes,
+          (u32)sgf->san_binary_length,
+          sgf->mo_coverage,
+          sgf->rf_coverage,
+          cur_score,
+          cur_pot,
+          cur_mo,
+          cur_children,
+          parent_id,
+          cand_pot,
+          cand_mo,
+          cand_score,
+          (u32)added_to_queue);
+
+  for (u32 i = 0; i < sgf->san_binary_length; i++) {
+
+    fprintf(sgf->fsrv.plot_file, ", %llu", sgf->san_fsrvs[i].total_execs);
+
+  }
+
+  fprintf(sgf->fsrv.plot_file, "\n");
   fflush(sgf->fsrv.plot_file);
 
 }

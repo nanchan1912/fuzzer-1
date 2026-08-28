@@ -1456,6 +1456,7 @@ void load_stats_file(sgf_state_t *);
 void write_setup_file(sgf_state_t *, u32, char **);
 void write_stats_file(sgf_state_t *, u32, double, double, double);
 void maybe_update_plot_file(sgf_state_t *, u32, double, double);
+void log_graph_candidate_to_plot_file(sgf_state_t *, struct queue_entry *, struct SkeletonGraphData *, double, u8);
 void write_queue_stats(sgf_state_t *);
 void make_space_for_stats();
 void show_stats(sgf_state_t *);

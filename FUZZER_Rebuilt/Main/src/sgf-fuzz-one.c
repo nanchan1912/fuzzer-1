@@ -312,11 +312,15 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
       }
     }
 
+    log_graph_candidate_to_plot_file(sgf, parent, mutated_graph_metadata, new_score, 1);
+
     // Update dynamic cutoff score based on current cutoff and new score
     update_cutoff(sgf, sgf->cutoff_score, new_score);
 
     return child;
   } else {
+    log_graph_candidate_to_plot_file(sgf, parent, mutated_graph_metadata, new_score, 0);
+
     // Discard mutated graph
     if (mutated_graph_metadata) {
       if (mutated_graph_metadata->skeleton_potential) {
@@ -921,6 +925,9 @@ havoc_stage:
       // If no potential object exists for the skeleton graph, create one
       if (!sgf->queue_cur->graph_data->skeleton_potential) {
         sgf->queue_cur->graph_data->skeleton_potential = create_skeleton_potential(sgf->queue_cur->graph_data->skeleton_graph);
+      }
+      if (sgf->queue_cur->graph_data->potential_score == 0.0 || sgf->queue_cur->graph_data->mo_footprint_score == 0.0) {
+        calculate_score(sgf, sgf->queue_cur->graph_data);
       }
     }
 
