@@ -199,6 +199,12 @@ void incremental_update_on_rmw(void* potential, const SkeletonGraph* graph,
  */
 double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph);
 
+/**
+ * @brief Get the maximum possible potential writes across all threads based on static CFG.
+ */
+size_t get_max_static_potential(void);
+
+
 // not using this anymore
 // /**
 //  * @brief Build mutator feedback object from a shared simulator graph.

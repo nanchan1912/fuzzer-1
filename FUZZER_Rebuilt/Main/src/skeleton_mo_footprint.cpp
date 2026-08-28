@@ -217,17 +217,13 @@ const uint32_t get_sum_mo_frequencies_from_source(EventTriple from_event_id){
 extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
     if (!graph) return 1.0;
 
-    // Track total ratio and number of MO edges to compute the average rarity ratio
-    // across all MO edges in the graph instead of compounding multiplicatively.
-    // Reason: Multiplicative scoring (score *= (1 + ratio) >= 2.0 per edge) scaled exponentially
-    // with graph size (>= 2^k), causing any graph with >= 7 writes to always saturate to 100.0
-    // regardless of whether its edges were rare or common.
+    // Track accumulated rarity-discounted ratio and the theoretical maximum possible ratio
+    // for all MO edges present in the graph to correctly normalize into [0.0, 1.0].
     double total_ratio = 0.0;
-    size_t total_writes = 0;
+    double max_possible_ratio = 0.0;
 
     // Iterate over all memory locations and their MO orderings
     for (const auto& [location, mo_list] : graph->get_mo_by_location()){
-        total_writes += mo_list.size();
         if (mo_list.size() < 2) continue; // Need at least 2 writes for an MO edge
 
         // For each write event in the MO ordering (except the last one)
@@ -235,12 +231,12 @@ extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
             const EventID& from_event_id_tuple = mo_list[i];
             const EventID& to_event_id_tuple = mo_list[i + 1]; // mo-next event in current graph
 
-            //converting from the tuple EventID to EventTriple for compatibility with mo_edge_frequencies
+            // Converting from the tuple EventID to EventTriple for compatibility with mo_edge_frequencies
             EventTriple from_event_id = {std::get<0>(from_event_id_tuple), std::get<1>(from_event_id_tuple), std::get<2>(from_event_id_tuple)};
             EventTriple to_event_id = {std::get<0>(to_event_id_tuple), std::get<1>(to_event_id_tuple), std::get<2>(to_event_id_tuple)};
-            //get the freq of this edge
+
+            // Get frequency of this edge and total edges from from_event_id encountered so far
             const uint32_t current_edge_freq = get_mo_edge_freq(from_event_id, to_event_id);
-            //get the count of all edges from from_event_id encountered so far
             const uint32_t sum_all_mo_next_freq = get_sum_mo_frequencies_from_source(from_event_id);
 
             // Compute ratio: current_edge_freq / sum_all_mo_next_freq
@@ -255,19 +251,22 @@ extern "C" double skeleton_graph_mo_footprint_calc(SkeletonGraph* graph){
             // (i is 0-indexed, so i + 1 gives 1-indexed write position in MO: log(1) = 0 for the first edge)
             double discount = 1.0 / (1.0 + std::log((double)(i + 1)));
             total_ratio += (1.0 - ratio) * discount;
+            max_possible_ratio += 1.0 * discount; // Theoretical maximum if this edge were 100% rare (ratio == 0)
         }
     }
 
     // If no MO edges exist in the graph, default score is 1.0
-    if (total_writes == 0) {
+    if (max_possible_ratio <= 0.0) {
         return 1.0;
     }
 
-    // Divide by total number of writes in the graph (giving a value in [0, 1])
-    double normalized_score = total_ratio / (double)total_writes;
+    // Normalized rarity score strictly in [0.0, 1.0]
+    double normalized_score = total_ratio / max_possible_ratio;
+    if (normalized_score < 0.0) normalized_score = 0.0;
+    if (normalized_score > 1.0) normalized_score = 1.0;
 
-    // Scale to [1.0, 100.0]
-    double final_score = 1.0 + normalized_score * 99.0;
+    // Scale linearly to full [1.0, 100.0] range
+    double final_score = 1.0 + (normalized_score * 99.0);
     if (final_score < 1.0) final_score = 1.0;
     if (final_score > 100.0) final_score = 100.0;
 

@@ -1301,10 +1301,9 @@ void update_bitmap_rescore(sgf_state_t *sgf, struct queue_entry *q, u32 index) {
 
 double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
 
-  double score = 1.0;
-
   if (!sgi) { return 1.0; }
 
+  // Check cached potential score if still valid within the NN recalculation interval
   if (sgi->skeleton_potential && sgi->potential_score_ready) {
     u64 epoch_gap = 0;
     if (sgf->potential_nn_epoch >= sgi->potential_score_epoch) {
@@ -1312,7 +1311,7 @@ double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi
     }
     if (sgf->potential_nn_recalc_interval == 0 ||
         epoch_gap < sgf->potential_nn_recalc_interval) {
-      score = sgi->potential_score;
+      double score = sgi->potential_score;
       if (score < 1.0) { score = 1.0; }
       if (score > 100.0) { score = 100.0; }
       return score;
@@ -1329,9 +1328,19 @@ double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi
     potential_count = get_potential_count_from_ptr(sgi->skeleton_potential);
   }
 
+  // 1. Capacity ratio: remaining potential writes normalized against static maximum capacity.
+  //    Ensures graphs early in execution with high exploration capacity maintain a strong baseline
+  //    score and are not collapsed to 1.0 even when their potential set matches an ancestor.
+  size_t max_pot = get_max_static_potential();
+  if (max_pot == 0) { max_pot = 1; }
+  double cap_ratio = (double)potential_count / (double)max_pot;
+  if (cap_ratio > 1.0) { cap_ratio = 1.0; }
+  if (cap_ratio < 0.0) { cap_ratio = 0.0; }
+
+  // 2. Novelty ratio: nearest-neighbor distance (0.0 to 100.0 scaled to 0.0..1.0).
+  //    Boosts graphs that discover new or rare potential combinations.
   double nn_diff = 0;
   int nn_found = 0;
-
   if (sgi->skeleton_potential) {
     const void* neighbor = NULL;
     nn_found = potential_nn_find_diff(sgi, sgi->skeleton_potential,
@@ -1339,11 +1348,20 @@ double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi
                                       &neighbor);
   }
 
+  double nov_ratio = 0.0;
   if (nn_found) {
-    score = (double)nn_diff;
-  } else if (potential_count > 0) {
-    score = (double)potential_count;
+    nov_ratio = nn_diff / 100.0;
+    if (nov_ratio > 1.0) { nov_ratio = 1.0; }
+    if (nov_ratio < 0.0) { nov_ratio = 0.0; }
+  } else {
+    // If no neighbor exists in corpus (e.g. initial seed), novelty is 1.0
+    nov_ratio = 1.0;
   }
+
+  // 3. Blended potential score in [1.0, 100.0]:
+  //    50% capacity weight (amount of remaining exploration) + 50% novelty weight (uniqueness of potential)
+  double blended_ratio = (0.5 * cap_ratio) + (0.5 * nov_ratio);
+  double score = 1.0 + (blended_ratio * 99.0);
 
   if (score < 1.0) { score = 1.0; }
   if (score > 100.0) { score = 100.0; }

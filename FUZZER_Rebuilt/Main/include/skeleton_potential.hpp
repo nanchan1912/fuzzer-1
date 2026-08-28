@@ -357,4 +357,9 @@ bool is_interesting_locations_valid(void);
 */
 const std::unordered_set<std::string>& get_interesting_locations(void);
 
+/**
+ * @brief Get the maximum possible potential writes across all threads based on static CFG.
+ */
+extern "C" size_t get_max_static_potential(void);
+
 #endif // SKELETON_POTENTIAL_HPP

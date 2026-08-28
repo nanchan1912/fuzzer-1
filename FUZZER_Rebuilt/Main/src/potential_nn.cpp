@@ -141,14 +141,6 @@ extern "C" int potential_nn_find_diff(const void* entry,
       return;
     }
 
-    // Pruning optimization: lower bound of symmetric diff is |size(A) - size(B)|
-    if (best_diff) {
-      size_t lenA = target->total_writes();
-      size_t lenB = cand->potential->total_writes();
-      size_t lower_bound = (lenA > lenB) ? (lenA - lenB) : (lenB - lenA);
-      if (lower_bound > best_diff) return;
-    }
-
     double diff = compare_skeletons(*target, *cand->potential);
     if (!best_entry || diff < best_diff) {
       best_entry = cand;

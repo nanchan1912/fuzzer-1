@@ -397,18 +397,22 @@ double compare_skeletons(const SkeletonPotential& A,
         }
     }
 
+    // Symmetric Jaccard Distance Normalization:
+    // |A \cup B| = (|A| + |B| + |A \triangle B|) / 2
+    // Ensures compare_skeletons(A, B) is symmetric, strictly in [0.0, 100.0],
+    // and doesn't artificially explode or collapse when |A| is small.
     size_t total_writes_a = A.total_writes();
-    if (total_writes_a == 0) {
-        return total_diff;
+    size_t total_writes_b = B.total_writes();
+    size_t union_size = (total_writes_a + total_writes_b + static_cast<size_t>(total_diff)) / 2;
+    if (union_size == 0) {
+        return 0.0;
     }
     double normalized_diff =
         100.0 * static_cast<double>(total_diff) /
-        static_cast<double>(total_writes_a);
+        static_cast<double>(union_size);
 
-    // ACTF("Total writes in A: %zu, Total difference: %zu, Normalized difference: %.4f",
-    //     total_writes_a,
-    //     total_diff,
-    //     normalized_diff);
+    if (normalized_diff > 100.0) normalized_diff = 100.0;
+    if (normalized_diff < 0.0) normalized_diff = 0.0;
 
     return normalized_diff;
 }
@@ -854,4 +858,58 @@ extern "C" void* potential_calculation_on_rf_mutation(const SkeletonGraph* graph
     LiveLocationAnalyzer analyzer;
     SkeletonPotential potential = calculate_skeleton_potential(*graph, analyzer);
     return new SkeletonPotential(std::move(potential));
+}
+
+// Local write-like/read-like classifiers for the static CFG (cfg_new), which
+// uses the generic Event_Type::CAS (not yet split into CAS_SUCCESS/CAS_FAILURE
+// as in the skeleton graph). Mirrors is_read_like_type's logic in
+// skeleton_graph_mutator.cpp, which is file-local there.
+static bool is_write_like(Event_Type type) {
+    return type == Event_Type::WRITE || type == Event_Type::RMW ||
+           type == Event_Type::CAS;
+}
+
+static bool is_read_like(Event_Type type) {
+    return type == Event_Type::READ || type == Event_Type::CAS ||
+           type == Event_Type::CAS_FAILURE || type == Event_Type::CAS_SUCCESS ||
+           type == Event_Type::RMW;
+}
+
+/**
+ * @brief Get the maximum possible potential writes across all threads based on static CFG.
+ *
+ * Computes the theoretical upper bound on total writes in SkeletonPotential by summing
+ * the static write count for every memory location that can ever be read by each thread.
+ * This provides a stable denominator for normalizing remaining potential capacity into [0.0, 1.0].
+ */
+extern "C" size_t get_max_static_potential(void) {
+    if (cfg_new.nodes.empty() && !eg_file.empty()) {
+        parse_program_abstraction(eg_file.string(), cfg_new);
+    }
+    build_future_read_cache();
+
+    // Map location -> count of static writes
+    std::unordered_map<std::string, size_t> loc_write_counts;
+    for (const auto& [id, node] : cfg_new.nodes) {
+        if (is_write_like(node.event.get_event_type())) {
+            loc_write_counts[node.event.get_location()]++;
+        }
+    }
+
+    size_t total_max = 0;
+    for (const auto& [tid, event_ids] : cfg_new.thread_index) {
+        std::unordered_set<std::string> thread_read_locs;
+        for (int eid : event_ids) {
+            auto node_it = cfg_new.nodes.find(eid);
+            if (node_it != cfg_new.nodes.end()) {
+                if (is_read_like(node_it->second.event.get_event_type())) {
+                    thread_read_locs.insert(node_it->second.event.get_location());
+                }
+            }
+        }
+        for (const auto& loc : thread_read_locs) {
+            total_max += loc_write_counts[loc];
+        }
+    }
+    return total_max > 0 ? total_max : 1;
 }
