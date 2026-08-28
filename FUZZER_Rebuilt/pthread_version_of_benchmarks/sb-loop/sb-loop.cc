@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <assert.h>
-#define ITER 2
+#define ITER 3
 
 extern "C" {
 __attribute__((weak)) void __VERIFY_STORE_VAR(const char *name, bool value) {
