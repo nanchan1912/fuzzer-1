@@ -2031,13 +2031,12 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
         
         //REVISIT: Checking the coverage when I choose the new event at random - this is temporary
         if(last_event != nullptr){
-            // update_mo_coverage(last_event->get_thread_id(), last_event->get_instruction_id(), last_event->get_visit_id(), 
-                // new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id());
             EventID last_event_id = last_event->get_event_id();
             EventTriple last_event_triple = {std::get<0>(last_event_id), std::get<1>(last_event_id), std::get<2>(last_event_id)};
             EventTriple new_event_triple = {std::get<0>(new_event->get_event_id()), std::get<1>(new_event->get_event_id()), std::get<2>(new_event->get_event_id())};
             
             update_mo_coverage(last_event_triple, new_event_triple);
+            record_mo_thread_bias(graph, last_event, new_event.get());
         }
 
     } else if(new_event->get_event_type() == Event_Type::FENCE){

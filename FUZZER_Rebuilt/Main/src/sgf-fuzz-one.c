@@ -249,7 +249,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
 
   /* Updating the mo frequency map before adding this new graph to the corpus */
   // Iterate over all memory locations and their MO orderings
-  update_mo_coverage_for_graph(mutated_graph_metadata->skeleton_graph);
+  // update_mo_coverage_for_graph(mutated_graph_metadata->skeleton_graph);
 
   // Dynamic cutoff check: only add to queue if calculate_score(mutated_graph_metadata) > sgf->cutoff_score
   double new_score = calculate_score(sgf, mutated_graph_metadata);

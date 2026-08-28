@@ -139,11 +139,28 @@ void update_mo_coverage_for_graph(SkeletonGraph* graph){
     }
 }
 
-// func to track the number fo unique mo-next edges explored so far
-// returns the number of unique source nodes in the map
+/*
+ * Track the number of unique directed MO-next edges explored so far.
+ *
+ * NOTE / WHY THIS CHANGE WAS IMPORTANT:
+ * Previously, this function returned `mo_edge_frequencies.size()`.
+ * Because `mo_edge_frequencies` is a nested map:
+ *   unordered_map<from_event_id, unordered_map<to_event_id, uint32_t>>
+ * calling `.size()` only returned the number of unique *source* write events,
+ * NOT the number of unique directed MO edges (from -> to).
+ * This caused MO coverage metrics to prematurely cap at a small constant
+ * (e.g., capping at 8 in sb-loop once all 8 write instructions acted as a source),
+ * masking newly discovered write interleavings across threads.
+ *
+ * By summing `dest_map.size()` across all source keys, this function accurately
+ * reports the true count of unique directed MO edges explored across the corpus.
+ */
 uint32_t get_mo_coverage_count(){
-    // ACTF("Current number of unique MO edges explored: %zu", mo_edge_frequencies.size());
-    return mo_edge_frequencies.size();
+    uint32_t total_edges = 0;
+    for (const auto& [from_event_id, dest_map] : mo_edge_frequencies) {
+        total_edges += dest_map.size();
+    }
+    return total_edges;
 }
 
 //func to print the frequencies of all mo-next edges explored so far
