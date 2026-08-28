@@ -424,11 +424,7 @@ extern "C" uint64_t hash_skeleton_graph(const SkeletonGraph* graph) {
 
     uint64_t events_h = 0;
     for (const auto& kv : graph->get_events()) {
-        const Event& e = kv.second;
-        uint64_t eh = hash_event_id_val(e.get_event_id());
-        eh = hash_combine64(eh, (uint64_t)e.get_access_mode());
-        eh = hash_combine64(eh, (uint64_t)e.get_event_type());
-        eh = hash_combine64(eh, hash_string_val(e.get_location()));
+        uint64_t eh = hash_event_id_val(kv.first);
         events_h += (eh ^ (eh >> 31));
     }
     h = hash_combine64(h, events_h);
@@ -453,29 +449,15 @@ extern "C" uint64_t hash_skeleton_graph(const SkeletonGraph* graph) {
     }
     h = hash_combine64(h, sw_h);
 
-    uint64_t tcj_h = 0;
-    for (const auto& [src, dsts] : graph->get_tcj()) {
-        uint64_t src_h = hash_event_id_val(src);
-        for (const auto& dst : dsts) {
-            uint64_t edge_h = hash_combine64(src_h, hash_event_id_val(dst));
-            tcj_h += (edge_h ^ (edge_h >> 31));
-        }
-    }
-    h = hash_combine64(h, tcj_h);
-
-    for (const auto& [tid, lst] : graph->get_threadwise_po()) {
-        h = hash_combine64(h, (uint64_t)(uint32_t)tid);
-        for (const auto& ev_id : lst) {
-            h = hash_combine64(h, hash_event_id_val(ev_id));
-        }
-    }
-
+    uint64_t mo_h = 0;
     for (const auto& [loc, lst] : graph->get_mo_by_location()) {
-        h = hash_combine64(h, hash_string_val(loc));
+        uint64_t loc_h = hash_string_val(loc);
         for (const auto& ev_id : lst) {
-            h = hash_combine64(h, hash_event_id_val(ev_id));
+            loc_h = hash_combine64(loc_h, hash_event_id_val(ev_id));
         }
+        mo_h += (loc_h ^ (loc_h >> 31));
     }
+    h = hash_combine64(h, mo_h);
 
     return h == 0 ? 1 : h;
 }

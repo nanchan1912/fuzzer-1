@@ -100,8 +100,6 @@ static inline void record_forbidden_mutation(struct queue_entry *parent, const M
   }
   if (mut_info->kind >= MUT_ADD_READ && mut_info->kind <= MUT_ADD_FENCE) {
     forbidden_mutations_add_event(parent->graph_data->forbidden_mutations, mut_info->dest_id);
-  } else if (mut_info->kind == MUT_MUTATE_RF) {
-    forbidden_mutations_add_rf(parent->graph_data->forbidden_mutations, mut_info->source_id, mut_info->dest_id);
   }
 }
 

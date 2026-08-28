@@ -648,36 +648,39 @@ static void* update_potential_impl(void* potential,
     }
 
     SkeletonPotential* pot = static_cast<SkeletonPotential*>(potential);
-    WriteKey added_write{mutation->source_id.instruction_id,
-                         (uint32_t)mutation->source_id.thread_id,
-                         (uint32_t)mutation->source_id.visit_id};
+    WriteKey added_write{mutation->dest_id.instruction_id,
+                         (uint32_t)mutation->dest_id.thread_id,
+                         (uint32_t)mutation->dest_id.visit_id};
 
     switch (mutation->kind) {
         case MUT_ADD_READ:
-            update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->source_id.thread_id);
+            update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->dest_id.thread_id);
             break;
         case MUT_ADD_CAS_FAILURE:
-            update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->source_id.thread_id);
+            update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->dest_id.thread_id);
             break;
         case MUT_ADD_WRITE:
             update_potential_on_write_addition(*pot, *graph, analyzer, added_write,
-                                                    (uint32_t)mutation->source_id.thread_id,
+                                                    (uint32_t)mutation->dest_id.thread_id,
                                                     std::string(mutation->location));
             break;
         case MUT_ADD_FENCE:
-            update_potential_on_fence_addition(*pot, *graph, analyzer, (uint32_t)mutation->source_id.thread_id);
+            update_potential_on_fence_addition(*pot, *graph, analyzer, (uint32_t)mutation->dest_id.thread_id);
             break;
         case MUT_ADD_RMW:
             update_potential_on_rmw_addition(*pot, *graph, analyzer, added_write,
-                                                   (uint32_t)mutation->source_id.thread_id,
+                                                   (uint32_t)mutation->dest_id.thread_id,
                                                    std::string(mutation->location));
             break;
         case MUT_ADD_CAS_SUCCESS:
             update_potential_on_rmw_addition(*pot, *graph, analyzer, added_write,
-                                                   (uint32_t)mutation->source_id.thread_id,
+                                                   (uint32_t)mutation->dest_id.thread_id,
                                                    std::string(mutation->location));
             break;
         case MUT_MUTATE_RF:
+            // Already handled by the early-return recalculation block above
+            // (destroy_skeleton_potential + create_skeleton_potential), so this
+            // case is unreachable here. Kept as a no-op for clarity.
         case MUT_NONE:
         default:
             break;
