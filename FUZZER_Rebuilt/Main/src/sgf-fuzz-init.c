@@ -2507,11 +2507,25 @@ void setup_dirs_fds(sgf_state_t *sgf) {
     sgf->fsrv.plot_file = fdopen(fd, "w");
     if (!sgf->fsrv.plot_file) { PFATAL("fdopen() failed"); }
 
-    fprintf(sgf->fsrv.plot_file,
-            "relative_time, cycles_done, cur_item, corpus_count, "
-            "pending_total, pending_favs, map_size, saved_crashes, "
-            "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found, "
-            "total_crashes, servers_count, mo_coverage, rf_coverage");
+    if (sgf->log_graph_run_details) {
+
+      fprintf(sgf->fsrv.plot_file,
+              "relative_time, cycles_done, cur_item, corpus_count, "
+              "pending_total, pending_favs, map_size, saved_crashes, "
+              "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found, "
+              "total_crashes, servers_count, mo_coverage, rf_coverage, "
+              "cur_item_score, cur_item_potential, cur_item_mo, cur_item_children_enqueued, "
+              "candidate_parent_id, candidate_potential, candidate_mo, candidate_score, candidate_added");
+
+    } else {
+
+      fprintf(sgf->fsrv.plot_file,
+              "relative_time, cycles_done, cur_item, corpus_count, "
+              "pending_total, pending_favs, map_size, saved_crashes, "
+              "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found, "
+              "total_crashes, servers_count, mo_coverage, rf_coverage");
+
+    }
 
     if (sgf->san_binary_length) {
 
