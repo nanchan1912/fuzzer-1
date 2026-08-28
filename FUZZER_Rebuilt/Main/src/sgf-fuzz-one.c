@@ -264,7 +264,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     /* Write graph */
     char *filename = alloc_printf("%s/queue/id:%06u,src:%06u.json", sgf->out_dir, sgf->queued_items, parent->id);
     size_t json_len = 0;
-    if (!sgf->no_queue_files) {
+    if (sgf->log_graph_run_details) {
       json_len = write_to_json(filename, mutated_graph_metadata->skeleton_graph);
     }
 

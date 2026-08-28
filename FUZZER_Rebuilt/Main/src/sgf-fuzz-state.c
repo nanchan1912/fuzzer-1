@@ -118,11 +118,13 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   sgf->check_data_race = 0;
   sgf->enable_feedback = 0;
   sgf->cutoff_percentile = 1;
+  sgf->log_graph_run_details = 0;
 
   sgf->sgf_env.skeleton_graph_stage_max = 3;
   sgf->sgf_env.check_data_race = 0;
   sgf->sgf_env.enable_feedback = 0;
   sgf->sgf_env.cutoff_percentile = 1;
+  sgf->sgf_env.log_graph_run_details = 0;
 
 #ifdef HAVE_AFFINITY
   sgf->cpu_aff = -1;                    /* Selected CPU core                */
@@ -268,6 +270,14 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
             // 2. Parse it if it exists
             if (sgf->sgf_env.check_data_race) {
                 sgf->check_data_race = sgf->sgf_env.check_data_race;
+            }
+          } else if (!strncmp(env, "SGF_LOG_GRAPH_RUN_DETAILS", sgf_environment_variable_len)) {
+            char *val = get_afl_env(sgf_environment_variables[i]);
+            if (val) {
+              sgf->sgf_env.log_graph_run_details = (u8)atoi(val);
+              sgf->log_graph_run_details = sgf->sgf_env.log_graph_run_details;
+            } else {
+              sgf->log_graph_run_details = 0;
             }
           } else if(!strncmp(env, "SGF_SC_MODE", sgf_environment_variable_len)){
             // 1. Actually fetch the variable

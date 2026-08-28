@@ -543,7 +543,8 @@ typedef struct sgf_env_vars {
       sgf_sha1_filenames, sgf_no_sync, sgf_no_fastresume, sgf_forksrv_uid_set,
       sgf_forksrv_gid_set,
       // By us
-      check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode;
+      check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode,
+      log_graph_run_details;
 
   u16 sgf_forksrv_nb_supl_gids;
 
@@ -1030,7 +1031,7 @@ typedef struct sgf_state {
   u64 *skel_hash_table;                 /* Skeleton graph dedup table       */
   u32  skel_hash_cap;                   /* Dedup table capacity (power of 2)*/
   u32  skel_hash_count;                 /* Dedup table entries count        */  
-  u8   no_queue_files;                  /* Skip writing queue entries to disk (I/O opt) */
+  u8   log_graph_run_details;           /* Log queue files & graph details when enabled */
   u64 *crash_hash_table;                /* Unique crash graph dedup table    */
   u32  crash_hash_cap;                  /* Crash dedup table capacity (power of 2) */
   u32  crash_hash_count;                /* Crash dedup table entries count   */
