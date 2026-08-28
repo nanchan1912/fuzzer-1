@@ -1381,8 +1381,8 @@ double calculate_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
   double alpha, beta;
   if (sgf->current_phase == MO_FOOTPRINT_DRIVEN_PHASE) {
     // MO FOOTPRINT DRIVEN PHASE
-    alpha = 0.5;
-    beta = 0.5;
+    alpha = 0.8;
+    beta = 0.2;
   } else {
     // POTENTIAL DRIVEN PHASE
     alpha = 0.9;
