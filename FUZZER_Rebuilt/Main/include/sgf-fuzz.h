@@ -267,6 +267,8 @@ struct SkeletonGraphData{
     // Data related to MO footprint computation
     double mo_footprint_score;              /* MO footprint score */
 
+#define DECAY_RATIO_MIN 0.05
+#define DECAY_RATIO_MAX 0.50
     double decay_ratio;
     // Can become useful to decide the energy through decay.
     u32 children_enqueued;                /* Number of children enqueued from this parent */
@@ -584,8 +586,16 @@ struct foreign_sync {
 // SKELETON GRAPH FUZZING PHASES
 enum skeleton_graph_mutator_phase{
   MO_FOOTPRINT_DRIVEN_PHASE, //0
-  POTENTIAL_DRIVEN_PHASE //1
+  POTENTIAL_DRIVEN_PHASE,    //1
+  PRUNING_PHASE              //2
 };
+
+#define STAGNANT_SEEDS_PRUNE_THRESHOLD 30
+#define CYCLES_WO_FINDS_PRUNE_THRESHOLD 2
+
+#define PRUNING_TARGET_QUEUED_ITEMS 8
+#define PRUNING_TARGET_PRODUCTIVE_SEEDS 6
+#define PRUNING_MAX_SEEDS_SAFETY_CAP 250
 // End changes by us
 
 typedef struct sgf_state {
@@ -651,6 +661,12 @@ typedef struct sgf_state {
 
   // Begin changes by us
   enum skeleton_graph_mutator_phase current_phase;
+  enum skeleton_graph_mutator_phase previous_phase;
+  u32                               consecutive_stagnant_seeds;
+  u32                               consecutive_productive_seeds;
+  u8                                in_pruning_phase;
+  u32                               pruning_seeds_fuzzed;
+  u32                               pruning_start_queued_items;
 
   // I have also defined this in forkserver.h: sgf_formkserver struct
   // REVISIT: remove one of these later

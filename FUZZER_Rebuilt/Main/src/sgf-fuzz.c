@@ -3302,11 +3302,57 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      // Toggle phase after every 5 SGF cycles
-      if (sgf->queue_cycle == 0 || ((sgf->queue_cycle - 1) / 5) % 2 == 0) {
-        sgf->current_phase = MO_FOOTPRINT_DRIVEN_PHASE;
+      // Phase management: Toggle phase after every 5 SGF cycles, or handle PRUNING_PHASE
+      enum skeleton_graph_mutator_phase normal_phase =
+          (sgf->queue_cycle == 0 || ((sgf->queue_cycle - 1) / 5) % 2 == 0)
+              ? MO_FOOTPRINT_DRIVEN_PHASE
+              : POTENTIAL_DRIVEN_PHASE;
+
+      if (sgf->in_pruning_phase) {
+        sgf->pruning_seeds_fuzzed++;
+        sgf->current_phase = PRUNING_PHASE;
+
+        u32 new_graphs_added = sgf->queued_items > sgf->pruning_start_queued_items
+                                   ? (sgf->queued_items - sgf->pruning_start_queued_items)
+                                   : 0;
+
+        bool solved_by_graph_target = (new_graphs_added >= PRUNING_TARGET_QUEUED_ITEMS);
+        bool solved_by_momentum = (sgf->consecutive_productive_seeds >= PRUNING_TARGET_PRODUCTIVE_SEEDS);
+        bool safety_cap_reached = (sgf->pruning_seeds_fuzzed >= PRUNING_MAX_SEEDS_SAFETY_CAP);
+
+        if (solved_by_graph_target || solved_by_momentum || safety_cap_reached) {
+          sgf->in_pruning_phase = 0;
+          sgf->pruning_seeds_fuzzed = 0;
+          sgf->consecutive_stagnant_seeds = 0;
+          sgf->consecutive_productive_seeds = 0;
+          sgf->current_phase = normal_phase;
+
+          const char *reason = solved_by_graph_target
+                                   ? "target graphs created and added"
+                                   : (solved_by_momentum ? "sustained yield achieved"
+                                                         : "safety cap reached");
+
+          // ACTF("\nPruning phase completed (%s: %u new graphs added, %u seeds fuzzed). Reverting to %s",
+          //      reason, new_graphs_added, sgf->pruning_seeds_fuzzed,
+          //      normal_phase == MO_FOOTPRINT_DRIVEN_PHASE ? "MO_FOOTPRINT_DRIVEN_PHASE" : "POTENTIAL_DRIVEN_PHASE");
+        }
       } else {
-        sgf->current_phase = POTENTIAL_DRIVEN_PHASE;
+        sgf->current_phase = normal_phase;
+
+        // Check if stagnation trigger condition is met (consecutive stagnant seeds or cycles without finds)
+        if (sgf->consecutive_stagnant_seeds >= STAGNANT_SEEDS_PRUNE_THRESHOLD ||
+            sgf->cycles_wo_finds >= CYCLES_WO_FINDS_PRUNE_THRESHOLD) {
+          sgf->in_pruning_phase = 1;
+          sgf->pruning_seeds_fuzzed = 0;
+          sgf->pruning_start_queued_items = sgf->queued_items;
+          sgf->consecutive_stagnant_seeds = 0;
+          sgf->consecutive_productive_seeds = 0;
+          sgf->previous_phase = normal_phase;
+          sgf->current_phase = PRUNING_PHASE;
+
+          // ACTF("\nTriggering PRUNING_PHASE at cycle %llu (queued_items=%u)",
+          //      sgf->queue_cycle, sgf->queued_items);
+        }
       }
       skipped_fuzz = fuzz_one(sgf);
       // ACTF("fuzz_one returned with skipped_fuzz = %d", skipped_fuzz);

@@ -1682,9 +1682,11 @@ void show_stats_normal(sgf_state_t *sgf) {
        u_stringify_int(IB(1), sgf->rf_coverage),
        sgf->current_phase == MO_FOOTPRINT_DRIVEN_PHASE
            ? "MO_FOOTPRINT_DRIVEN_PHASE"
-           : (sgf->current_phase == POTENTIAL_DRIVEN_PHASE ? "POTENTIAL_DRIVEN_PHASE" : "UNKNOWN"));
+           : (sgf->current_phase == POTENTIAL_DRIVEN_PHASE
+                  ? "POTENTIAL_DRIVEN_PHASE"
+                  : (sgf->current_phase == PRUNING_PHASE ? "PRUNING_PHASE" : "UNKNOWN")));
     if (sgf->enable_feedback){
-      SAYF("**USING FEEDBACK FROM SCHEDULER FOR NEXT EVENT**");
+      SAYF("\n**USING FEEDBACK FROM SCHEDULER FOR NEXT EVENT**");
     }
 #undef IB
 

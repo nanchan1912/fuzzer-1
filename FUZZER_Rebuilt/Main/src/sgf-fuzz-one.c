@@ -861,17 +861,8 @@ u8 fuzz_one_original(sgf_state_t *sgf) {
    *********************/
 
   // Begin changes by us
-  ACTF("Current entry %u has perf_score %0.2f", sgf->queue_cur->id, sgf->queue_cur->perf_score);
+  // ACTF("Current entry %u has perf_score %0.2f", sgf->queue_cur->id, sgf->queue_cur->perf_score);
   orig_perf = perf_score = sgf->queue_cur->perf_score;
-
-
-
-  // Reduce perf_score after selection to avoid repeatedly favoring the same entry.
-  if (sgf->queue_cur->perf_score > 1.0) {
-    double decayed = sgf->queue_cur->perf_score * (1- sgf->queue_cur->graph_data->decay_ratio);
-    if (decayed < 1.0) { decayed = 1.0; }
-    sgf->queue_cur->perf_score = decayed;
-  }
 
   /* For JSON skeleton graphs, skip standard byte-level mutations. */
 havoc_stage:
@@ -931,6 +922,9 @@ havoc_stage:
       }
     }
 
+    u32 mutations_created = 0;
+    u32 mutations_added = 0;
+
     if (highest_step < 1 || highest_step >= 31) {
       assert(false && "highest_step must be between 1 and 30");
       goto end_skeleton_fuzzing;
@@ -962,12 +956,14 @@ havoc_stage:
           }
         }
 
+        mutations_created++;
         struct queue_entry *child = mutate_run_enqueue_graph(sgf, parent);
         if (!child) {
           // If mutation failed or was discarded by cutoff, skip to the next instance
           continue;
         }
         sgf->stage_cur++;
+        mutations_added++;
 
         curr_step_entries[curr_step_count++] = child;
 
@@ -983,6 +979,31 @@ havoc_stage:
 
 
 end_skeleton_fuzzing:
+    /* Update decay ratio and decay perf_score based on mutation yield */
+    if (sgf->queue_cur && sgf->queue_cur->graph_data) {
+      double success_ratio = mutations_created > 0 ? ((double)mutations_added / (double)mutations_created) : 0.0;
+      if (success_ratio > 1.0) { success_ratio = 1.0; }
+
+      double new_decay_ratio = DECAY_RATIO_MAX - success_ratio * (DECAY_RATIO_MAX - DECAY_RATIO_MIN);
+      if (new_decay_ratio < DECAY_RATIO_MIN) { new_decay_ratio = DECAY_RATIO_MIN; }
+      if (new_decay_ratio > DECAY_RATIO_MAX) { new_decay_ratio = DECAY_RATIO_MAX; }
+
+      sgf->queue_cur->graph_data->decay_ratio = new_decay_ratio;
+
+      if (sgf->queue_cur->perf_score > 1.0) {
+        double decayed = sgf->queue_cur->perf_score * (1.0 - new_decay_ratio);
+        if (decayed < 1.0) { decayed = 1.0; }
+        sgf->queue_cur->perf_score = decayed;
+      }
+
+      if (mutations_added > 0) {
+        sgf->consecutive_stagnant_seeds = 0;
+        sgf->consecutive_productive_seeds++;
+      } else {
+        sgf->consecutive_stagnant_seeds++;
+        sgf->consecutive_productive_seeds = 0;
+      }
+    }
 // End changes by us
 
     /* Force UI update */

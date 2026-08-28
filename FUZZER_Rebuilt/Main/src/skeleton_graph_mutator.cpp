@@ -546,21 +546,44 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     // 2. Making the mutations source aware
     // 3. Ensuring the transitivity relationships are maintained (for instance, mo edges should be transitive)
 
+    auto reset_graph = [&]() {
+        delete new_graph;
+        new_graph = clone_SkeletonGraph(original);
+    };
+
     auto try_add_node = [&]() {
         add_new_node(new_graph, current_phase, current_potential, current_feedback, skel_feedback_enabled, forbidden_mutations);
-        return last_mutation_info.kind != MUT_NONE;
+        if (last_mutation_info.kind != MUT_NONE) {
+            return true;
+        }
+        reset_graph();
+        return false;
     };
 
     auto try_mutate_rf = [&]() {
         mutate_rf_edge(new_graph, current_phase, current_potential, forbidden_mutations);
-        return last_mutation_info.kind != MUT_NONE;
+        if (last_mutation_info.kind != MUT_NONE) {
+            return true;
+        }
+        reset_graph();
+        return false;
     };
 
-    // Probability to decide which mutation to do
-    // If POTENTIAL_DRIVEN_PHASE, then
-    // else if MO_DRIVEN_PHASE, then 
+    // Probability to decide which mutation to do based on phase
     bool mutated = false;
-    if(current_phase == POTENTIAL_DRIVEN_PHASE){
+    if (current_phase == PRUNING_PHASE) {
+        if (skel_rand_below(101) < 15) {
+            mutated = try_add_node();
+            if (!mutated) {
+                mutated = try_mutate_rf();
+            }
+        } else {
+            mutated = try_mutate_rf();
+            if (!mutated) {
+                mutated = try_add_node();
+            }
+        }
+    } else if (current_phase == POTENTIAL_DRIVEN_PHASE) {
         if (skel_rand_below(101) < 50) {
             mutated = try_add_node();
             if (!mutated) {

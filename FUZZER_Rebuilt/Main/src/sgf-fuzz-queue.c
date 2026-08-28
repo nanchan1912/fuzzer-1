@@ -1383,10 +1383,14 @@ double calculate_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
     // MO FOOTPRINT DRIVEN PHASE
     alpha = 0.2;
     beta = 0.8;
-  } else {
+  } else if (sgf->current_phase == POTENTIAL_DRIVEN_PHASE) {
     // POTENTIAL DRIVEN PHASE
     alpha = 0.8;
     beta = 0.2;
+  } else {
+    // PRUNING PHASE
+    alpha = 0.5;
+    beta = 0.5;
   }
   double score = (alpha * potential_score) + (beta * mo_footprint_score);
 
