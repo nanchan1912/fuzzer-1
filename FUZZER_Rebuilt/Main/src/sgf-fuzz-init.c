@@ -823,6 +823,7 @@ void read_testcases(sgf_state_t *sgf, u8 *directory) {
          fuzzing when resuming aborted scans, because it would be pointless
          and probably very time-consuming. */
       update_mo_freq_from_seed(fn2);
+      update_rf_freq_from_seed(fn2);
 
       if (!access(dfn, F_OK)) { passed_det = 1; }
 
@@ -2514,8 +2515,8 @@ void setup_dirs_fds(sgf_state_t *sgf) {
               "pending_total, pending_favs, map_size, saved_crashes, "
               "saved_hangs, max_depth, execs_per_sec, total_execs, edges_found, "
               "total_crashes, servers_count, mo_coverage, rf_coverage, "
-              "cur_item_score, cur_item_potential, cur_item_mo, cur_item_children_enqueued, "
-              "candidate_parent_id, candidate_potential, candidate_mo, candidate_score, candidate_added");
+              "cur_item_score, cur_item_potential, cur_item_mo, cur_item_rf, cur_item_children_enqueued, "
+              "candidate_parent_id, candidate_potential, candidate_mo, candidate_rf, candidate_score, candidate_added");
 
     } else {
 

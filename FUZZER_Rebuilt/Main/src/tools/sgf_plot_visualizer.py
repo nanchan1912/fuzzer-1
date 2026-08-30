@@ -645,10 +645,12 @@ def parse_plot_data(file_path: Path) -> Dict[str, Any]:
             rec["_cur_item_score"] = float(rec.get("cur_item_score", 0.0))
             rec["_cur_item_potential"] = float(rec.get("cur_item_potential", 0.0))
             rec["_cur_item_mo"] = float(rec.get("cur_item_mo", 0.0))
+            rec["_cur_item_rf"] = float(rec.get("cur_item_rf", 0.0))
             rec["_cur_item_children"] = int(rec.get("cur_item_children_enqueued", 0))
             rec["_cand_parent_id"] = int(rec.get("candidate_parent_id", 0))
             rec["_cand_potential"] = float(rec.get("candidate_potential", 0.0))
             rec["_cand_mo"] = float(rec.get("candidate_mo", 0.0))
+            rec["_cand_rf"] = float(rec.get("candidate_rf", 0.0))
             rec["_cand_score"] = float(rec.get("candidate_score", 0.0))
             rec["_cand_added"] = int(rec.get("candidate_added", 0))
 
@@ -711,7 +713,7 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
     comparison_table: List[Dict[str, Any]] = []
 
     if has_graph_details:
-        cand_records = [r for r in records if r.get("_cand_score", 0.0) > 0 or r.get("_cand_potential", 0.0) > 0 or r.get("_cand_mo", 0.0) > 0]
+        cand_records = [r for r in records if r.get("_cand_score", 0.0) > 0 or r.get("_cand_potential", 0.0) > 0 or r.get("_cand_mo", 0.0) > 0 or r.get("_cand_rf", 0.0) > 0]
         if not cand_records:
             cand_records = records
 
@@ -725,19 +727,23 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
 
         all_pot = [r["_cand_potential"] for r in cand_records]
         all_mo = [r["_cand_mo"] for r in cand_records]
+        all_rf = [r["_cand_rf"] for r in cand_records]
         all_score = [r["_cand_score"] for r in cand_records]
 
         acc_pot = [r["_cand_potential"] for r in accepted_cands]
         acc_mo = [r["_cand_mo"] for r in accepted_cands]
+        acc_rf = [r["_cand_rf"] for r in accepted_cands]
         acc_score = [r["_cand_score"] for r in accepted_cands]
 
         rej_pot = [r["_cand_potential"] for r in rejected_cands]
         rej_mo = [r["_cand_mo"] for r in rejected_cands]
+        rej_rf = [r["_cand_rf"] for r in rejected_cands]
         rej_score = [r["_cand_score"] for r in rejected_cands]
 
         cur_scores = [r["_cur_item_score"] for r in records if r.get("_cur_item_score", 0.0) > 0]
         cur_pots = [r["_cur_item_potential"] for r in records if r.get("_cur_item_potential", 0.0) > 0]
         cur_mos = [r["_cur_item_mo"] for r in records if r.get("_cur_item_mo", 0.0) > 0]
+        cur_rfs = [r["_cur_item_rf"] for r in records if r.get("_cur_item_rf", 0.0) > 0]
         cur_children = [r["_cur_item_children"] for r in records]
 
         # Detailed stats per subset
@@ -753,9 +759,14 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
         st_cand_mo_acc = compute_stats(acc_mo)
         st_cand_mo_rej = compute_stats(rej_mo)
 
+        st_cand_rf_all = compute_stats(all_rf)
+        st_cand_rf_acc = compute_stats(acc_rf)
+        st_cand_rf_rej = compute_stats(rej_rf)
+
         st_picked_score = compute_stats(cur_scores)
         st_picked_pot = compute_stats(cur_pots)
         st_picked_mo = compute_stats(cur_mos)
+        st_picked_rf = compute_stats(cur_rfs)
         st_picked_children = compute_stats(cur_children)
 
         stats_dict["candidate_score_all"] = st_cand_score_all.to_dict()
@@ -770,9 +781,14 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
         stats_dict["candidate_mo_accepted"] = st_cand_mo_acc.to_dict()
         stats_dict["candidate_mo_rejected"] = st_cand_mo_rej.to_dict()
 
+        stats_dict["candidate_rf_all"] = st_cand_rf_all.to_dict()
+        stats_dict["candidate_rf_accepted"] = st_cand_rf_acc.to_dict()
+        stats_dict["candidate_rf_rejected"] = st_cand_rf_rej.to_dict()
+
         stats_dict["picked_item_score"] = st_picked_score.to_dict()
         stats_dict["picked_item_potential"] = st_picked_pot.to_dict()
         stats_dict["picked_item_mo"] = st_picked_mo.to_dict()
+        stats_dict["picked_item_rf"] = st_picked_rf.to_dict()
         stats_dict["picked_item_children"] = st_picked_children.to_dict()
 
         def make_comp_row(metric_name: str, st_all: SummaryStats, st_acc: SummaryStats, st_rej: SummaryStats) -> Dict[str, Any]:
@@ -791,6 +807,7 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
             make_comp_row("Candidate Combined Score", st_cand_score_all, st_cand_score_acc, st_cand_score_rej),
             make_comp_row("Candidate Potential Score", st_cand_pot_all, st_cand_pot_acc, st_cand_pot_rej),
             make_comp_row("Candidate MO Footprint Score", st_cand_mo_all, st_cand_mo_acc, st_cand_mo_rej),
+            make_comp_row("Candidate RF Footprint Score", st_cand_rf_all, st_cand_rf_acc, st_cand_rf_rej),
         ]
 
         histograms["candidate_score_accepted"] = compute_histogram(acc_score, 20, 0, 100)
@@ -802,6 +819,9 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
 
         histograms["candidate_mo_accepted"] = compute_histogram(acc_mo, 20, 0, 100)
         histograms["candidate_mo_rejected"] = compute_histogram(rej_mo, 20, 0, 100)
+
+        histograms["candidate_rf_accepted"] = compute_histogram(acc_rf, 20, 0, 100)
+        histograms["candidate_rf_rejected"] = compute_histogram(rej_rf, 20, 0, 100)
 
         histograms["picked_item_score"] = compute_histogram(cur_scores, 20, 0, 100)
         histograms["picked_item_children"] = compute_histogram(cur_children, 15)
@@ -819,13 +839,18 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
         time_series["cand_mo_accepted"] = [r["_cand_mo"] if r.get("_cand_added", 0) == 1 else None for r in sampled]
         time_series["cand_mo_rejected"] = [r["_cand_mo"] if r.get("_cand_added", 0) == 0 else None for r in sampled]
 
+        time_series["cand_rf_accepted"] = [r["_cand_rf"] if r.get("_cand_added", 0) == 1 else None for r in sampled]
+        time_series["cand_rf_rejected"] = [r["_cand_rf"] if r.get("_cand_added", 0) == 0 else None for r in sampled]
+
         time_series["cand_score"] = [r.get("_cand_score", 0.0) for r in sampled]
         time_series["cand_potential"] = [r.get("_cand_potential", 0.0) for r in sampled]
         time_series["cand_mo"] = [r.get("_cand_mo", 0.0) for r in sampled]
+        time_series["cand_rf"] = [r.get("_cand_rf", 0.0) for r in sampled]
         time_series["cand_added"] = [r.get("_cand_added", 0) for r in sampled]
         time_series["cur_item_score"] = [r.get("_cur_item_score", 0.0) for r in sampled]
         time_series["cur_item_potential"] = [r.get("_cur_item_potential", 0.0) for r in sampled]
         time_series["cur_item_mo"] = [r.get("_cur_item_mo", 0.0) for r in sampled]
+        time_series["cur_item_rf"] = [r.get("_cur_item_rf", 0.0) for r in sampled]
         time_series["cur_item_children"] = [r.get("_cur_item_children", 0) for r in sampled]
 
         for r in sampled:
@@ -843,6 +868,7 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
             scatter_points.append({
                 "x": round(r["_cand_potential"], 2),
                 "y": round(r["_cand_mo"], 2),
+                "rf": round(r.get("_cand_rf", 0.0), 2),
                 "score": round(r["_cand_score"], 2),
                 "added": r["_cand_added"],
                 "parent_id": r.get("_cand_parent_id", 0),
@@ -870,6 +896,8 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
             "rejected_mean_pot": round(st_cand_pot_rej.mean, 2),
             "accepted_mean_mo": round(st_cand_mo_acc.mean, 2),
             "rejected_mean_mo": round(st_cand_mo_rej.mean, 2),
+            "accepted_mean_rf": round(st_cand_rf_acc.mean, 2),
+            "rejected_mean_rf": round(st_cand_rf_rej.mean, 2),
         }
 
     last_rec = records[-1]
@@ -913,10 +941,12 @@ def analyze_plot_data(parsed: Dict[str, Any], fuzz_run: Optional[Dict[str, Any]]
                 "cur_score": round(r.get("_cur_item_score", 0.0), 2),
                 "cur_pot": round(r.get("_cur_item_potential", 0.0), 2),
                 "cur_mo": round(r.get("_cur_item_mo", 0.0), 2),
+                "cur_rf": round(r.get("_cur_item_rf", 0.0), 2),
                 "cur_children": r.get("_cur_item_children", 0),
                 "cand_parent": r.get("_cand_parent_id", 0),
                 "cand_pot": round(r.get("_cand_potential", 0.0), 2),
                 "cand_mo": round(r.get("_cand_mo", 0.0), 2),
+                "cand_rf": round(r.get("_cand_rf", 0.0), 2),
                 "cand_score": round(r.get("_cand_score", 0.0), 2),
                 "added": r.get("_cand_added", 0),
             })
@@ -1523,6 +1553,11 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
           <div class="m-val" style="color: var(--warning);" id="accMoMean">-</div>
           <div class="m-sub" id="accMoStd">Std: -</div>
         </div>
+        <div class="comp-metric">
+          <div class="m-label">Mean RF Score</div>
+          <div class="m-val" style="color: var(--teal);" id="accRfMean">-</div>
+          <div class="m-sub" id="accRfStd">Std: -</div>
+        </div>
       </div>
       <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;" id="accCorrText">
         Pearson Correlation (Potential vs MO): -
@@ -1552,6 +1587,11 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
           <div class="m-label">Mean MO Score</div>
           <div class="m-val" style="color: var(--warning);" id="rejMoMean">-</div>
           <div class="m-sub" id="rejMoStd">Std: -</div>
+        </div>
+        <div class="comp-metric">
+          <div class="m-label">Mean RF Score</div>
+          <div class="m-val" style="color: var(--teal);" id="rejRfMean">-</div>
+          <div class="m-sub" id="rejRfStd">Std: -</div>
         </div>
       </div>
       <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;" id="rejCorrText">
@@ -1670,6 +1710,16 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
 
       <div class="chart-box">
         <div class="title">
+          <span>Candidate RF Score: Added vs Not Added Over Time</span>
+          <span class="badge">RF Evolution</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartCompRfTimeline"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <div class="title">
           <span>Fuzzing Throughput (Execs/sec)</span>
           <span class="badge">Speed</span>
         </div>
@@ -1720,6 +1770,16 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
         </div>
         <div class="chart-canvas-container">
           <canvas id="chartMoDist"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <div class="title">
+          <span>Candidate RF Footprint Score Distribution</span>
+          <span class="badge">Added vs Not Added</span>
+        </div>
+        <div class="chart-canvas-container">
+          <canvas id="chartRfDist"></canvas>
         </div>
       </div>
 
@@ -2014,10 +2074,12 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
             <th>Cur Score</th>
             <th>Cur Pot</th>
             <th>Cur MO</th>
+            <th>Cur RF</th>
             <th>Cur Children</th>
             <th>Cand Parent</th>
             <th>Cand Pot</th>
             <th>Cand MO</th>
+            <th>Cand RF</th>
             <th>Cand Score</th>
             <th>Queue Status</th>
             <th>Corpus</th>
@@ -2355,6 +2417,9 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
       document.getElementById('accMoMean').innerText = (gs.accepted_mean_mo || 0).toFixed(2);
       document.getElementById('accMoStd').innerText = 'Std: ' + (DATA.stats_table?.candidate_mo_accepted?.std_dev || 0).toFixed(2);
 
+      document.getElementById('accRfMean').innerText = (gs.accepted_mean_rf || 0).toFixed(2);
+      document.getElementById('accRfStd').innerText = 'Std: ' + (DATA.stats_table?.candidate_rf_accepted?.std_dev || 0).toFixed(2);
+
       document.getElementById('accCorrText').innerText =
         `Pearson Correlation (Potential vs MO): r = ${{gs.pot_mo_corr_accepted !== undefined ? gs.pot_mo_corr_accepted : '-'}}`;
 
@@ -2366,6 +2431,9 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
 
       document.getElementById('rejMoMean').innerText = (gs.rejected_mean_mo || 0).toFixed(2);
       document.getElementById('rejMoStd').innerText = 'Std: ' + (DATA.stats_table?.candidate_mo_rejected?.std_dev || 0).toFixed(2);
+
+      document.getElementById('rejRfMean').innerText = (gs.rejected_mean_rf || 0).toFixed(2);
+      document.getElementById('rejRfStd').innerText = 'Std: ' + (DATA.stats_table?.candidate_rf_rejected?.std_dev || 0).toFixed(2);
 
       document.getElementById('rejCorrText').innerText =
         `Pearson Correlation (Potential vs MO): r = ${{gs.pot_mo_corr_rejected !== undefined ? gs.pot_mo_corr_rejected : '-'}}`;
@@ -2492,9 +2560,13 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
         'candidate_mo_accepted': '🟢 Candidate MO Footprint Score (Added to Queue)',
         'candidate_mo_rejected': '🔴 Candidate MO Footprint Score (Not Added)',
         'candidate_mo_all': '⚪ Candidate MO Footprint Score (All Candidates)',
+        'candidate_rf_accepted': '🟢 Candidate RF Footprint Score (Added to Queue)',
+        'candidate_rf_rejected': '🔴 Candidate RF Footprint Score (Not Added)',
+        'candidate_rf_all': '⚪ Candidate RF Footprint Score (All Candidates)',
         'picked_item_score': '🔹 Picked Queue Item Combined Score',
         'picked_item_potential': '🔹 Picked Queue Item Potential Score',
         'picked_item_mo': '🔹 Picked Queue Item MO Footprint Score',
+        'picked_item_rf': '🔹 Picked Queue Item RF Footprint Score',
         'picked_item_children': '🔹 Children Enqueued per Picked Item',
         'mo_coverage': '📈 MO Coverage Progression',
         'rf_coverage': '📈 RF Coverage Progression',
@@ -2548,10 +2620,12 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
           <td>${{r.cur_score ?? '-'}}</td>
           <td>${{r.cur_pot ?? '-'}}</td>
           <td>${{r.cur_mo ?? '-'}}</td>
+          <td>${{r.cur_rf ?? '-'}}</td>
           <td>${{r.cur_children ?? '-'}}</td>
           <td>${{r.cand_parent !== undefined ? 'id:' + String(r.cand_parent).padStart(6, '0') : '-'}}</td>
           <td>${{r.cand_pot ?? '-'}}</td>
           <td>${{r.cand_mo ?? '-'}}</td>
+          <td>${{r.cand_rf ?? '-'}}</td>
           <td style="font-weight: 600;">${{r.cand_score ?? '-'}}</td>
           <td><span class="pill ${{r.added === 1 ? 'accepted' : 'rejected'}}">${{r.added === 1 ? 'ADDED' : (r.added === 0 ? 'NOT ADDED' : '-')}}</span></td>
           <td>${{r.corpus}}</td>
@@ -2712,6 +2786,27 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
         }}
       }}
 
+      if (ts.cand_rf_accepted) {{
+        const rfEl = document.getElementById('chartCompRfTimeline');
+        if (rfEl) {{
+          new Chart(rfEl, {{
+            type: 'line',
+            data: {{
+              labels: ts.rel_time,
+              datasets: [
+                {{ label: '🟢 Added RF Score', data: ts.cand_rf_accepted, borderColor: '#14f195', backgroundColor: 'rgba(20, 241, 149, 0.8)', showLine: false, pointRadius: 2.5 }},
+                {{ label: '🔴 Not Added RF Score', data: ts.cand_rf_rejected, borderColor: '#f87171', backgroundColor: 'rgba(248, 113, 113, 0.5)', showLine: false, pointRadius: 2 }},
+              ]
+            }},
+            options: {{
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {{ x: {{ title: {{ display: true, text: 'Time (seconds)' }} }}, y: {{ title: {{ display: true, text: 'RF Score' }} }} }}
+            }}
+          }});
+        }}
+      }}
+
       const tpEl = document.getElementById('chartThroughput');
       if (tpEl) {{
         new Chart(tpEl, {{
@@ -2814,6 +2909,27 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
         }}
       }}
 
+      if (hist.candidate_rf_accepted && hist.candidate_rf_rejected) {{
+        const el = document.getElementById('chartRfDist');
+        if (el) {{
+          new Chart(el, {{
+            type: 'bar',
+            data: {{
+              labels: hist.candidate_rf_accepted.labels,
+              datasets: [
+                {{ label: '🟢 Added to Queue', data: hist.candidate_rf_accepted.counts, backgroundColor: 'rgba(20, 241, 149, 0.75)' }},
+                {{ label: '🔴 Not Added', data: hist.candidate_rf_rejected.counts, backgroundColor: 'rgba(248, 113, 113, 0.55)' }},
+              ]
+            }},
+            options: {{
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {{ x: {{ stacked: false, title: {{ display: true, text: 'RF Score Bins' }} }}, y: {{ title: {{ display: true, text: 'Count' }} }} }}
+            }}
+          }});
+        }}
+      }}
+
       if (ts.cur_item_score) {{
         const el = document.getElementById('chartPickedScoresTimeline');
         if (el) {{
@@ -2825,6 +2941,7 @@ def render_html_dashboard(data: Dict[str, Any], title: str = "SGF Graph Run Deta
                 {{ label: 'Picked Item Score', data: ts.cur_item_score, borderColor: '#34d399', tension: 0.2, pointRadius: 1 }},
                 {{ label: 'Picked Potential', data: ts.cur_item_potential, borderColor: '#c084fc', borderDash: [2, 2], tension: 0.2, pointRadius: 0 }},
                 {{ label: 'Picked MO Score', data: ts.cur_item_mo, borderColor: '#06b6d4', borderDash: [2, 2], tension: 0.2, pointRadius: 0 }},
+                {{ label: 'Picked RF Score', data: ts.cur_item_rf, borderColor: '#14f195', borderDash: [2, 2], tension: 0.2, pointRadius: 0 }},
               ]
             }},
             options: {{

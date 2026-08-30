@@ -3302,11 +3302,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
-      // Phase management: Toggle phase after every 5 SGF cycles, or handle PRUNING_PHASE
-      enum skeleton_graph_mutator_phase normal_phase =
-          (sgf->queue_cycle == 0 || ((sgf->queue_cycle - 1) / 5) % 2 == 0)
-              ? MO_FOOTPRINT_DRIVEN_PHASE
-              : POTENTIAL_DRIVEN_PHASE;
+      // Phase management: Cycle phase after every 5 SGF cycles: MO -> RF -> Potential -> MO ...
+      u64 cycle_idx = sgf->queue_cycle ? (sgf->queue_cycle - 1) / 5 : 0;
+      enum skeleton_graph_mutator_phase normal_phase;
+      if (cycle_idx % 3 == 0) {
+        normal_phase = MO_FOOTPRINT_DRIVEN_PHASE;
+      } else if (cycle_idx % 3 == 1) {
+        normal_phase = RF_FOOTPRINT_DRIVEN_PHASE;
+      } else {
+        normal_phase = POTENTIAL_DRIVEN_PHASE;
+      }
 
       if (sgf->in_pruning_phase) {
         sgf->pruning_seeds_fuzzed++;

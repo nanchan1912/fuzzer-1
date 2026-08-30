@@ -270,6 +270,9 @@ struct SkeletonGraphData{
     // Data related to MO footprint computation
     double mo_footprint_score;              /* MO footprint score */
 
+    // Data related to RF footprint computation
+    double rf_footprint_score;              /* RF footprint score */
+
 #define DECAY_RATIO_MIN 0.05
 #define DECAY_RATIO_MAX 0.50
     double decay_ratio;
@@ -589,8 +592,9 @@ struct foreign_sync {
 // SKELETON GRAPH FUZZING PHASES
 enum skeleton_graph_mutator_phase{
   MO_FOOTPRINT_DRIVEN_PHASE, //0
-  POTENTIAL_DRIVEN_PHASE,    //1
-  PRUNING_PHASE              //2
+  RF_FOOTPRINT_DRIVEN_PHASE, //1
+  POTENTIAL_DRIVEN_PHASE,    //2
+  PRUNING_PHASE              //3
 };
 
 #define STAGNANT_SEEDS_PRUNE_THRESHOLD 30
@@ -1425,6 +1429,8 @@ void destroy_queue(sgf_state_t *);
 void update_bitmap_score(sgf_state_t *, struct queue_entry *, bool);
 void cull_queue(sgf_state_t *);
 double  calculate_score(sgf_state_t *, struct SkeletonGraphData *);
+double  calculate_mo_footprint_score(sgf_state_t *, struct SkeletonGraphData *);
+double  calculate_rf_footprint_score(sgf_state_t *, struct SkeletonGraphData *);
 void recalculate_all_scores(sgf_state_t *);
 void update_bitmap_rescore(sgf_state_t *, struct queue_entry *, u32);
 

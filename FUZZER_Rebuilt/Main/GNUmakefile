@@ -538,6 +538,13 @@ src/skeleton_mo_footprint.o: src/skeleton_mo_footprint.cpp \
 	include/skeleton_graph_mutator_wrapper.h
 	$(CXX) $(CXXFLAGS) -c src/skeleton_mo_footprint.cpp -o $@
 
+src/skeleton_rf_footprint.o: src/skeleton_rf_footprint.cpp \
+	include/skeleton_rf_footprint.hpp \
+	include/skeleton_graph.hpp \
+	include/skeleton_graph_mutator.hpp \
+	include/skeleton_graph_mutator_wrapper.h
+	$(CXX) $(CXXFLAGS) -c src/skeleton_rf_footprint.cpp -o $@
+
 src/skeleton_mutator_helper.o: src/skeleton_mutator_helper.cpp \
 	include/skeleton_mutator_helper.hpp \
 	include/static_program_abstraction.hpp \
@@ -568,6 +575,7 @@ sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
           src/data_race.o \
           src/skeleton_potential.o \
 		  src/skeleton_mo_footprint.o \
+		  src/skeleton_rf_footprint.o \
 		  src/skeleton_mutator_helper.o \
           src/potential_nn.o \
           src/event_pair_set.o \
@@ -589,6 +597,7 @@ sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
 	    src/data_race.o \
 	    src/skeleton_potential.o \
 	    src/skeleton_mo_footprint.o \
+	    src/skeleton_rf_footprint.o \
 	    src/potential_nn.o \
 	    src/skeleton_mutator_helper.o \
 	    src/event_pair_set.o \

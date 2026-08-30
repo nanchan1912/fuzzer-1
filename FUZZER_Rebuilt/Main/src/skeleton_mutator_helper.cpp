@@ -312,6 +312,25 @@ extern "C" void update_mo_freq_from_seed(const char* filename) {
 }
 
 
+extern "C" void update_rf_freq_from_seed(const char* filename) {
+    std::ifstream f(filename);
+    if (!f) {
+        ACTF("There was a problem while opening the json file for RF seed update");
+        return;
+    }
+    json json_file;
+    f >> json_file;
+
+    parse_adj_list(json_file, "rf_edges", [&](EventID from, EventID to) {
+        EventTriple from_event_triple = {std::get<0>(from), std::get<1>(from), std::get<2>(from)};
+        EventTriple to_event_triple = {std::get<0>(to), std::get<1>(to), std::get<2>(to)};
+        update_rf_footprint(from_event_triple, to_event_triple);
+        update_rf_coverage(std::get<0>(from), std::get<1>(from), std::get<2>(from),
+                           std::get<0>(to), std::get<1>(to), std::get<2>(to));
+    });
+}
+
+
 extern "C" SkeletonGraph* read_from_json(const char *filename) {
     std::ifstream f(filename);
     if (!f) {

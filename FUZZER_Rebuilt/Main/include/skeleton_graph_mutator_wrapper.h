@@ -17,6 +17,16 @@ uint32_t get_mo_coverage_count();
 void print_mo_edge_frequencies();
 const uint32_t get_mo_edge_freq(EventTriple from_event_id, EventTriple to_event_id);
 
+// RF-Footprint related functions
+int update_rf_footprint(EventTriple write_event, EventTriple read_event);
+void update_rf_footprint_for_graph(SkeletonGraph* graph);
+uint32_t get_rf_footprint_coverage_count(void);
+void print_rf_edge_frequencies(void);
+uint32_t get_rf_footprint_edge_freq(EventTriple write_event, EventTriple read_event);
+uint32_t get_sum_rf_frequencies_for_read(EventTriple read_event);
+double skeleton_graph_rf_footprint_calc(SkeletonGraph* graph);
+void update_rf_freq_from_seed(const char* filename);
+
 
 /**
  * @brief Deep-clone a skeleton graph.

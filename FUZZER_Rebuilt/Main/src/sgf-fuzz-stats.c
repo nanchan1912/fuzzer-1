@@ -641,20 +641,22 @@ void maybe_update_plot_file(sgf_state_t *sgf, u32 t_bytes, double bitmap_cvg,
                        sgf->queue_cur->graph_data->potential_score : 0.0;
     double cur_mo = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
                       sgf->queue_cur->graph_data->mo_footprint_score : 0.0;
+    double cur_rf = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                      sgf->queue_cur->graph_data->rf_footprint_score : 0.0;
     u32 cur_children = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
                          sgf->queue_cur->graph_data->children_enqueued : 0;
 
     fprintf(sgf->fsrv.plot_file,
             "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
-            "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %u",
+            "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %0.04f, %u",
             ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
             sgf->queue_cycle ? sgf->queue_cycle - 1 : 0, sgf->current_entry, sgf->queued_items,
             sgf->pending_not_fuzzed, sgf->pending_favored, bitmap_cvg,
             sgf->saved_crashes, sgf->saved_hangs, sgf->max_depth, eps,
             sgf->plot_prev_ed, t_bytes, sgf->total_crashes,
             (u32)sgf->san_binary_length, sgf->mo_coverage, sgf->rf_coverage,
-            cur_score, cur_pot, cur_mo, cur_children,
-            0, 0.0, 0.0, 0.0, 0);
+            cur_score, cur_pot, cur_mo, cur_rf, cur_children,
+            0, 0.0, 0.0, 0.0, 0.0, 0);
 
   } else {
 
@@ -695,17 +697,20 @@ void log_graph_candidate_to_plot_file(sgf_state_t *sgf,
                      sgf->queue_cur->graph_data->potential_score : 0.0;
   double cur_mo = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
                     sgf->queue_cur->graph_data->mo_footprint_score : 0.0;
+  double cur_rf = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
+                    sgf->queue_cur->graph_data->rf_footprint_score : 0.0;
   u32 cur_children = (sgf->queue_cur && sgf->queue_cur->graph_data) ?
                        sgf->queue_cur->graph_data->children_enqueued : 0;
 
   u32 parent_id = parent ? parent->id : 0;
   double cand_pot = mutated_graph_metadata ? mutated_graph_metadata->potential_score : 0.0;
   double cand_mo = mutated_graph_metadata ? mutated_graph_metadata->mo_footprint_score : 0.0;
+  double cand_rf = mutated_graph_metadata ? mutated_graph_metadata->rf_footprint_score : 0.0;
   double cand_score = new_score;
 
   fprintf(sgf->fsrv.plot_file,
           "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
-          "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %u",
+          "%u, %llu, %u, %u, %u, %0.04f, %0.04f, %0.04f, %0.04f, %u, %u, %0.04f, %0.04f, %0.04f, %0.04f, %u",
           ((sgf->prev_run_time + get_cur_time() - sgf->start_time) / 1000),
           sgf->queue_cycle ? sgf->queue_cycle - 1 : 0,
           sgf->queue_cur ? sgf->queue_cur->id : sgf->current_entry,
@@ -726,10 +731,12 @@ void log_graph_candidate_to_plot_file(sgf_state_t *sgf,
           cur_score,
           cur_pot,
           cur_mo,
+          cur_rf,
           cur_children,
           parent_id,
           cand_pot,
           cand_mo,
+          cand_rf,
           cand_score,
           (u32)added_to_queue);
 
@@ -1682,9 +1689,11 @@ void show_stats_normal(sgf_state_t *sgf) {
        u_stringify_int(IB(1), sgf->rf_coverage),
        sgf->current_phase == MO_FOOTPRINT_DRIVEN_PHASE
            ? "MO_FOOTPRINT_DRIVEN_PHASE"
-           : (sgf->current_phase == POTENTIAL_DRIVEN_PHASE
-                  ? "POTENTIAL_DRIVEN_PHASE"
-                  : (sgf->current_phase == PRUNING_PHASE ? "PRUNING_PHASE" : "UNKNOWN")));
+           : (sgf->current_phase == RF_FOOTPRINT_DRIVEN_PHASE
+                  ? "RF_FOOTPRINT_DRIVEN_PHASE"
+                  : (sgf->current_phase == POTENTIAL_DRIVEN_PHASE
+                         ? "POTENTIAL_DRIVEN_PHASE"
+                         : (sgf->current_phase == PRUNING_PHASE ? "PRUNING_PHASE" : "UNKNOWN"))));
     if (sgf->enable_feedback){
       SAYF("\n**USING FEEDBACK FROM SCHEDULER FOR NEXT EVENT**");
     }

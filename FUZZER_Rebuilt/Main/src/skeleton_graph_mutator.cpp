@@ -592,6 +592,21 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
         } else {
             mutated = try_mutate_rf();
         }
+    } else if (current_phase == RF_FOOTPRINT_DRIVEN_PHASE) {
+        // RF footprint phase favors re-wiring (mutate_rf) over growth, similar
+        // in spirit to PRUNING_PHASE's ratio, since RF footprint scoring cares
+        // about the diversity of existing rf edges rather than growing new ones.
+        if (skel_rand_below(101) < 30) {
+            mutated = try_add_node();
+            if (!mutated) {
+                mutated = try_mutate_rf();
+            }
+        } else {
+            mutated = try_mutate_rf();
+            if (!mutated) {
+                mutated = try_add_node();
+            }
+        }
     } else {
         if (skel_rand_below(101) < 70) {
             mutated = try_add_node();
@@ -2033,6 +2048,9 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
 
             //REVISIT: Checking the coverage when I choose the new event at random - this is temporary
             if (write_event != nullptr) {
+                EventTriple write_triple = {write_event->get_thread_id(), write_event->get_instruction_id(), write_event->get_visit_id()};
+                EventTriple new_triple = {new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id()};
+                update_rf_footprint(write_triple, new_triple);
                 update_rf_coverage(write_event->get_thread_id(), write_event->get_instruction_id(), write_event->get_visit_id(), 
                                    new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id());
             }
@@ -2133,6 +2151,9 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
             
             //REVISIT: Checking the coverage when I choose the new event at random - this is temporary
             if (write_event != nullptr) {
+                EventTriple write_triple = {write_event->get_thread_id(), write_event->get_instruction_id(), write_event->get_visit_id()};
+                EventTriple new_triple = {new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id()};
+                update_rf_footprint(write_triple, new_triple);
                 update_rf_coverage(write_event->get_thread_id(), write_event->get_instruction_id(), write_event->get_visit_id(), 
                                 new_event->get_thread_id(), new_event->get_instruction_id(), new_event->get_visit_id());
             }

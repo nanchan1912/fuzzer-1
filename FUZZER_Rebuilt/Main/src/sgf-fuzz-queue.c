@@ -1389,28 +1389,52 @@ double calculate_mo_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *
   return score;
 }
 
+double calculate_rf_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi){
+  (void)sgf;
+  double score = 1.0;
+  if (sgi && sgi->skeleton_graph) {
+    score = (double)skeleton_graph_rf_footprint_calc(sgi->skeleton_graph);
+  }
+  if (score < 1.0) { score = 1.0; }
+  if (score > 100.0) { score = 100.0; }
+  if (sgi) {
+    sgi->rf_footprint_score = score;
+  }
+  return score;
+}
+
 double calculate_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
   if (!sgi) { return 1.0; }
   // potential_score should be between 1 and 100
   double potential_score = calculate_potential_score(sgf, sgi);
   // mo_footprint_score should be between 1 and 100
   double mo_footprint_score = calculate_mo_footprint_score(sgf, sgi);
+  // rf_footprint_score should be between 1 and 100
+  double rf_footprint_score = calculate_rf_footprint_score(sgf, sgi);
 
-  double alpha, beta;
+  double alpha, beta, gamma;
   if (sgf->current_phase == MO_FOOTPRINT_DRIVEN_PHASE) {
-    // MO FOOTPRINT DRIVEN PHASE
-    alpha = 0.2;
-    beta = 0.8;
+    // MO FOOTPRINT DRIVEN PHASE: MO dominant
+    beta  = 0.6; // MO
+    gamma = 0.2; // RF
+    alpha = 0.2; // Potential
+  } else if (sgf->current_phase == RF_FOOTPRINT_DRIVEN_PHASE) {
+    // RF FOOTPRINT DRIVEN PHASE: RF dominant
+    gamma = 0.6; // RF
+    beta  = 0.2; // MO
+    alpha = 0.2; // Potential
   } else if (sgf->current_phase == POTENTIAL_DRIVEN_PHASE) {
-    // POTENTIAL DRIVEN PHASE
-    alpha = 0.8;
-    beta = 0.2;
+    // POTENTIAL DRIVEN PHASE: Potential dominant
+    alpha = 0.6; // Potential
+    beta  = 0.2; // MO
+    gamma = 0.2; // RF
   } else {
-    // PRUNING PHASE
-    alpha = 0.5;
-    beta = 0.5;
+    // PRUNING PHASE: Equal balance
+    alpha = 1.0 / 3.0;
+    beta  = 1.0 / 3.0;
+    gamma = 1.0 / 3.0;
   }
-  double score = (alpha * potential_score) + (beta * mo_footprint_score);
+  double score = (alpha * potential_score) + (beta * mo_footprint_score) + (gamma * rf_footprint_score);
 
   if (score < 1.0) { score = 1.0; }
   if (score > 100.0) { score = 100.0; }

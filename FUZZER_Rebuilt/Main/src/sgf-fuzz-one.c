@@ -948,7 +948,7 @@ havoc_stage:
       if (!sgf->queue_cur->graph_data->skeleton_potential) {
         sgf->queue_cur->graph_data->skeleton_potential = create_skeleton_potential(sgf->queue_cur->graph_data->skeleton_graph);
       }
-      if (sgf->queue_cur->graph_data->potential_score == 0.0 || sgf->queue_cur->graph_data->mo_footprint_score == 0.0) {
+      if (sgf->queue_cur->graph_data->potential_score == 0.0 || sgf->queue_cur->graph_data->mo_footprint_score == 0.0 || sgf->queue_cur->graph_data->rf_footprint_score == 0.0) {
         calculate_score(sgf, sgf->queue_cur->graph_data);
       }
     }
