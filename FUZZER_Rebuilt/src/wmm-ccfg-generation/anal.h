@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <functional>
 
 typedef std::pair<const SVF::SVFInstruction*, SVF::CallStrCxt> inst_cxt_pair;
 // Helper func for process_instructions
@@ -117,7 +118,8 @@ std::set<SVF::NodeID> get_threads_executing_inst(const SVF::SVFInstruction* inst
 //Helper func to identify shared variables
 void identify_shared_global_variables(SVF::SVFIR* pag,
 									  SVF::MHP* mhp,
-									  SVF::SVFModule* svfModule);
+									  SVF::SVFModule* svfModule,
+									  std::function<bool(const SVF::SVFValue*, const std::vector<const SVF::SVFInstruction*>&)> check_global_shared);
 
 void identify_shared_variables(SVF::SVFIR* pag,
 							   SVF::FSMPTA* fsmpta,

@@ -24,6 +24,7 @@
 #include <cctype>
 
 #include "./anal.h"
+#include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
 using namespace std;
@@ -43,6 +44,12 @@ static DummyStream dummy_stream;
 #define cout dummy_stream
 #define outs() nulls()
 #endif
+
+static Option<bool> FilterShared(
+    "filter-shared",
+    "Enable precise MHP parallel-write filter for shared variables and fields",
+    true
+);
 
 std::vector<std::pair<NodeID, NodeID>> points_to_info;
 std::set<std::pair<std::string, std::string>> missing_edges;
@@ -89,6 +96,7 @@ public:
 
 // storing the shared locations, events on those locations per thread and the control flow edges btwn events
 std::set<std::pair<std::pair<const SVF::SVFValue*, std::string>, std::string>> shared_vars;  //{{location_addr, field_index}, var_name}
+std::set<std::pair<const SVF::SVFValue*, std::string>> actually_shared_fields;
 // threadID -> [event_info]
 std::map<std::string, std::vector<event_info*>> threadEvents; 
 
@@ -244,19 +252,16 @@ bool has_shared_location(const SVF::SVFValue* location_addr, std::string field_i
      if (!location_addr){
         return false;
     }
-
-    for (const auto& shared : shared_vars){
-        if (shared.first.first == location_addr){
-            if (shared.first.second == field_index){
-                return true;
-            }else{
-                //insert a new entry for this location with the new field index - this is to handle the case where we have multiple accesses to the same location but different fields being accessed - we want to capture all of them as shared locations
-                shared_vars.insert({{location_addr, field_index}, shared.second});
+    if (FilterShared()) {
+        return actually_shared_fields.count({location_addr, field_index}) > 0;
+    } else {
+        for (const auto& shared : shared_vars){
+            if (shared.first.first == location_addr){
                 return true;
             }
         }
+        return false;
     }
-    return false;
 }
 
 std::string get_field_index_from_ptr(const Value* ptr){
@@ -606,7 +611,7 @@ std::pair<std::vector<std::pair<SVFInstruction*, CallStrCxt>>, CxtThread> check_
 
                             cout << "Last insts obtained in the function: " << endl;
                             for(auto li: temp_last_inst_pairs){
-                                cout << li.first->toString() << endl;
+                                cout << (li.first ? li.first->toString() : "null") << endl;
                             }
 
                             cout << "Setting thread analysis status - so that I can distinguish btwn create and join in analyze_func" << endl;
@@ -1557,7 +1562,7 @@ void print_thread_ids_for_pag_node(NodeID pagNodeID, SVFIR* pag, MHP* mhp){
 // }
 
 //Helper func to identify shared variables
-void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule){
+void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule, std::function<bool(const SVF::SVFValue*, const std::vector<const SVF::SVFInstruction*>&)> check_global_shared){
     LLVMModuleSet* llvmmod = LLVMModuleSet::getLLVMModuleSet();
 
     std::string prevInst = "";
@@ -1640,73 +1645,18 @@ void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule
         }
         
         // cout << "[DEBUG 0] no. of threads executing the instruction: " << threadIDs.size() << endl;
-        bool shared = false;
-        for(size_t i = 0; i < uses_of_global.size(); i++){
-            // It is also possible that the same instruction may be executed by multiple threads in parallel
-            // found this case in the mschange benchmark - 
-            // succ1, succ2 are beign written to in main_task which is executed by all the spawned threads
-            // however, it is not marked as a shared location since there is only one user corresponding to succ1 and succ2
-
-            //REVISIT - assuming mhp can take the same instruction as arg twuce and say if different instances of it can run in parallel - check if this works - NO, THIS ISNT WORKING - 
-            // tried mayHappenInParallel(uses_of_global[i], uses_of_global[i]) 
-            // and mayHappenInParallel(uses_of_global[i], uses_of_global[i])
-            // observed no change in the shared vars with either of these
-
-            //alternate way - use getThreadStmtSet to get the threads executing the instruction - if these may execute in parallel, I can mark it as shared var
-
-            /*
-            inline const CxtThreadStmtSet& getThreadStmtSet(const SVFInstruction* inst) const
-            {
-                InstToThreadStmtSetMap::const_iterator it = instToTSMap.find(inst);
-                assert(it!=instToTSMap.end() && "no thread access the instruction?");
-                return it->second;
-            }
-            
-            I can use this func to get a CxtThreadStmtSet and then iterate through the thread stmt and then get interleaving threads
-
-            To Get interleaving thread for statement inst:
-            const NodeBS & 	getInterleavingThreads (const CxtThreadStmt &cts)
-
-            */
-            cout << "Checking if the instruction: " << uses_of_global[i]->toString() << " may be executed by multiple threads in parallel" << endl;
-            // const SVF::MHP::CxtThreadStmtSet& threadStmtSet = mhp -> getThreadStmtSet(uses_of_global[i]);
-            // cout << "Found thread stmt set of size " << threadStmtSet.size() << " for instruction: " << uses_of_global[i]->toString() << endl;
-            // for(auto threadStmt: threadStmtSet){
-            //     const NodeBS& interleavingThreads = mhp -> getInterleavingThreads(threadStmt);
-            //     for(auto t:interleavingThreads){
-            //         cout << "Thread " << t << " may interleave with the thread executing the instruction: " << uses_of_global[i]->toString() << endl;
-            //     }
-            // }
-
-            if(mhp -> mayHappenInParallel(uses_of_global[i], uses_of_global[i])){
-                //mark the location as shared only if there is atleast one user which is a store instruction
-                // if(found_one_store){
-                    shared = true;
-                    cout << "[DEBUG 0] Different instances of the same instruction may happen in parallel: " << uses_of_global[i]->toString() << " and " << endl;
-                    break;
-                // }
-            }
-
-            // this is the normal case - checking other uses
-            for(size_t j = i + 1; j < uses_of_global.size(); j++){
-                if(mhp -> mayHappenInParallel(uses_of_global[i], uses_of_global[j])){
-                    //mark the location as shared only if there is atleast one user which is a store instruction
-                    // if(found_one_store){
-                        shared = true;
-                        cout << "[DEBUG 0] Found a pair of instructions that may happen in parallel: " << uses_of_global[i]->toString() << " and " << uses_of_global[j]->toString() << endl;
-                        break;
-                    // }
-                }
-                if(shared){
-                    break;
-                }
-            }
+        const SVFValue* global_val = static_cast<const SVF::SVFValue*>(*global_it);
+        const Value* llvm_val = llvmmod->getLLVMValue(global_val);
+        std::string field_index = "";
+        if (llvm_val) {
+            field_index = get_field_index_from_ptr(llvm_val);
         }
+
+        bool shared = check_global_shared(global_val, uses_of_global);
 
         if(shared){
             const SVF::SVFValue* location_addr = nullptr;
             std::string var_name = "unknown";
-            std::string field_index;
 
             cout << "\n For the global inst:  " << (*global_it)->toString() << endl;
             
@@ -1718,7 +1668,6 @@ void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule
                 cout << "This global variable is a constant, skipping..." << endl;
                 continue;
             }
-            const SVFValue* global_val = static_cast<const SVF::SVFValue*>(*global_it);
             if(!global_val){
                 cout << "global val is null" << endl;
                 return;
@@ -1730,7 +1679,6 @@ void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule
                 return;
             }
 
-
             //get location_addr, field_index and var_name for the global variable from the global_it 
             // insert location_addr, field_index and var_name to shared_vars set
 
@@ -1739,10 +1687,6 @@ void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule
             cout << "[NEW WAY TO GET THE GLOBAL VAR NAME] var_name: " << var_name << endl;
             location_addr = global_val;
 
-            const Value* llvm_val = llvmmod->getLLVMValue(global_val);
-            if (llvm_val){
-                field_index = get_field_index_from_ptr(llvm_val);
-            }
             cout << "[NEW WAY TO GET THE GLOBAL VAR NAME] pointer to shared loc (addr): " << location_addr << ", field index: " << field_index << endl;
 
             shared_vars.insert({{location_addr, field_index}, var_name});
@@ -1788,17 +1732,132 @@ void identify_shared_variables(SVFIR* pag, FSMPTA* fsmpta, MHP* mhp, SVFModule* 
     // Pointers
     get_points_to_info(pag, fsmpta);
 
+    // Helper lambdas
+    auto get_inst_access_loc = [&](const SVFInstruction* inst) -> std::pair<const SVFValue*, std::string> {
+        if (!inst) return {nullptr, ""};
+        const SVF::SVFValue* val = static_cast<const SVF::SVFValue*>(inst);
+        const Value* llvm_val = llvmmod->getLLVMValue(val);
+        if (!llvm_val) return {nullptr, ""};
+
+        const Value* ptr = nullptr;
+        if (SVFUtil::isa<SVF::LoadInst>(llvm_val)) {
+            if (const auto* LI = dyn_cast<LoadInst>(llvm_val)) ptr = LI->getPointerOperand();
+        } else if (SVFUtil::isa<SVF::StoreInst>(llvm_val)) {
+            if (const auto* SI = dyn_cast<StoreInst>(llvm_val)) ptr = SI->getPointerOperand();
+        } else if (SVFUtil::isa<SVF::AtomicRMWInst>(llvm_val)) {
+            if (const auto* RMWI = dyn_cast<AtomicRMWInst>(llvm_val)) ptr = RMWI->getPointerOperand();
+        } else if (SVFUtil::isa<SVF::AtomicCmpXchgInst>(llvm_val)) {
+            if (const auto* CXI = dyn_cast<AtomicCmpXchgInst>(llvm_val)) ptr = CXI->getPointerOperand();
+        }
+
+        if (!ptr) return {nullptr, ""};
+
+        std::string field_index = get_field_index_from_ptr(ptr);
+        ptr = ptr->stripPointerCasts();
+
+        const SVF::SVFValue* location_addr = nullptr;
+        if (const auto* GV = dyn_cast<GlobalVariable>(ptr)) {
+            location_addr = dyn_cast<const SVF::SVFValue>(llvmmod->getSVFGlobalValue(GV));
+        } else {
+            const SVFInstruction* ptr_inst = nullptr;
+            if (const auto* llvm_ptr_inst = dyn_cast<Instruction>(ptr)) {
+                ptr_inst = llvmmod->getSVFInstruction(llvm_ptr_inst);
+            }
+            auto loc_pair = get_location_pointed_to(pag, ptr_inst);
+            location_addr = loc_pair.second.first;
+        }
+
+        return {location_addr, field_index};
+    };
+
+    auto is_write_instruction = [&](const SVFInstruction* inst) -> bool {
+        if (!inst) return false;
+        const SVF::SVFValue* val = static_cast<const SVF::SVFValue*>(inst);
+        const Value* llvm_val = llvmmod->getLLVMValue(val);
+        if (!llvm_val) return false;
+
+        return SVFUtil::isa<SVF::StoreInst>(llvm_val) || 
+               SVFUtil::isa<SVF::AtomicRMWInst>(llvm_val) || 
+               SVFUtil::isa<SVF::AtomicCmpXchgInst>(llvm_val);
+    };
+
+    // 1. Build accesses map for all locations in the ICFG once
+    std::map<const SVFValue*, std::map<std::string, std::vector<const SVFInstruction*>>> loc_field_accesses;
+    
+    ICFG* icfg = pag->getICFG();
+    for (auto it = icfg->begin(); it != icfg->end(); ++it) {
+        ICFGNode* node = it->second;
+        for (const SVFStmt* stmt : node->getSVFStmts()) {
+            if (const SVFInstruction* inst = stmt->getInst()) {
+                auto loc_field = get_inst_access_loc(inst);
+                if (loc_field.first) {
+                    loc_field_accesses[loc_field.first][loc_field.second].push_back(inst);
+                }
+            }
+        }
+    }
+
+    auto check_actually_shared = [&](const SVFValue* loc, const std::string& field) -> bool {
+        if (!loc) return false;
+        
+        if (!FilterShared()) return true;
+
+        std::map<std::string, std::vector<const SVFInstruction*>> target_accesses;
+        if (field == "") {
+            target_accesses = loc_field_accesses[loc];
+        } else {
+            target_accesses[field] = loc_field_accesses[loc][field];
+        }
+
+        for (const auto& entry : target_accesses) {
+            const auto& accesses = entry.second;
+            for (size_t i = 0; i < accesses.size(); i++) {
+                bool write_i = is_write_instruction(accesses[i]);
+
+                if (mhp->mayHappenInParallel(accesses[i], accesses[i])) {
+                    if (write_i) return true;
+                }
+
+                for (size_t j = i + 1; j < accesses.size(); j++) {
+                    bool write_j = is_write_instruction(accesses[j]);
+
+                    if (mhp->mayHappenInParallel(accesses[i], accesses[j])) {
+                        if (write_i || write_j) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    auto check_global_shared = [&](const SVFValue* loc, const std::vector<const SVFInstruction*>& uses) -> bool {
+        if (!FilterShared()) {
+            for(size_t i = 0; i < uses.size(); i++){
+                if(mhp -> mayHappenInParallel(uses[i], uses[i])){
+                    return true;
+                }
+                for(size_t j = i + 1; j < uses.size(); j++){
+                    if(mhp -> mayHappenInParallel(uses[i], uses[j])){
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } else {
+            const Value* llvm_val = llvmmod->getLLVMValue(loc);
+            std::string field_index = "";
+            if (llvm_val) {
+                field_index = get_field_index_from_ptr(llvm_val);
+            }
+            return check_actually_shared(loc, field_index);
+        }
+    };
+
     for (const auto& pair : points_to_info){
         NodeID var = pair.first;
         NodeID points_to_node = pair.second;
-        // check which nodes point to the same node
         for (const auto& other_pair : points_to_info){
             if (other_pair.first != var && other_pair.second == points_to_node){
-                // var and other_pair.first point to the same node, so they
-                // maybe shared variables we consider them shared if we find
-                // that other_pair.first is from a different thread that may run
-                // in parallel with the thread of var (based on MHP analysis)
-
                 std::set<NodeID> varThreadIDs = get_thread_ids_for_pag_node(var, pag, mhp);
                 std::set<NodeID> otherVarThreadIDs = get_thread_ids_for_pag_node(other_pair.first, pag, mhp);
 
@@ -1828,7 +1887,6 @@ void identify_shared_variables(SVFIR* pag, FSMPTA* fsmpta, MHP* mhp, SVFModule* 
                     print_thread_ids_for_pag_node(var, pag, mhp);
                     print_thread_ids_for_pag_node(other_pair.first, pag, mhp);
 
-                    //adding the corresponding variable to the set of shared variables
                     const MemObj* baseobj = pag->getObject(points_to_node);
                     if (baseobj && !baseobj->isFunction()){
                         if(baseobj->getValue()){
@@ -1850,8 +1908,10 @@ void identify_shared_variables(SVFIR* pag, FSMPTA* fsmpta, MHP* mhp, SVFModule* 
                                 field_index = get_field_index_from_ptr(llvm_val);
                             }
 
-                            shared_vars.insert({{location_addr, field_index}, var_name});
-                            cout << "[DEBUG 0] Found a shared variable: " << var_name << endl;
+                            if (check_actually_shared(location_addr, field_index)) {
+                                shared_vars.insert({{location_addr, field_index}, var_name});
+                                cout << "[DEBUG 0] Found a shared variable: " << var_name << endl;
+                            }
                         }
                         cout << "location_addr is: " << location_addr << ", field_index: " << field_index << endl;
                     }
@@ -1867,8 +1927,35 @@ void identify_shared_variables(SVFIR* pag, FSMPTA* fsmpta, MHP* mhp, SVFModule* 
     }
     cout << "\n IDENTIFYING SHARED VARIABLES AMONG THE GLOBAL VARIABLES \n" << endl;
     //global variables
-    identify_shared_global_variables(pag, mhp, svfModule);
+    identify_shared_global_variables(pag, mhp, svfModule, check_global_shared);
     cout << "Identified shared global variables" << endl;
+
+    if (FilterShared()) {
+        // Filter shared_vars and populate actually_shared_fields
+        std::set<std::pair<std::pair<const SVF::SVFValue*, std::string>, std::string>> filtered_shared_vars;
+        actually_shared_fields.clear();
+
+        for (const auto& var : shared_vars) {
+            const SVFValue* loc = var.first.first;
+            std::string field = var.first.second;
+
+            // Group accesses by field index
+            std::map<std::string, std::vector<const SVFInstruction*>> field_accesses = loc_field_accesses[loc];
+
+            for (const auto& entry : field_accesses) {
+                const std::string& f = entry.first;
+                if (field == "" || f == field) {
+                    if (check_actually_shared(loc, f)) {
+                        filtered_shared_vars.insert({{loc, f}, var.second});
+                        actually_shared_fields.insert({loc, f});
+                    }
+                }
+            }
+        }
+
+        shared_vars = filtered_shared_vars;
+    }
+
     cout << "All shared vars identified:" << endl;
     for(auto var : shared_vars){
         cout << "Variable name: " << var.second << ", location address: " << var.first.first << ", field index: " << var.first.second << endl;
