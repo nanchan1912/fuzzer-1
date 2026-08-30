@@ -973,10 +973,18 @@ uint64_t __attribute__((weak)) __instrument_rmw(uint64_t uid, void *addr, uint32
     return old_val;
 }
 
-uint64_t __attribute__((weak)) __instrument_cmpxchg(uint64_t uid, void *addr, uint64_t compare_val,
-                                                    uint64_t new_val, uint32_t order,
-                                                    uint64_t thread_id, uint64_t loc_id,
-                                                    uint64_t value_size) {
+/* Shared body for the three cmpxchg entry points below.
+ *
+ * success_out is the scheduler's verdict on whether the swap actually
+ * happened, which is NOT the same as whether the comparison matched: a weak
+ * CAS whose graph node says CAS_FAIL must report failure and leave memory
+ * alone even when old == compare. Callers should use this value rather than
+ * recomputing old == compare on their own side. */
+static uint64_t wmm_cmpxchg_common(uint64_t uid, void *addr, uint64_t compare_val,
+                                   uint64_t new_val, uint32_t order,
+                                   uint64_t thread_id, uint64_t loc_id,
+                                   uint64_t value_size, bool is_weak,
+                                   uint8_t *success_out) {
     __wmm_init_internal();
     __wmm_set_event_context(uid, thread_id, loc_id);
 
@@ -995,7 +1003,8 @@ uint64_t __attribute__((weak)) __instrument_cmpxchg(uint64_t uid, void *addr, ui
     uint64_t old_val = scheduler_on_cmpxchg_bytes_ex(addr, size, compare_val, new_val,
                                                      __wmm_order_from_index(order),
                                                      uid, __wmm_tls_event_thread_id, loc_id,
-                                                     __wmm_tls_event_visit_id, &success, &forced);
+                                                     __wmm_tls_event_visit_id,
+                                                     is_weak, &success, &forced);
 
     if (success) {
         __wmm_log_runtime("CMPXCHG_STORE", (const void *)addr,
@@ -1010,14 +1019,45 @@ uint64_t __attribute__((weak)) __instrument_cmpxchg(uint64_t uid, void *addr, ui
     }
 
     if (forced) {
-        WMM_RT_LOG("[WMM][runtime][kind=RMW_LOAD_FORCED][uid=%llx][thread_id=%lu][loc=%lu]\n",
+        WMM_RT_LOG("[WMM][runtime][kind=%s_LOAD_FORCED][uid=%llx][thread_id=%lu][loc=%lu]\n",
+                   is_weak ? "CAS_WEAK" : "CAS_STRONG",
                    (unsigned long)uid,
                    (unsigned long)__wmm_tls_event_thread_id,
                    (unsigned long)loc_id);
     }
 
+    if (success_out) { *success_out = success ? 1u : 0u; }
+
     __wmm_clear_event_context();
     return old_val;
+}
+
+uint64_t __attribute__((weak)) __instrument_cmpxchg_strong(uint64_t uid, void *addr,
+                                                           uint64_t compare_val, uint64_t new_val,
+                                                           uint32_t order, uint64_t thread_id,
+                                                           uint64_t loc_id, uint64_t value_size,
+                                                           uint8_t *success_out) {
+    return wmm_cmpxchg_common(uid, addr, compare_val, new_val, order, thread_id,
+                              loc_id, value_size, /*is_weak=*/false, success_out);
+}
+
+uint64_t __attribute__((weak)) __instrument_cmpxchg_weak(uint64_t uid, void *addr,
+                                                         uint64_t compare_val, uint64_t new_val,
+                                                         uint32_t order, uint64_t thread_id,
+                                                         uint64_t loc_id, uint64_t value_size,
+                                                         uint8_t *success_out) {
+    return wmm_cmpxchg_common(uid, addr, compare_val, new_val, order, thread_id,
+                              loc_id, value_size, /*is_weak=*/true, success_out);
+}
+
+/* Retained so bitcode instrumented before the strong/weak ABI split still
+ * links. New instrumentation always emits one of the two entry points above. */
+uint64_t __attribute__((weak)) __instrument_cmpxchg(uint64_t uid, void *addr, uint64_t compare_val,
+                                                    uint64_t new_val, uint32_t order,
+                                                    uint64_t thread_id, uint64_t loc_id,
+                                                    uint64_t value_size) {
+    return wmm_cmpxchg_common(uid, addr, compare_val, new_val, order, thread_id,
+                              loc_id, value_size, /*is_weak=*/false, NULL);
 }
 
 void __attribute__((weak)) __instrument_fence(uint64_t uid, uint32_t order,

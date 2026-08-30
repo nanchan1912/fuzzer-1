@@ -55,9 +55,16 @@ bool scheduler_on_load_bytes_ex(void *addr, Access_Mode order,
 uint64_t scheduler_on_rmw_bytes_ex(void *addr, size_t size, uint32_t op, uint64_t value,
                                    Access_Mode order, uint64_t event_uid, uint64_t thread_id,
                                    uint64_t loc_id, uint64_t visit_id, bool *forced_out);
+/* is_weak selects the C11 compare_exchange_weak semantics: the operation may
+ * fail spuriously even when the comparison succeeds. It changes which
+ * (expected outcome, comparison result) combinations are instantiable -- see
+ * the decision table in scheduler_on_cmpxchg_bytes_ex.
+ * success_out reports whether the swap actually happened, which is NOT
+ * necessarily the same as whether the comparison matched. */
 uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare_val, uint64_t new_val,
                                        Access_Mode order, uint64_t event_uid, uint64_t thread_id,
-                                       uint64_t loc_id, uint64_t visit_id, bool *success_out, bool *forced_out);
+                                       uint64_t loc_id, uint64_t visit_id, bool is_weak,
+                                       bool *success_out, bool *forced_out);
 void scheduler_on_fence(Access_Mode order, uint64_t event_uid,
 						uint64_t thread_id);
 void scheduler_on_fence_ex(Access_Mode order, uint64_t event_uid,

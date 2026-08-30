@@ -14,6 +14,18 @@
 // TODO: This path is hardcoded - change it!
 #include "/home/aritra/fuzzer-1/FUZZER_Rebuilt/Main/include/shm_next_events.h"
 
+/* eg.h keeps plain literals so it stays includable without going through
+ * this hardcoded shm_next_events.h path; this is where the two vocabularies
+ * are actually pinned together. If one of these fires, the runtime and AFL
+ * disagree about what a byte on the shm wire means, which would otherwise
+ * corrupt feedback silently. */
+_Static_assert(EG_OP_READ        == WMM_EV_READ,        "EG_OP/WMM_EV wire skew: READ");
+_Static_assert(EG_OP_WRITE       == WMM_EV_WRITE,       "EG_OP/WMM_EV wire skew: WRITE");
+_Static_assert(EG_OP_RMW         == WMM_EV_RMW,         "EG_OP/WMM_EV wire skew: RMW");
+_Static_assert(EG_OP_FENCE       == WMM_EV_FENCE,       "EG_OP/WMM_EV wire skew: FENCE");
+_Static_assert(EG_OP_CAS_SUCCESS == WMM_EV_CAS_SUCCESS, "EG_OP/WMM_EV wire skew: CAS_SUCCESS");
+_Static_assert(EG_OP_CAS_FAIL    == WMM_EV_CAS_FAIL,    "EG_OP/WMM_EV wire skew: CAS_FAIL");
+
 
 struct SHM_next_events *g_next_events = NULL;
 const char *SHM_ENV_NAME = "SHM_NEXT_EVENTS_ID";
@@ -82,6 +94,16 @@ typedef struct{
     int vid;
     Access_Mode order; //changing from memory_order to Access_Mode enum(declared in header file)
     int event_type;
+    /* Second legal outcome for the same (tid,iid,vid), or -1 when there is
+     * only one. A weak CAS whose comparison succeeded may either swap or fail
+     * spuriously, so both outcomes are offered to the fuzzer as alternatives.
+     *
+     * This is a field rather than a second list entry on purpose: the producer
+     * loop calls get_executed_events_and_prune() once per entry, which prunes
+     * and frees the thread's executed-event list, so a second entry for the
+     * same thread would collect a degenerate source set (or double-free).
+     * Both candidates must be emitted inside one iteration. */
+    int event_type_alt;
     long long loc_id;
 }next_event_t;
 
@@ -486,13 +508,22 @@ static uint64_t record_event_node_locked(uint64_t tid, long long iid,
         return new_id;
     }
 
-    const bool is_rw_pair =
+    /* A plain read and a plain write recorded at the same dynamic event are
+     * the two halves of one RMW, so they get merged. CAS types are deliberately
+     * excluded from this promotion: laundering a CAS_FAIL into an RMW would
+     * make the recorded graph claim a store that never happened. A CAS node
+     * only ever matches itself. */
+    const bool cas_involved =
+        existing->type == EG_OP_CAS_SUCCESS || existing->type == EG_OP_CAS_FAIL ||
+        requested_type == EG_OP_CAS_SUCCESS || requested_type == EG_OP_CAS_FAIL;
+
+    const bool is_rw_pair = !cas_involved && (
         (existing->type == EG_OP_READ && requested_type == EG_OP_WRITE) ||
         (existing->type == EG_OP_WRITE && requested_type == EG_OP_READ) ||
         (existing->type == EG_OP_RMW &&
          (requested_type == EG_OP_READ || requested_type == EG_OP_WRITE)) ||
         ((existing->type == EG_OP_READ || existing->type == EG_OP_WRITE) &&
-         requested_type == EG_OP_RMW);
+         requested_type == EG_OP_RMW));
 
     if (is_rw_pair) {
         existing->type = EG_OP_RMW;
@@ -509,7 +540,8 @@ static uint64_t record_event_node_locked(uint64_t tid, long long iid,
         strncpy(existing->location, loc_str, 63);
         existing->location[63] = '\0';
     }
-    if (requested_type == EG_OP_WRITE || requested_type == EG_OP_RMW)
+    /* The stored value is only meaningful for events that store. */
+    if (eg_is_write_like(requested_type))
         existing->value = value;
 
     return existing->id;
@@ -556,12 +588,17 @@ static int thread_slot(uint64_t tid) {
     return -1;
 }
 
+/* Duplicate of eg.c's mapping (that one is static). Keep the two in sync:
+ * this is the copy the [NXT_EVNT]/[LST_EVNT] feedback logs use, so a missing
+ * case here shows up as "Unknown" in the logs rather than as a hard error. */
 static const char* eg_type_to_string(int type) {
     switch (type) {
         case EG_OP_READ: return "R";
         case EG_OP_WRITE: return "W";
         case EG_OP_FENCE: return "F";
         case EG_OP_RMW: return "RMW";
+        case EG_OP_CAS_SUCCESS: return "CAS_SUCCESS";
+        case EG_OP_CAS_FAIL: return "CAS_FAIL";
         default: return "Unknown";
     }
 }
@@ -627,25 +664,47 @@ static void scheduler_terminate_locked(int code) {
                         nxt_temp->nxt_event.tid, nxt_temp->nxt_event.iid, nxt_temp->nxt_event.vid,
                         eg_type_to_string(nxt_temp->nxt_event.event_type), nxt_temp->nxt_event.order, nxt_temp->nxt_event.loc_id, code);
 
-                //Map the specific sources into SHM for THIS next event
-                if (shm && shm->next_event_count < MAX_NEXT) {
-                    struct Shared_event *se = &shm->next_events[shm->next_event_count];
-                    
-                    se->tid = nxt_temp->nxt_event.tid;
-                    se->iid = nxt_temp->nxt_event.iid;
-                    se->vid = nxt_temp->nxt_event.vid;
-                    se->event_type = nxt_temp->nxt_event.event_type;
-                    se->access_mode = nxt_temp->nxt_event.order; 
-                    se->location = nxt_temp->nxt_event.loc_id;
-                    se->source_nodes_count= source_count;
-                    //traverse and store all the parents into the corresponding next event
-                    for (int i = 0; i < source_count; i++) {
-                        se->source_nodes[i] = sources[i];
-                        fprintf(stderr,"source: tid=%d,iid=%lld,vid=%d\n node: tid=%d,iid=%lld,vid=%d\n",
-                               sources[i].tid, sources[i].iid, sources[i].vid,
-                               se->tid, se->iid, se->vid);
+                const int alt_type = nxt_temp->nxt_event.event_type_alt;
+                const int outcome_count = (alt_type >= 0) ? 2 : 1;
+
+                if (alt_type >= 0) {
+                    fprintf(stderr, "[NXT_EVNT] . tid=%d iid=%lld vid=%d event type=%s memory order=%d location id=%lld. exit=%d (alternative outcome)\n",
+                            nxt_temp->nxt_event.tid, nxt_temp->nxt_event.iid, nxt_temp->nxt_event.vid,
+                            eg_type_to_string(alt_type), nxt_temp->nxt_event.order, nxt_temp->nxt_event.loc_id, code);
+                }
+
+                //Map the specific sources into SHM for THIS next event.
+                //Both outcomes are published here, in this one iteration, sharing
+                //the sources[] already collected above. The bound check demands
+                //room for the whole pair so a half-pair is never emitted.
+                if (shm && shm->next_event_count + (uint64_t)outcome_count <= MAX_NEXT) {
+                    for (int k = 0; k < outcome_count; k++) {
+                        struct Shared_event *se = &shm->next_events[shm->next_event_count];
+
+                        se->tid = nxt_temp->nxt_event.tid;
+                        se->iid = nxt_temp->nxt_event.iid;
+                        se->vid = nxt_temp->nxt_event.vid;
+                        se->event_type = (k == 0) ? nxt_temp->nxt_event.event_type : alt_type;
+                        se->access_mode = nxt_temp->nxt_event.order;
+                        se->location = nxt_temp->nxt_event.loc_id;
+                        se->source_nodes_count= source_count;
+                        //traverse and store all the parents into the corresponding next event
+                        for (int i = 0; i < source_count; i++) {
+                            se->source_nodes[i] = sources[i];
+                            if (k == 0) {
+                                fprintf(stderr,"source: tid=%d,iid=%lld,vid=%d\n node: tid=%d,iid=%lld,vid=%d\n",
+                                       sources[i].tid, sources[i].iid, sources[i].vid,
+                                       se->tid, se->iid, se->vid);
+                            }
+                        }
+                        shm->next_event_count++;
                     }
-                    shm->next_event_count++;
+                } else if (shm) {
+                    fprintf(stderr,
+                            "[SCHED] Warning: next-event buffer full (%llu/%d); dropping %d candidate(s) "
+                            "for tid=%d iid=%lld vid=%d\n",
+                            (unsigned long long)shm->next_event_count, MAX_NEXT, outcome_count,
+                            nxt_temp->nxt_event.tid, nxt_temp->nxt_event.iid, nxt_temp->nxt_event.vid);
                 }
                 nxt_temp = nxt_temp->next;
             }
@@ -815,10 +874,23 @@ static bool is_node_producible_locked(int node_idx, bool *visiting) {
     if (!is_thread_runnable_locked(slot))
         return false;
 
-    if (n->type == EG_OP_WRITE || n->type == EG_OP_RMW || n->type == EG_OP_FENCE)
+    /* Write-like events (and fences) are producible on their own; a successful
+     * CAS joins them for the same reason an RMW does. Read-only events depend
+     * on their rf source being available, and a failed CAS is read-only.
+     *
+     * Any type missing from BOTH branches falls through to `return false`
+     * permanently, so the node is never producible and the schedule hangs
+     * rather than reporting an error -- a timeout that gets misattributed to
+     * the schedule. Keep both lists exhaustive. */
+    if (eg_is_write_like(n->type) || n->type == EG_OP_FENCE)
         return true;
-    if (n->type != EG_OP_READ)
+    if (n->type != EG_OP_READ && n->type != EG_OP_CAS_FAIL) {
+        fprintf(stderr,
+                "[EGF] Warning: is_node_producible_locked saw unclassified type %d "
+                "(id=%llu tid=%llu); treating as non-producible\n",
+                n->type, (unsigned long long)n->id, (unsigned long long)n->tid);
         return false;
+    }
 
     uint64_t src_id = find_rf_source(n->id);
     if (src_id == 0)
@@ -954,7 +1026,10 @@ static bool can_produce_write_locked(uint64_t write_node_id) {
     eg_node_t *write_node = eg_find_node_by_id(current_graph, write_node_id);
     if (!write_node)
         return false;
-    if (write_node->type != EG_OP_WRITE && write_node->type != EG_OP_RMW)
+    /* Only an event that actually stores can satisfy a waiting reader. A
+     * failed CAS must be excluded here, or a reader would wait forever on a
+     * write that is never produced. */
+    if (!eg_is_write_like(write_node->type))
         return false;
 
     for (int i = 0; i < covered_node_count; ++i) {
@@ -1608,7 +1683,11 @@ void scheduler_thread_join_wait_end(int tid,int child_tid) {
     pthread_mutex_unlock(&sched_lock);
 }
 // Stoeing the unknown event into the next_event_list_t
-static void store_the_unknown_event(int tid, long long iid, int vid,Access_Mode order, int event_type,long long loc_id){
+/* event_type_alt is a second legal outcome for the same event, or -1 for none.
+ * Never call this twice for one (tid,iid,vid) to express two outcomes -- see
+ * the comment on next_event_t.event_type_alt. */
+static void store_the_unknown_event_ex(int tid, long long iid, int vid,Access_Mode order,
+                                       int event_type, int event_type_alt, long long loc_id){
     next_event_list_t *node=(next_event_list_t *) malloc(sizeof(next_event_list_t));
     node->nxt_event.tid=tid;
     node->nxt_event.iid=iid;
@@ -1616,9 +1695,14 @@ static void store_the_unknown_event(int tid, long long iid, int vid,Access_Mode 
     node->nxt_event.order=order;
     node->nxt_event.loc_id=loc_id;
     node->nxt_event.event_type=event_type;
+    node->nxt_event.event_type_alt=event_type_alt;
     //prepend to the list
     node->next=next_events;
     next_events=node;
+}
+
+static void store_the_unknown_event(int tid, long long iid, int vid,Access_Mode order, int event_type,long long loc_id){
+    store_the_unknown_event_ex(tid, iid, vid, order, event_type, /*event_type_alt=*/-1, loc_id);
 }
 
 // --- Handlers ---
@@ -2252,7 +2336,8 @@ uint64_t scheduler_on_rmw_bytes_ex(void *addr, size_t size, uint32_t op, uint64_
 
 uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare_val, uint64_t new_val,
                                        Access_Mode order, uint64_t event_uid, uint64_t thread_id,
-                                       uint64_t loc_id, uint64_t visit_id, bool *success_out, bool *forced_out) {
+                                       uint64_t loc_id, uint64_t visit_id, bool is_weak,
+                                       bool *success_out, bool *forced_out) {
     uint64_t tid = thread_id;
     long long iid = (long long)event_uid;
     int vid = visit_id > 0 ? (int)visit_id : 1;
@@ -2264,16 +2349,19 @@ uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare
         ensure_event_thread_active_locked(event_slot);
 
     eg_node_t *node = (current_graph) ? eg_find_node_by_dynamic(current_graph, tid, iid, vid) : NULL;
-    
+
+    /* An unknown cmpxchg cannot be published yet: which CAS outcome to offer
+     * the fuzzer depends on the comparison, and the value has not been read.
+     * Publication is therefore deferred until after the read below. */
+    const bool unknown_event = (current_graph && !node);
+
     if (current_graph) {
         if (!node) {
-            store_the_unknown_event(tid,iid,vid,order,EG_OP_RMW,loc_id);//Fixed the incorrect event type mapping
-            LOG("[SCHED-DEBUG] Unknown cmpxchg event encountered (reported tid=%llu uid=%llu visit=%llu). Bypassing scheduler.\n",
-                (unsigned long long)tid, (unsigned long long)event_uid, (unsigned long long)visit_id);
-            block_on_unknown_event_locked(tid, event_uid, "CMPXCHG");
+            /* Nothing to do here yet -- see unknown_event handling after the read. */
         } else {
-            if (node->type != EG_OP_RMW && node->type != EG_OP_READ && node->type != EG_OP_WRITE) {
-                fprintf(stderr, "[SCHED] Error: CmpXchg event mismatch. Expected RMW/READ/WRITE, found type %d. tid=%llu uid=%llx iid=%llx\n",
+            if (node->type != EG_OP_RMW && node->type != EG_OP_READ && node->type != EG_OP_WRITE &&
+                node->type != EG_OP_CAS_SUCCESS && node->type != EG_OP_CAS_FAIL) {
+                fprintf(stderr, "[SCHED] Error: CmpXchg event mismatch. Expected RMW/READ/WRITE/CAS_*, found type %d. tid=%llu uid=%llx iid=%llx\n",
                         node->type, (unsigned long long)tid, (unsigned long long)event_uid, iid);
                 scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
             }
@@ -2353,15 +2441,91 @@ uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare
     }
 
     intptr_t old_val = bytes_to_intptr(old_buf, copy_size);
-    bool matched = (old_val == (intptr_t)compare_val);
-    *success_out = matched;
+    const bool matched = (old_val == (intptr_t)compare_val);
+
+    if (unknown_event) {
+        /* Now that the comparison is known, offer the fuzzer the outcome this
+         * execution would actually take. The read above is a pure load on a
+         * path that previously did nothing, and target_write_id is 0 for an
+         * unknown node, so the forced-wait branch was never taken -- nothing
+         * has been stored and nothing can have been read from this event.
+         *
+         * A weak CAS whose comparison succeeded also permits the failure
+         * outcome.
+         *
+         * When the comparison fails only failure is reachable. When it
+         * succeeds a strong CAS must swap, but a weak one may still fail
+         * spuriously -- so that case offers the fuzzer both outcomes as
+         * alternatives for the same (tid,iid,vid). */
+        const int primary = matched ? EG_OP_CAS_SUCCESS : EG_OP_CAS_FAIL;
+        const int alternative = (is_weak && matched) ? EG_OP_CAS_FAIL : -1;
+        store_the_unknown_event_ex(tid, iid, vid, order, primary, alternative, loc_id);
+        LOG("[SCHED-DEBUG] Unknown cmpxchg event encountered (reported tid=%llu uid=%llu visit=%llu, %s, comparison %s, %d candidate(s)). Bypassing scheduler.\n",
+            (unsigned long long)tid, (unsigned long long)event_uid, (unsigned long long)visit_id,
+            is_weak ? "weak" : "strong", matched ? "succeeded" : "failed",
+            alternative >= 0 ? 2 : 1);
+        block_on_unknown_event_locked(tid, event_uid, "CMPXCHG");
+        /* does not return */
+    }
+
+    /* Decision table.
+     *
+     * `matched` is what the hardware comparison says; the graph says what
+     * outcome this schedule *requires*. The two must be reconcilable, and what
+     * counts as reconcilable differs between the two CAS flavours:
+     *
+     *   strong: the outcome is fully determined by the comparison, so any
+     *           disagreement with the graph is not instantiable.
+     *   weak:   may fail spuriously, so a graph demanding failure is always
+     *           satisfiable; only demanding success when the comparison failed
+     *           is impossible.
+     *
+     * Only nodes explicitly typed CAS_* carry an expectation. A legacy graph
+     * that records a cmpxchg as RMW/READ/WRITE keeps the previous
+     * value-driven behaviour, so existing benchmark graphs do not suddenly
+     * become non-instantiable.
+     */
+    const bool has_expectation =
+        node && (node->type == EG_OP_CAS_SUCCESS || node->type == EG_OP_CAS_FAIL);
+    const bool expected_success = node && (node->type == EG_OP_CAS_SUCCESS);
+
+    bool do_swap;
+    if (!has_expectation) {
+        do_swap = matched;
+    } else if (is_weak) {
+        if (expected_success && !matched) {
+            fprintf(stderr,
+                    "[SCHED] Not instantiable: weak cmpxchg expected SUCCESS but the "
+                    "comparison failed (old=%lld compare=%llu) tid=%llu uid=%llx vid=%d\n",
+                    (long long)old_val, (unsigned long long)compare_val,
+                    (unsigned long long)tid, (unsigned long long)event_uid, vid);
+            scheduler_terminate_locked(WMM_EXIT_NOT_INSTANTIABLE);
+        }
+        /* expected FAIL is always satisfiable for a weak CAS: if the
+         * comparison happened to succeed we take the spurious-failure path. */
+        do_swap = expected_success;
+    } else {
+        if (expected_success != matched) {
+            fprintf(stderr,
+                    "[SCHED] Not instantiable: strong cmpxchg expected %s but the "
+                    "comparison %s (old=%lld compare=%llu) tid=%llu uid=%llx vid=%d\n",
+                    expected_success ? "SUCCESS" : "FAILURE",
+                    matched ? "succeeded" : "failed",
+                    (long long)old_val, (unsigned long long)compare_val,
+                    (unsigned long long)tid, (unsigned long long)event_uid, vid);
+            scheduler_terminate_locked(WMM_EXIT_NOT_INSTANTIABLE);
+        }
+        do_swap = matched;
+    }
+
+    if (success_out) *success_out = do_swap;
 
     if (recording_graph) {
         char loc_buf[64];
         const char *loc_str = lookup_addr_name(addr, loc_buf, sizeof(loc_buf));
         recorded_id = record_event_node_locked(tid, iid, loc_id, vid,
-                                               matched ? EG_OP_RMW : EG_OP_READ,
-                                               loc_str, matched ? new_val : old_val);
+                                               do_swap ? EG_OP_CAS_SUCCESS : EG_OP_CAS_FAIL,
+                                               loc_str, do_swap ? new_val : old_val);
     }
 
     if (recording_graph && recorded_id != 0) {
@@ -2377,7 +2541,10 @@ uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare
         }
     }
 
-    if (matched) {
+    /* do_swap, not matched: this is what makes a weak CAS able to fail
+     * spuriously. No history entry and no store, so nothing downstream can
+     * read from an event that did not write. */
+    if (do_swap) {
         uint8_t new_buf[32];
         memset(new_buf, 0, sizeof(new_buf));
         memcpy(new_buf, &new_val, copy_size < sizeof(new_val) ? copy_size : sizeof(new_val));
