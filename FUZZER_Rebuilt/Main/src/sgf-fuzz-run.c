@@ -1740,6 +1740,8 @@ void update_simulator_feedback_cache(struct SkeletonGraphData *graph_data,
   
 }
 
+/* Compare two EventTriples by (thread_id, instruction_id) only, ignoring visit_id.
+ * Two events that only differ by visit_id (e.g. across loop iterations) are considered same. */
 static inline int event_triple_cmp(EventTriple a, EventTriple b) {
 
   if (a.thread_id != b.thread_id) {
@@ -1748,13 +1750,12 @@ static inline int event_triple_cmp(EventTriple a, EventTriple b) {
   if (a.instruction_id != b.instruction_id) {
     return (a.instruction_id < b.instruction_id) ? -1 : 1;
   }
-  if (a.visit_id != b.visit_id) {
-    return (a.visit_id < b.visit_id) ? -1 : 1;
-  }
   return 0;
 
 }
 
+/* Compute a 64-bit hash of an unordered race pair based ONLY on (thread_id, instruction_id).
+ * Ignores visit_id so multiple iterations of the same racing instruction pair produce the same hash. */
 static u64 race_pair_hash(EventTriple first, EventTriple second) {
 
   if (event_triple_cmp(first, second) > 0) {
@@ -1764,12 +1765,16 @@ static u64 race_pair_hash(EventTriple first, EventTriple second) {
   }
 
   struct {
-    EventTriple a;
-    EventTriple b;
+    int       thread_id_a;
+    long long instruction_id_a;
+    int       thread_id_b;
+    long long instruction_id_b;
   } pair;
   memset(&pair, 0, sizeof(pair));
-  pair.a = first;
-  pair.b = second;
+  pair.thread_id_a = first.thread_id;
+  pair.instruction_id_a = first.instruction_id;
+  pair.thread_id_b = second.thread_id;
+  pair.instruction_id_b = second.instruction_id;
 
   return hash64((u8 *)&pair, sizeof(pair), HASH_CONST);
 
@@ -1839,6 +1844,16 @@ static bool race_set_add(sgf_state_t *sgf, u64 hash) {
 
 }
 
+static int u64_cmp(const void *a, const void *b) {
+
+  u64 val_a = *(const u64 *)a;
+  u64 val_b = *(const u64 *)b;
+  if (val_a < val_b) return -1;
+  if (val_a > val_b) return 1;
+  return 0;
+
+}
+
 void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *sgi) {
 
   if (!sgf->check_data_race || !sgi || !sgi->is_racy) { return; }
@@ -1847,23 +1862,41 @@ void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *
 
   ++sgf->total_races;
 
-  /* Fold every pair into the identity, not just pair 0. Hashing the first pair
-   * alone collapsed two graphs that happen to share it but differ everywhere
-   * else into a single saved race, undercounting distinct findings.
-   * NOTE: this changes dedup semantics, so saved_races is not comparable with
-   * numbers recorded before this change. */
-  u64    hash = 14695981039346656037ULL;
+  /* Collect distinct race pair hashes (ignoring visit_id).
+   * Sort and deduplicate pair hashes so the graph hash represents the unique set
+   * of static race pairs (thread_id, instruction_id) regardless of visit_id or order. */
+  u64 *pair_hashes = (u64 *)ck_alloc(rp_count * sizeof(u64));
   size_t pairs_read = 0;
   for (size_t i = 0; i < rp_count; ++i) {
 
     EventTriple a, b;
     if (!race_pair_store_get_pair(sgi->race_pairs, i, &a, &b)) { continue; }
-    hash = (hash ^ race_pair_hash(a, b)) * 1099511628211ULL;
-    ++pairs_read;
+    pair_hashes[pairs_read++] = race_pair_hash(a, b);
 
   }
 
-  if (!pairs_read) { return; }
+  if (!pairs_read) {
+    ck_free(pair_hashes);
+    return;
+  }
+
+  qsort(pair_hashes, pairs_read, sizeof(u64), u64_cmp);
+
+  // Deduplicate pair hashes within this graph
+  u64    hash = 14695981039346656037ULL;
+  size_t unique_pairs = 0;
+  for (size_t i = 0; i < pairs_read; ++i) {
+
+    if (i == 0 || pair_hashes[i] != pair_hashes[i - 1]) {
+      hash = (hash ^ pair_hashes[i]) * 1099511628211ULL;
+      ++unique_pairs;
+    }
+
+  }
+
+  ck_free(pair_hashes);
+
+  if (!unique_pairs) { return; }
   if (!race_set_add(sgf, hash)) { return; }
 
   if (sgf->saved_races >= KEEP_UNIQUE_RACE) { return; }
