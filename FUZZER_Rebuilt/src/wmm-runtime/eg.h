@@ -4,11 +4,43 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define EG_OP_READ 0
-#define EG_OP_WRITE 1
-#define EG_OP_RMW   2
-#define EG_OP_FENCE 3
-// Add others as needed
+/* These values go on the wire to AFL via Shared_event::event_type and MUST
+ * match the WMM_EV_* contract in Main/include/shm_next_events.h.
+ * scheduler.c static_asserts them against that header; this file keeps plain
+ * literals so it stays includable without the AFL include path (tests/run_tests.sh
+ * compiles with -I<runtime dir> only).
+ *
+ * APPEND ONLY, and note there is deliberately no EG_OP_* at 4: that value
+ * belongs to AFL's EOP, which has no runtime counterpart.
+ *
+ * A CAS reads unconditionally but writes only when it succeeds, which is why
+ * the two outcomes are distinct types rather than one type plus a flag:
+ * CAS_SUCCESS is write-like (a legal rf source), CAS_FAIL is read-like only.
+ */
+#define EG_OP_READ        0
+#define EG_OP_WRITE       1
+#define EG_OP_RMW         2
+#define EG_OP_FENCE       3
+/* 4 reserved for AFL's EOP */
+#define EG_OP_CAS_SUCCESS 5
+#define EG_OP_CAS_FAIL    6
+
+/* Structural classification of an event type. These mirror
+ * is_read_like/is_write_like/is_rmw_like in
+ * Main/include/skeleton_graph_events.hpp -- keep the two in sync.
+ * Prefer these over open-coded comparisons so a future event type only needs
+ * these three functions updated. */
+static inline int eg_is_read_like(int t) {
+    return t == EG_OP_READ || t == EG_OP_RMW ||
+           t == EG_OP_CAS_SUCCESS || t == EG_OP_CAS_FAIL;
+}
+static inline int eg_is_write_like(int t) {
+    return t == EG_OP_WRITE || t == EG_OP_RMW || t == EG_OP_CAS_SUCCESS;
+}
+/* RMW atomicity: a failed CAS does not write, so it does not consume a write. */
+static inline int eg_is_rmw_like(int t) {
+    return t == EG_OP_RMW || t == EG_OP_CAS_SUCCESS;
+}
 
 #ifndef WMM_EXIT_EVENT_NOT_FOUND
 #define WMM_EXIT_EVENT_NOT_FOUND 10

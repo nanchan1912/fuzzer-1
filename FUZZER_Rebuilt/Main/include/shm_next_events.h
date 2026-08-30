@@ -26,6 +26,27 @@ typedef int VisitID;
 // There could be more than 1 parent for a next node - but that too cannot exceed the thread count 
 #define MAX_SRC_NODES 128 
 
+/* Wire values for Shared_event::event_type.
+ *
+ * This is the single numeric contract between the runtime (which writes
+ * EG_OP_* from eg.h) and AFL (which reads Event_Type from
+ * skeleton_graph_events.hpp). Both sides static_assert against these, so the
+ * two enums can never drift apart silently.
+ *
+ * APPEND ONLY. Value 4 is permanently reserved for AFL's EOP, which the
+ * runtime has no counterpart for and never puts on the wire -- do not reuse
+ * it. Inserting rather than appending would reinterpret every value above the
+ * insertion point in an already-built binary on the other side of the shm.
+ */
+#define WMM_EV_READ        0
+#define WMM_EV_WRITE       1
+#define WMM_EV_RMW         2
+#define WMM_EV_FENCE       3
+#define WMM_EV_EOP         4  /* AFL-only, never on the wire */
+#define WMM_EV_CAS_SUCCESS 5
+#define WMM_EV_CAS_FAIL    6
+#define WMM_EV_MAX         6
+
 struct Event_id_triple {
     ThreadID tid;
     InstructionID iid;
