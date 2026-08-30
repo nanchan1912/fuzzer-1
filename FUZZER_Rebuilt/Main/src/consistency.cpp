@@ -63,13 +63,13 @@ set<EventID> find_consistent_writes(const SkeletonGraph& graph,
             // (don't stop here - there may be other writes reachable through different paths)
         }
 
-        // Condition 2: Found a READ or CAS_FAILURE or RMW or CAS_SUCCESS on the same location - follow RF edges to find writes
+        // Condition 2: Found a READ or CAS_FAIL or RMW or CAS_SUCCESS on the same location - follow RF edges to find writes
         // RMW and CAS_SUCCESS events are both reads and writes, so their read part can follow RF edges
         if (curr_event->get_location() == target_location &&
             (curr_event->get_event_type() == Event_Type::READ ||
              curr_event->get_event_type() == Event_Type::RMW ||
              curr_event->get_event_type() == Event_Type::CAS_SUCCESS||
-             curr_event->get_event_type() == Event_Type::CAS_FAILURE)) {
+             curr_event->get_event_type() == Event_Type::CAS_FAIL)) {
             // Find what this read reads from via RF reverse edge
             auto rf_it = rf_reverse.find(curr_id);
             if (rf_it != rf_reverse.end()) {

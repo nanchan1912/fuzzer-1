@@ -23,7 +23,7 @@ using json = nlohmann::json;
 
 Event_Type event_type_from_string(const std::string& s) {
     if (s == "R")     return Event_Type::READ;
-    if (s == "CAS_FAILURE")     return Event_Type::CAS_FAILURE;
+    if (s == "CAS_FAIL")     return Event_Type::CAS_FAIL;
     if (s == "W")     return Event_Type::WRITE;
     if (s == "RMW")   return Event_Type::RMW;
     if (s == "CAS_SUCCESS") return Event_Type::CAS_SUCCESS;
@@ -46,7 +46,7 @@ Access_Mode access_mode_from_string(const std::string& s) {
 std::string event_type_to_string(Event_Type t) {
     switch (t) {
         case Event_Type::READ:  return "R";
-        case Event_Type::CAS_FAILURE:  return "CAS_FAILURE";
+        case Event_Type::CAS_FAIL:  return "CAS_FAIL";
         case Event_Type::WRITE: return "W";
         case Event_Type::RMW:   return "RMW";
         case Event_Type::CAS_SUCCESS: return "CAS_SUCCESS";

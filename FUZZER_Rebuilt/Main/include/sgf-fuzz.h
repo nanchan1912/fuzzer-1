@@ -780,7 +780,7 @@ typedef struct sgf_state {
       mut_add_write_cnt,                 /* MUT_ADD_WRITE count */
       mut_add_rmw_cnt,                   /* MUT_ADD_RMW count */
       mut_add_cas_success_cnt,           /* MUT_ADD_CAS_SUCCESS count */
-      mut_add_cas_failure_cnt,           /* MUT_ADD_CAS_FAILURE count */
+      mut_add_cas_fail_cnt,           /* MUT_ADD_CAS_FAIL count */
       mut_add_fence_cnt,                 /* MUT_ADD_FENCE count */
       mut_rf_cnt,                        /* MUT_MUTATE_RF count */
       queued_imported,                  /* Items imported via -S            */

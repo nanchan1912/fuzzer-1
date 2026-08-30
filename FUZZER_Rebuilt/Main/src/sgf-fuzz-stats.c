@@ -1407,7 +1407,7 @@ void show_stats_normal(sgf_state_t *sgf) {
   sprintf(tmp, "%s",
           u_stringify_int(IB(0), sgf->mut_add_read_cnt + sgf->mut_add_write_cnt +
                                   sgf->mut_add_rmw_cnt + sgf->mut_add_cas_success_cnt +
-                                  sgf->mut_add_cas_failure_cnt + sgf->mut_add_fence_cnt));
+                                  sgf->mut_add_cas_fail_cnt + sgf->mut_add_fence_cnt));
 
   SAYF(bV bSTOP "  add-a-node : " cRST "%-36s " bSTG bV bSTOP
                 "    levels : " cRST "%-10s" bSTG bV "\n",

@@ -73,7 +73,7 @@ typedef enum {
     MUT_ADD_WRITE,
     MUT_ADD_RMW,
     MUT_ADD_CAS_SUCCESS,
-    MUT_ADD_CAS_FAILURE,
+    MUT_ADD_CAS_FAIL,
     MUT_ADD_FENCE,
     MUT_MUTATE_RF
 } sk_mutation_kind_t;

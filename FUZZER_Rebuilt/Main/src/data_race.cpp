@@ -110,7 +110,7 @@ static std::vector<EventID> collect_target_event_ids_at_location(
     const SkeletonGraph* graph, const Location& location) {
     std::vector<EventID> targets;
     append_event_ids_by_modes(targets, graph, location, Event_Type::READ, false);
-    append_event_ids_by_modes(targets, graph, location, Event_Type::CAS_FAILURE, false);
+    append_event_ids_by_modes(targets, graph, location, Event_Type::CAS_FAIL, false);
     append_event_ids_by_modes(targets, graph, location, Event_Type::WRITE, false);
     append_event_ids_by_modes(targets, graph, location, Event_Type::RMW, false);
     append_event_ids_by_modes(targets, graph, location, Event_Type::CAS_SUCCESS, false);
@@ -137,7 +137,7 @@ static std::vector<EventID> collect_candidate_second_events(const SkeletonGraph*
 
     switch (target_event->get_event_type()) {
         case Event_Type::READ:
-        case Event_Type::CAS_FAILURE:
+        case Event_Type::CAS_FAIL:
             if (target_is_non_atomic) {
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, false);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, false);
@@ -154,13 +154,13 @@ static std::vector<EventID> collect_candidate_second_events(const SkeletonGraph*
         case Event_Type::CAS_SUCCESS:
             if (target_is_non_atomic) {
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::READ, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAILURE, false);
+                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAIL, false);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, false);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, false);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, false);
             } else {
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::READ, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAILURE, true);
+                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAIL, true);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, true);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, true);
                 append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, true);
@@ -260,7 +260,7 @@ static bool is_read_or_write(const Event* event) {
     }
     const Event_Type type = event->get_event_type();
     return type == Event_Type::READ || type == Event_Type::WRITE ||
-           type == Event_Type::RMW || type == Event_Type::CAS_SUCCESS || type == Event_Type::CAS_FAILURE;
+           type == Event_Type::RMW || type == Event_Type::CAS_SUCCESS || type == Event_Type::CAS_FAIL;
 }
 
 static bool is_write(const Event* event) {

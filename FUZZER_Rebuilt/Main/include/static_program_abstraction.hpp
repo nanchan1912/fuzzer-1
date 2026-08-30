@@ -146,7 +146,7 @@ inline Event_Type parse_event_type(const string& s) {
     if (s == "RMW") return Event_Type::RMW;
     if (s == "CAS") return Event_Type::CAS;
     if (s == "CAS_SUCCESS") return Event_Type::CAS_SUCCESS;
-    if (s == "CAS_FAILURE") return Event_Type::CAS_FAILURE;
+    if (s == "CAS_FAIL") return Event_Type::CAS_FAIL;
     throw runtime_error("Bad event type");
 }
 
@@ -177,7 +177,7 @@ inline std::string to_string(Event_Type t) {
         case Event_Type::FENCE: return "F";
         case Event_Type::CAS:   return "CAS";
         case Event_Type::CAS_SUCCESS:   return "CAS_SUCCESS";
-        case Event_Type::CAS_FAILURE:   return "CAS_FAILURE";
+        case Event_Type::CAS_FAIL:   return "CAS_FAIL";
     }
     return "?";
 }

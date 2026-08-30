@@ -454,7 +454,7 @@ static std::set<EventID> get_consistent_writes(const SkeletonGraph& graph,
 
 static bool is_read_like_type(Event_Type type) {
     return type == Event_Type::READ || type == Event_Type::CAS || 
-           type == Event_Type::CAS_FAILURE || type == Event_Type::CAS_SUCCESS || 
+           type == Event_Type::CAS_FAIL || type == Event_Type::CAS_SUCCESS || 
            type == Event_Type::RMW;
 }
 
@@ -1245,8 +1245,8 @@ static void set_mutation_info_from_event(const Event* e, const Event* parent) {
         case Event_Type::CAS_SUCCESS:
             last_mutation_info.kind = MUT_ADD_CAS_SUCCESS;
             break;
-        case Event_Type::CAS_FAILURE:
-            last_mutation_info.kind = MUT_ADD_CAS_FAILURE;
+        case Event_Type::CAS_FAIL:
+            last_mutation_info.kind = MUT_ADD_CAS_FAIL;
             break;
         case Event_Type::FENCE:
             last_mutation_info.kind = MUT_ADD_FENCE;
@@ -1278,7 +1278,7 @@ static void set_mutation_info_from_event(const Event* e, const Event* parent) {
 
 static bool is_supported_candidate_type(Event_Type type) {
     return type == Event_Type::READ ||
-           type == Event_Type::CAS_FAILURE ||
+           type == Event_Type::CAS_FAIL ||
            type == Event_Type::WRITE ||
            type == Event_Type::RMW ||
            type == Event_Type::CAS_SUCCESS ||
@@ -2059,7 +2059,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
         if(skel_rand_below(2) == 0){
             new_event->set_event_type(Event_Type::CAS_SUCCESS);
         }else{
-            new_event->set_event_type(Event_Type::CAS_FAILURE);
+            new_event->set_event_type(Event_Type::CAS_FAIL);
         }
     }
 
@@ -2087,7 +2087,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
     // can point to an older visit, creating duplicate/stale SW edges.
     add_cfg_incoming_tcj_edges(graph, *new_event, parent_nodes);
 
-    if(new_event->get_event_type() == Event_Type::READ || new_event->get_event_type() == Event_Type::CAS_FAILURE){
+    if(new_event->get_event_type() == Event_Type::READ || new_event->get_event_type() == Event_Type::CAS_FAIL){
         //add rf edge
         
         auto consistent_writes = get_consistent_writes(*graph,

@@ -11,7 +11,7 @@ enum class Event_Type {
     FENCE,
     CAS, // Will be only in static program abstraction, not in skeleton graph
     CAS_SUCCESS,
-    CAS_FAILURE
+    CAS_FAIL
 };
 
 enum class Access_Mode {
@@ -36,7 +36,7 @@ protected:
     InstructionID instruction_id;
     VisitID visit_id;
     Access_Mode access_mode; // NON_ATOMIC, RELAXED, ACQUIRE, RELEASE, ACQ_REL, SC
-    Event_Type event_type;   // R, W, RMW, FENCE, CAS_SUCCESS, CAS_FAILURE
+    Event_Type event_type;   // R, W, RMW, FENCE, CAS_SUCCESS, CAS_FAIL
     Location location;       // x, y
 
 public:
@@ -99,7 +99,7 @@ public:
                             event_type == Event_Type::WRITE ? "WRITE" :
                             event_type == Event_Type::RMW ? "RMW" :
                             event_type == Event_Type::CAS_SUCCESS ? "CAS_SUCCESS" :
-                            event_type == Event_Type::CAS_FAILURE ? "CAS_FAILURE" : "FENCE"
+                            event_type == Event_Type::CAS_FAIL ? "CAS_FAIL" : "FENCE"
                         )
            << ", Location: " << location
            << ", Access Mode: " << (access_mode == Access_Mode::NON_ATOMIC ? "NON_ATOMIC" :

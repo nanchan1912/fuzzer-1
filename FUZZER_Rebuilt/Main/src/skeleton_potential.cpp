@@ -185,7 +185,7 @@ static std::unordered_set<std::string> find_future_read_locations_from_static_ev
 
         const Event& current_event = node_it->second.event;
         if (current_event.get_event_type() == Event_Type::READ ||
-            current_event.get_event_type() == Event_Type::CAS_FAILURE ||
+            current_event.get_event_type() == Event_Type::CAS_FAIL ||
             current_event.get_event_type() == Event_Type::RMW ||
             current_event.get_event_type() == Event_Type::CAS_SUCCESS) {
             future_read_locations.insert(current_event.get_location());
@@ -467,7 +467,7 @@ void LiveLocationAnalyzer::analyze(const SkeletonGraph& graph) {
             
             // Collect location if this is a read/write/rmw
             if (ev->get_event_type() == Event_Type::READ ||
-                ev->get_event_type() == Event_Type::CAS_FAILURE ||
+                ev->get_event_type() == Event_Type::CAS_FAIL ||
                 ev->get_event_type() == Event_Type::WRITE ||
                 ev->get_event_type() == Event_Type::RMW ||
                 ev->get_event_type() == Event_Type::CAS_SUCCESS) {
@@ -693,7 +693,7 @@ static void* update_potential_impl(void* potential,
         case MUT_ADD_READ:
             update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->dest_id.thread_id);
             break;
-        case MUT_ADD_CAS_FAILURE:
+        case MUT_ADD_CAS_FAIL:
             update_potential_on_read_addition(*pot, *graph, analyzer, (uint32_t)mutation->dest_id.thread_id);
             break;
         case MUT_ADD_WRITE:
@@ -894,7 +894,7 @@ extern "C" void* potential_calculation_on_rf_mutation(const SkeletonGraph* graph
 }
 
 // Local write-like/read-like classifiers for the static CFG (cfg_new), which
-// uses the generic Event_Type::CAS (not yet split into CAS_SUCCESS/CAS_FAILURE
+// uses the generic Event_Type::CAS (not yet split into CAS_SUCCESS/CAS_FAIL
 // as in the skeleton graph). Mirrors is_read_like_type's logic in
 // skeleton_graph_mutator.cpp, which is file-local there.
 static bool is_write_like(Event_Type type) {
@@ -904,7 +904,7 @@ static bool is_write_like(Event_Type type) {
 
 static bool is_read_like(Event_Type type) {
     return type == Event_Type::READ || type == Event_Type::CAS ||
-           type == Event_Type::CAS_FAILURE || type == Event_Type::CAS_SUCCESS ||
+           type == Event_Type::CAS_FAIL || type == Event_Type::CAS_SUCCESS ||
            type == Event_Type::RMW;
 }
 

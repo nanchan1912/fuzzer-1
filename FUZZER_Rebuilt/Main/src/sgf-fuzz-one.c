@@ -151,7 +151,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     case MUT_ADD_WRITE:        sgf->mut_add_write_cnt++;       break;
     case MUT_ADD_RMW:          sgf->mut_add_rmw_cnt++;         break;
     case MUT_ADD_CAS_SUCCESS:  sgf->mut_add_cas_success_cnt++; break;
-    case MUT_ADD_CAS_FAILURE:  sgf->mut_add_cas_failure_cnt++; break;
+    case MUT_ADD_CAS_FAIL:  sgf->mut_add_cas_fail_cnt++; break;
     case MUT_ADD_FENCE:        sgf->mut_add_fence_cnt++;       break;
     case MUT_MUTATE_RF:        sgf->mut_rf_cnt++;              break;
     default: break;
