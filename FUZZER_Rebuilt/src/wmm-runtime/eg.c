@@ -279,6 +279,8 @@ static const char* eg_type_to_string(int type) {
         case EG_OP_WRITE: return "W";
         case EG_OP_FENCE: return "F";
         case EG_OP_RMW: return "RMW";
+        case EG_OP_CAS_SUCCESS: return "CAS_SUCCESS";
+        case EG_OP_CAS_FAIL: return "CAS_FAIL";
         default: return "Unknown";
     }
 }
@@ -289,6 +291,11 @@ static int eg_string_to_type(const char* str) {
     if (strcmp(str, "W") == 0) return EG_OP_WRITE;
     if (strcmp(str, "F") == 0) return EG_OP_FENCE;
     if (strcmp(str, "RMW") == 0) return EG_OP_RMW;
+    if (strcmp(str, "CAS_SUCCESS") == 0) return EG_OP_CAS_SUCCESS;
+    if (strcmp(str, "CAS_FAIL") == 0) return EG_OP_CAS_FAIL;
+    /* Bare "CAS" carries no outcome; seed it as success, matching
+     * parse_event_type on the AFL side. Accepted but never emitted. */
+    if (strcmp(str, "CAS") == 0) return EG_OP_CAS_SUCCESS;
     return -1;
 }
 
@@ -322,11 +329,14 @@ static void eg_validate_read_nodes_have_rf(const eg_graph_t *g) {
         return;
     for (int i = 0; i < g->node_count; ++i) {
         const eg_node_t *n = &g->nodes[i];
-        if (n->type != EG_OP_READ && n->type != EG_OP_RMW)
+        /* Both CAS outcomes read, so both need an rf source: a failed CAS
+         * still observes a value, it just does not store one. */
+        if (!eg_is_read_like(n->type))
             continue;
         if (!eg_has_incoming_rf_edge(g, n->id)) {
             fprintf(stderr,
-                "[EGF] Error: read/rmw event missing rf_edge source: id=%llu tid=%llu iid=%llx vid=%d\n",
+                "[EGF] Error: read/rmw/cas event (type %d) missing rf_edge source: id=%llu tid=%llu iid=%llx vid=%d\n",
+                n->type,
                 (unsigned long long)n->id,
                 (unsigned long long)n->tid,
                 n->instruction_id,
@@ -478,12 +488,14 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                         eg_node_t *wn = eg_find_node_by_id(g, write_id);
                         eg_node_t *rn = eg_find_node_by_id(g, read_id);
                         
-                            if (wn && wn->type != EG_OP_WRITE && wn->type != EG_OP_RMW) {
-                                fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW. Found type %d (id=%d)\n", wn->type, write_id);
+                            /* Only an event that stores can be read from. A failed
+                             * CAS is a legal rf DEST but never a legal rf SOURCE. */
+                            if (wn && !eg_is_write_like(wn->type)) {
+                                fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW/CAS_SUCCESS. Found type %d (id=%d)\n", wn->type, write_id);
                              exit(EXIT_RF_TYPE_MISMATCH);
                         }
-                            if (rn && rn->type != EG_OP_READ && rn->type != EG_OP_RMW) {
-                                fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW. Found type %d (id=%d)\n", rn->type, read_id);
+                            if (rn && !eg_is_read_like(rn->type)) {
+                                fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW/CAS_*. Found type %d (id=%d)\n", rn->type, read_id);
                              exit(EXIT_RF_TYPE_MISMATCH);
                         }
                         EG_LOG("[eg-debug] Adding RF edge: write_id=(%d) -> read_id=(%d)\n", write_id, read_id);
