@@ -67,6 +67,9 @@ SkeletonGraph* read_from_json(const char* filename);
  */
 size_t write_to_json(const char* filename, const SkeletonGraph* graph);   
 
+/* APPEND ONLY: these values are stored in MutationInfo and dispatched on in
+ * skeleton_potential.cpp; inserting rather than appending would silently
+ * remap every existing kind. */
 typedef enum {
     MUT_NONE = 0,
     MUT_ADD_READ,
@@ -75,7 +78,8 @@ typedef enum {
     MUT_ADD_CAS_SUCCESS,
     MUT_ADD_CAS_FAIL,
     MUT_ADD_FENCE,
-    MUT_MUTATE_RF
+    MUT_MUTATE_RF,
+    MUT_FLIP_CAS  /* toggles an existing CAS between its two outcomes */
 } sk_mutation_kind_t;
 
 typedef struct MutationInfo {

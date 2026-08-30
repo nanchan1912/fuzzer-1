@@ -600,6 +600,106 @@ extern "C" SkeletonGraph* empty_skeleton_graph() {
 // If we are going to store skeleton's in memory, then we need to do cloning,
 // And if we plan to read and write to files everytime, then we can remove it.
 // - Hardik
+// Defined below, alongside the other mutate_rf_edge helpers.
+void remove_po_rf_sw_successors(SkeletonGraph& graph, const EventID& target);
+
+// Flip an existing CAS event between its two outcomes.
+//
+// This mutation makes both sides of a compare-and-swap reachable by
+// revisiting an EXISTING event's outcome, complementing (not replacing) the
+// random 50/50 resolution add_new_node already performs when a fresh CAS
+// event is first created: that coin flip only ever runs once per event, so
+// without this mutation, whichever outcome it happened to land on the first
+// time is permanent for that event for the rest of the campaign.
+//
+// The two directions are not symmetric, because only CAS_SUCCESS writes:
+//
+//   SUCCESS -> FAIL   the event stops writing, so it must leave mo and every
+//                     reader of it becomes invalid. Reuses the same successor
+//                     pruning mutate_rf_edge performs.
+//   FAIL -> SUCCESS   the event starts writing, so it joins mo. Its rf source
+//                     may already be consumed by another rmw-like reader, in
+//                     which case RMW atomicity forbids the flip.
+//
+// Returns false (leaving the graph untouched) when there is nothing to flip or
+// the flip would be inconsistent; the caller then falls back to another
+// mutation.
+bool flip_cas_outcome(SkeletonGraph* graph) {
+    if (!graph) { return false; }
+
+    std::vector<EventID> cas_events;
+    for (const auto& kv : graph->get_events()) {
+        const Event_Type t = kv.second.get_event_type();
+        if (t == Event_Type::CAS_SUCCESS || t == Event_Type::CAS_FAIL) {
+            cas_events.push_back(kv.first);
+        }
+    }
+    if (cas_events.empty()) { return false; }
+
+    const EventID target = cas_events[skel_rand_below((u32)cas_events.size())];
+    auto ev_it = graph->get_events().find(target);
+    if (ev_it == graph->get_events().end()) { return false; }
+
+    const Event_Type from_type = ev_it->second.get_event_type();
+    const Location loc = ev_it->second.get_location();
+
+    if (from_type == Event_Type::CAS_SUCCESS) {
+        // Drop everything that depended on this event having written, then
+        // take it out of the modification order.
+        remove_po_rf_sw_successors(*graph, target);
+
+        auto& mo = graph->get_mo_by_location();
+        auto mo_it = mo.find(loc);
+        if (mo_it != mo.end()) {
+            auto& order = mo_it->second;
+            order.erase(std::remove(order.begin(), order.end(), target), order.end());
+        }
+        graph->rebuild_mo();
+
+        // remove_po_rf_sw_successors may have pruned the event itself if it was
+        // reachable from its own successors; re-check before touching it.
+        auto after_it = graph->get_events().find(target);
+        if (after_it == graph->get_events().end()) { return false; }
+        after_it->second.set_event_type(Event_Type::CAS_FAIL);
+    } else {
+        // Becoming a write means competing for the rf source under RMW
+        // atomicity: at most one rmw-like event may read a given write.
+        const auto& rf_rev = graph->get_rf_reverse();
+        auto src_it = rf_rev.find(target);
+        if (src_it != rf_rev.end() && !src_it->second.empty()) {
+            const EventID& src = src_it->second.front();
+            const auto& rf = graph->get_rf();
+            auto readers_it = rf.find(src);
+            if (readers_it != rf.end()) {
+                for (const auto& reader : readers_it->second) {
+                    if (reader == target) { continue; }
+                    const Event* r = graph->get_event_by_id(reader);
+                    if (r && is_rmw_like(r->get_event_type())) {
+                        // Another rmw-like event already consumes this write.
+                        return false;
+                    }
+                }
+            }
+        }
+
+        graph->add_mo(target, loc);
+        ev_it->second.set_event_type(Event_Type::CAS_SUCCESS);
+    }
+
+    graph->finalize();
+
+    last_mutation_info.kind = MUT_FLIP_CAS;
+    last_mutation_info.source_id.thread_id = 0;
+    last_mutation_info.source_id.instruction_id = 0;
+    last_mutation_info.source_id.visit_id = 0;
+    last_mutation_info.dest_id.thread_id = std::get<0>(target);
+    last_mutation_info.dest_id.instruction_id = std::get<1>(target);
+    last_mutation_info.dest_id.visit_id = std::get<2>(target);
+    strncpy(last_mutation_info.location, loc.c_str(), sizeof(last_mutation_info.location) - 1);
+    last_mutation_info.location[sizeof(last_mutation_info.location) - 1] = '\0';
+    return true;
+}
+
 SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                                                     enum skeleton_graph_mutator_phase current_phase,
                                                     void* current_potential,
@@ -645,52 +745,146 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
         return false;
     };
 
-    // Probability to decide which mutation to do based on phase
+    auto try_flip_cas = [&]() {
+        return flip_cas_outcome(new_graph);
+    };
+
+    // Does this graph contain anything to flip? Checked up front so graphs
+    // without a CAS keep exactly the previous per-phase splits below,
+    // unchanged.
+    bool has_cas = false;
+    for (const auto& kv : new_graph->get_events()) {
+        if (kv.second.get_event_type() == Event_Type::CAS_SUCCESS ||
+            kv.second.get_event_type() == Event_Type::CAS_FAIL) {
+            has_cas = true;
+            break;
+        }
+    }
+
+    // Probability to decide which mutation to do based on phase.
+    //
+    // When the graph has a CAS, each phase below carves a flat 15% off the
+    // top for try_flip_cas (matching upstream's chosen weight for its single
+    // phase) and rescales that phase's existing Add:RF ratio over the
+    // remaining 85%, so the relative balance between growing the graph and
+    // re-wiring it is preserved per phase rather than reset to some new
+    // shared ratio. Each option falls back through the other two so a graph
+    // is rarely left unmutated.
     bool mutated = false;
     if (current_phase == PRUNING_PHASE) {
-        if (skel_rand_below(101) < 15) {
-            mutated = try_add_node();
-            if (!mutated) {
+        // Baseline 15:85 (Add:RF) -> with CAS: 15 (flip) : 13 (add) : 72 (rf)
+        if (!has_cas) {
+            if (skel_rand_below(101) < 15) {
+                mutated = try_add_node();
+                if (!mutated) {
+                    mutated = try_mutate_rf();
+                }
+            } else {
                 mutated = try_mutate_rf();
+                if (!mutated) {
+                    mutated = try_add_node();
+                }
             }
         } else {
-            mutated = try_mutate_rf();
-            if (!mutated) {
+            const u32 roll = skel_rand_below(100);
+            if (roll < 15) {
+                mutated = try_flip_cas();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_add_node(); }
+            } else if (roll < 28) {
                 mutated = try_add_node();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_flip_cas(); }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) { mutated = try_add_node(); }
+                if (!mutated) { mutated = try_flip_cas(); }
             }
         }
     } else if (current_phase == POTENTIAL_DRIVEN_PHASE) {
-        if (skel_rand_below(101) < 50) {
-            mutated = try_add_node();
-            if (!mutated) {
+        // Baseline 50:50 (Add:RF) -> with CAS: 15 (flip) : 43 (add) : 42 (rf)
+        if (!has_cas) {
+            if (skel_rand_below(101) < 50) {
+                mutated = try_add_node();
+                if (!mutated) {
+                    mutated = try_mutate_rf();
+                }
+            } else {
                 mutated = try_mutate_rf();
             }
         } else {
-            mutated = try_mutate_rf();
+            const u32 roll = skel_rand_below(100);
+            if (roll < 15) {
+                mutated = try_flip_cas();
+                if (!mutated) { mutated = try_add_node(); }
+                if (!mutated) { mutated = try_mutate_rf(); }
+            } else if (roll < 58) {
+                mutated = try_add_node();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_flip_cas(); }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) { mutated = try_flip_cas(); }
+            }
         }
     } else if (current_phase == RF_FOOTPRINT_DRIVEN_PHASE) {
         // RF footprint phase favors re-wiring (mutate_rf) over growth, similar
         // in spirit to PRUNING_PHASE's ratio, since RF footprint scoring cares
         // about the diversity of existing rf edges rather than growing new ones.
-        if (skel_rand_below(101) < 30) {
-            mutated = try_add_node();
-            if (!mutated) {
+        // Baseline 30:70 (Add:RF) -> with CAS: 15 (flip) : 26 (add) : 59 (rf)
+        if (!has_cas) {
+            if (skel_rand_below(101) < 30) {
+                mutated = try_add_node();
+                if (!mutated) {
+                    mutated = try_mutate_rf();
+                }
+            } else {
                 mutated = try_mutate_rf();
+                if (!mutated) {
+                    mutated = try_add_node();
+                }
             }
         } else {
-            mutated = try_mutate_rf();
-            if (!mutated) {
+            const u32 roll = skel_rand_below(100);
+            if (roll < 15) {
+                mutated = try_flip_cas();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_add_node(); }
+            } else if (roll < 41) {
                 mutated = try_add_node();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_flip_cas(); }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) { mutated = try_add_node(); }
+                if (!mutated) { mutated = try_flip_cas(); }
             }
         }
     } else {
-        if (skel_rand_below(101) < 70) {
-            mutated = try_add_node();
-            if (!mutated) {
+        // Baseline 70:30 (Add:RF) -> with CAS: 15 (flip) : 60 (add) : 25 (rf)
+        if (!has_cas) {
+            if (skel_rand_below(101) < 70) {
+                mutated = try_add_node();
+                if (!mutated) {
+                    mutated = try_mutate_rf();
+                }
+            } else {
                 mutated = try_mutate_rf();
             }
         } else {
-            mutated = try_mutate_rf();
+            const u32 roll = skel_rand_below(100);
+            if (roll < 15) {
+                mutated = try_flip_cas();
+                if (!mutated) { mutated = try_add_node(); }
+                if (!mutated) { mutated = try_mutate_rf(); }
+            } else if (roll < 75) {
+                mutated = try_add_node();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_flip_cas(); }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) { mutated = try_flip_cas(); }
+            }
         }
     }
 
