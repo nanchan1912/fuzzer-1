@@ -276,9 +276,48 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
 SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations = nullptr);
 void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, vector<Event*> parent_events);
 
-// What happens in Potential Mode 1, check?
+/*
+ * Helper function to retrieve all parent events for an event in the SkeletonGraph.
+ * Parents include:
+ * 1. Intra-thread Program Order (PO) predecessor (if any).
+ * 2. Cross-thread Thread-Creation/Join (TCJ) predecessors (thread creator for first event, or joined thread(s) for join).
+ */
+static std::vector<const Event*> get_parent_events(const SkeletonGraph& graph, const EventID& event_id) {
+    std::vector<const Event*> parents;
+
+    int tid = std::get<0>(event_id);
+    const auto& threadwise_po = graph.get_threadwise_po();
+    auto po_it = threadwise_po.find(tid);
+    const auto& po_index_map = graph.get_threadwise_po_index();
+    auto po_idx_it = po_index_map.find(event_id);
+
+    if (po_it != threadwise_po.end() && po_idx_it != po_index_map.end()) {
+        size_t idx = po_idx_it->second;
+        if (idx > 0) {
+            const EventID& po_pred_id = po_it->second[idx - 1];
+            const Event* po_pred = graph.get_event_by_id(po_pred_id);
+            if (po_pred != nullptr) {
+                parents.push_back(po_pred);
+            }
+        }
+    }
+
+    const auto& tcj_reverse = graph.get_tcj_reverse();
+    auto tcj_it = tcj_reverse.find(event_id);
+    if (tcj_it != tcj_reverse.end()) {
+        for (const auto& tcj_pred_id : tcj_it->second) {
+            const Event* tcj_pred = graph.get_event_by_id(tcj_pred_id);
+            if (tcj_pred != nullptr) {
+                parents.push_back(tcj_pred);
+            }
+        }
+    }
+
+    return parents;
+}
+
 static std::set<EventID> get_consistent_writes_from_potential(const SkeletonGraph& graph,
-                                                              const Event& read_event,
+                                                              const Event& parent_event,
                                                               const std::string& location,
                                                               void* current_potential,
                                                               bool is_rmw_or_cas_success) {
@@ -329,36 +368,23 @@ static std::set<EventID> get_consistent_writes_from_potential(const SkeletonGrap
         }
     };
 
-    // Potential Default to mode 2
     const auto* pot = static_cast<const SkeletonPotential*>(current_potential);
     if (pot != nullptr) {
-        // thread_id and location passed as parameters to get_location, which returns the set of WriteKeys for that thread and location
-        collect_matching_ids(pot->get_location((uint32_t)read_event.get_thread_id(), location));
-     }
+        collect_matching_ids(pot->get_location((uint32_t)parent_event.get_thread_id(), location));
+    }
 
     return consistent_writes;
 }
-/*
- * Returns a set of consistent write EventIDs for a given read event in the SkeletonGraph,
- * either from potential or defaulting to calling find_consistent_writes if no potential is available.
- * 
- * @param graph The SkeletonGraph to check.
- * @param last_event The parent event of the events for which to find consistent writes.
- * @param location The location for which to find consistent writes.
- * @param current_potential The potential information for the current mutation.
- * @param is_rmw_or_cas_success Whether the read event is an RMW or CAS success event.
- * @return A set of consistent write EventIDs.
-*/
-static std::set<EventID> get_consistent_writes(const SkeletonGraph& graph,
-                                               const Event& last_event,
-                                               const std::string& location,
-                                               void* current_potential,
-                                               bool is_rmw_or_cas_success) {
+static std::set<EventID> get_consistent_writes_for_single_parent(const SkeletonGraph& graph,
+                                                                 const Event& parent_event,
+                                                                 const std::string& location,
+                                                                 void* current_potential,
+                                                                 bool is_rmw_or_cas_success) {
     bool has_potential = false;
     if (current_potential != nullptr) {
         const auto* pot = static_cast<const SkeletonPotential*>(current_potential);
         const auto& all_threads = pot->get_all_threads();
-        auto thread_it = all_threads.find((uint32_t)last_event.get_thread_id());
+        auto thread_it = all_threads.find((uint32_t)parent_event.get_thread_id());
         if (thread_it != all_threads.end()) {
             if (thread_it->second.count(location) > 0) {
                 has_potential = true;
@@ -367,13 +393,63 @@ static std::set<EventID> get_consistent_writes(const SkeletonGraph& graph,
     }
 
     if (has_potential) {
-        return get_consistent_writes_from_potential(graph, last_event, location, current_potential, is_rmw_or_cas_success);
+        auto writes = get_consistent_writes_from_potential(graph, parent_event, location, current_potential, is_rmw_or_cas_success);
+        #ifndef NDEBUG
+        auto bfs_writes = find_consistent_writes(graph, parent_event, location, is_rmw_or_cas_success);
+        assert(writes == bfs_writes && "Potential maintained write set drifted from graph consistency BFS");
+        #endif
+        return writes;
     }
-    
-    // In the case of adding a event we need the pass the parent of the read event, 
-    // not read event as it is not added yet to the graph so there exists no edges.
-    // Mutating rf its fine to pass read event itself.
-    return find_consistent_writes(graph, last_event, location, is_rmw_or_cas_success);
+
+    return find_consistent_writes(graph, parent_event, location, is_rmw_or_cas_success);
+}
+
+template <typename EventPtr>
+static std::set<EventID> get_consistent_writes(const SkeletonGraph& graph,
+                                               const std::vector<EventPtr>& parent_nodes,
+                                               const std::string& location,
+                                               void* current_potential,
+                                               bool is_rmw_or_cas_success) {
+    if (parent_nodes.empty()) {
+        std::set<EventID> all_writes;
+        auto it = graph.get_mo_by_location().find(location);
+        if (it != graph.get_mo_by_location().end()) {
+            all_writes.insert(it->second.begin(), it->second.end());
+        }
+        return all_writes;
+    }
+
+    if (parent_nodes.size() == 1) {
+        if (!parent_nodes[0]) {
+            return {};
+        }
+        return get_consistent_writes_for_single_parent(graph, *parent_nodes[0], location, current_potential, is_rmw_or_cas_success);
+    }
+
+    std::set<EventID> intersection_writes;
+    bool first = true;
+
+    for (const auto* p : parent_nodes) {
+        if (!p) continue;
+        std::set<EventID> parent_writes = get_consistent_writes_for_single_parent(
+            graph, *p, location, current_potential, is_rmw_or_cas_success);
+
+        if (first) {
+            intersection_writes = std::move(parent_writes);
+            first = false;
+        } else {
+            std::set<EventID> temp;
+            for (const auto& w : intersection_writes) {
+                if (parent_writes.count(w)) {
+                    temp.insert(w);
+                }
+            }
+            intersection_writes = std::move(temp);
+        }
+    }
+
+    assert(!intersection_writes.empty() && "No consistent writes in intersection for join event");
+    return intersection_writes;
 }
 
 static bool is_read_like_type(Event_Type type) {
@@ -926,17 +1002,13 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
         // Disconnect the surviving read from its old RF/SW predecessors
         disconnect_read(working_graph, read_event_id_copy);
 
-        // For the read event, I need another write event to the same location that it can read from
-        // This could be an older write or a new write added after the read event was added to the graph
-        const Event* pruned_read_event = working_graph.get_event_by_id(read_event_id_copy);
-        if (pruned_read_event == nullptr) {
-            continue;
-        }
-
-        // Find consistent writes on the pruned graph directly
-        auto consistent_writes = find_consistent_writes(working_graph,
-                                                       *pruned_read_event,
+        // For the read event, find alternative consistent writes using its parent(s)
+        // (retrieves intra-thread PO predecessor, thread-create fork, or thread-join predecessors)
+        auto parent_events = get_parent_events(working_graph, read_event_id_copy);
+        auto consistent_writes = get_consistent_writes(working_graph,
+                                                       parent_events,
                                                        read_loc,
+                                                       nullptr,
                                                        (read_type == Event_Type::RMW || read_type == Event_Type::CAS_SUCCESS));
 
         std::vector<EventID> available_writes;
@@ -947,7 +1019,8 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
                     continue;
                 }
             }
-            if (w_id != original_write_event) {
+            // Exclude previous write source and exclude self-write
+            if (w_id != original_write_event && w_id != read_event_id_copy) {
                 available_writes.push_back(w_id);
             }
         }
@@ -1012,75 +1085,73 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
             // 3. Disconnect incoming RF and SW from RMW_parent
             disconnect_read(working_graph, parent_write_id);
 
-            // 4. Find consistent writes for RMW_parent
-            const Event* pruned_parent_event = working_graph.get_event_by_id(parent_write_id);
-            if (pruned_parent_event != nullptr) {
-                auto parent_consistent_writes = find_consistent_writes(working_graph,
-                                                                      *pruned_parent_event,
-                                                                      read_loc,
-                                                                      true);
+            // 4. Find consistent writes for RMW_parent using its parent events
+            auto p_parents = get_parent_events(working_graph, parent_write_id);
+            auto parent_consistent_writes = get_consistent_writes(working_graph,
+                                                                  p_parents,
+                                                                  read_loc,
+                                                                  current_potential,
+                                                                  true);
 
-                if (!parent_consistent_writes.empty()) {
-                    int idx_p = (int)skel_rand_below((u32)parent_consistent_writes.size());
-                    auto it_p = parent_consistent_writes.begin();
-                    std::advance(it_p, idx_p);
-                    EventID chosen_write_for_parent = *it_p;
+            if (!parent_consistent_writes.empty()) {
+                int idx_p = (int)skel_rand_below((u32)parent_consistent_writes.size());
+                auto it_p = parent_consistent_writes.begin();
+                std::advance(it_p, idx_p);
+                EventID chosen_write_for_parent = *it_p;
 
-                    const Event* write_ev_p = working_graph.get_event_by_id(chosen_write_for_parent);
-                    working_graph.add_rf(chosen_write_for_parent, parent_write_id);
+                const Event* write_ev_p = working_graph.get_event_by_id(chosen_write_for_parent);
+                working_graph.add_rf(chosen_write_for_parent, parent_write_id);
 
-                    if (is_acquire_like_mode(parent_mode) && write_ev_p != nullptr) {
-                        add_release_chain_sw_to_acquire(&working_graph, *write_ev_p, parent_write_id);
+                if (is_acquire_like_mode(parent_mode) && write_ev_p != nullptr) {
+                    add_release_chain_sw_to_acquire(&working_graph, *write_ev_p, parent_write_id);
+                }
+
+                // 5. Find consistent writes for RMW_curr using its parent events
+                auto curr_parents = get_parent_events(working_graph, read_event_id_copy);
+                auto curr_consistent_writes = get_consistent_writes(working_graph,
+                                                                    curr_parents,
+                                                                    read_loc,
+                                                                    current_potential,
+                                                                    true);
+
+                if (!curr_consistent_writes.empty()) {
+                    int idx_c = (int)skel_rand_below((u32)curr_consistent_writes.size());
+                    auto it_c = curr_consistent_writes.begin();
+                    std::advance(it_c, idx_c);
+                    EventID chosen_write_for_curr = *it_c;
+
+                    const Event* write_ev_c = working_graph.get_event_by_id(chosen_write_for_curr);
+                    working_graph.add_rf(chosen_write_for_curr, read_event_id_copy);
+
+                    if (is_acquire_like_mode(read_mode) && write_ev_c != nullptr) {
+                        add_release_chain_sw_to_acquire(&working_graph, *write_ev_c, read_event_id_copy);
                     }
 
-                    // 5. Find consistent writes for RMW_curr
-                    const Event* curr_event = working_graph.get_event_by_id(read_event_id_copy);
-                    if (curr_event != nullptr) {
-                        auto curr_consistent_writes = find_consistent_writes(working_graph,
-                                                                            *curr_event,
-                                                                            read_loc,
-                                                                            true);
+                    // 6. Wire MO order
+                    insert_mo_after(&working_graph, read_loc, chosen_write_for_curr, read_event_id_copy);
 
-                        if (!curr_consistent_writes.empty()) {
-                            int idx_c = (int)skel_rand_below((u32)curr_consistent_writes.size());
-                            auto it_c = curr_consistent_writes.begin();
-                            std::advance(it_c, idx_c);
-                            EventID chosen_write_for_curr = *it_c;
-
-                            const Event* write_ev_c = working_graph.get_event_by_id(chosen_write_for_curr);
-                            working_graph.add_rf(chosen_write_for_curr, read_event_id_copy);
-
-                            if (is_acquire_like_mode(read_mode) && write_ev_c != nullptr) {
-                                add_release_chain_sw_to_acquire(&working_graph, *write_ev_c, read_event_id_copy);
-                            }
-
-                            // 6. Wire MO order
-                            insert_mo_after(&working_graph, read_loc, chosen_write_for_curr, read_event_id_copy);
-
-                            if (chosen_write_for_parent == read_event_id_copy) {
-                                insert_mo_after(&working_graph, read_loc, read_event_id_copy, parent_write_id);
-                            } else {
-                                insert_mo_after(&working_graph, read_loc, chosen_write_for_parent, parent_write_id);
-                            }
-
-                            working_graph.finalize();
-
-                            last_mutation_info.kind = MUT_MUTATE_RF;
-                            last_mutation_info.source_id.thread_id = std::get<0>(chosen_write_for_curr);
-                            last_mutation_info.source_id.instruction_id = std::get<1>(chosen_write_for_curr);
-                            last_mutation_info.source_id.visit_id = std::get<2>(chosen_write_for_curr);
-
-                            last_mutation_info.dest_id.thread_id = std::get<0>(read_event_id_copy);
-                            last_mutation_info.dest_id.instruction_id = std::get<1>(read_event_id_copy);
-                            last_mutation_info.dest_id.visit_id = std::get<2>(read_event_id_copy);
-
-                            strncpy(last_mutation_info.location, read_loc.c_str(), sizeof(last_mutation_info.location) - 1);
-                            last_mutation_info.location[sizeof(last_mutation_info.location) - 1] = '\0';
-
-                            *graph = std::move(working_graph);
-                            return graph;
-                        }
+                    if (chosen_write_for_parent == read_event_id_copy) {
+                        insert_mo_after(&working_graph, read_loc, read_event_id_copy, parent_write_id);
+                    } else {
+                        insert_mo_after(&working_graph, read_loc, chosen_write_for_parent, parent_write_id);
                     }
+
+                    working_graph.finalize();
+
+                    last_mutation_info.kind = MUT_MUTATE_RF;
+                    last_mutation_info.source_id.thread_id = std::get<0>(chosen_write_for_curr);
+                    last_mutation_info.source_id.instruction_id = std::get<1>(chosen_write_for_curr);
+                    last_mutation_info.source_id.visit_id = std::get<2>(chosen_write_for_curr);
+
+                    last_mutation_info.dest_id.thread_id = std::get<0>(read_event_id_copy);
+                    last_mutation_info.dest_id.instruction_id = std::get<1>(read_event_id_copy);
+                    last_mutation_info.dest_id.visit_id = std::get<2>(read_event_id_copy);
+
+                    strncpy(last_mutation_info.location, read_loc.c_str(), sizeof(last_mutation_info.location) - 1);
+                    last_mutation_info.location[sizeof(last_mutation_info.location) - 1] = '\0';
+
+                    *graph = std::move(working_graph);
+                    return graph;
                 }
             }
         }
@@ -1135,7 +1206,7 @@ static bool is_spinning_read_without_alternate_write(const SkeletonGraph* graph,
     EventID prev_write_id = rf_rev_it->second.front();
 
     bool is_rmw = (t == Event_Type::RMW || t == Event_Type::CAS_SUCCESS);
-    auto consistent_writes = get_consistent_writes(*graph, *parent, candidate.event->get_location(), current_potential, is_rmw);
+    auto consistent_writes = get_consistent_writes(*graph, candidate.parents, candidate.event->get_location(), current_potential, is_rmw);
 
     for (const auto& wid : consistent_writes) {
         if (wid != prev_write_id) {
@@ -2020,7 +2091,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
         //add rf edge
         
         auto consistent_writes = get_consistent_writes(*graph,
-                                   *new_event,
+                                   parent_nodes,
                                    new_event->get_location(),
                                    current_potential,
                                    new_event->get_event_type() == Event_Type::RMW || new_event->get_event_type() == Event_Type::CAS_SUCCESS);
@@ -2126,7 +2197,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
         }
     } else if(new_event->get_event_type() == Event_Type::RMW || new_event->get_event_type() == Event_Type::CAS_SUCCESS){
         //add rf edge
-        auto consistent_writes = get_consistent_writes(*graph, *new_event, new_event->get_location(), current_potential, new_event->get_event_type() == Event_Type::RMW || new_event->get_event_type() == Event_Type::CAS_SUCCESS);
+        auto consistent_writes = get_consistent_writes(*graph, parent_nodes, new_event->get_location(), current_potential, new_event->get_event_type() == Event_Type::RMW || new_event->get_event_type() == Event_Type::CAS_SUCCESS);
 
         EventID write_event_id = std::make_tuple(-1, -1, -1);
         const Event* write_event = nullptr;

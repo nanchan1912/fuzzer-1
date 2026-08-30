@@ -3303,7 +3303,7 @@ int main(int argc, char **argv_orig, char **envp) {
       }
 
       // Phase management: Cycle phase after every 5 SGF cycles: MO -> RF -> Potential -> MO ...
-      u64 cycle_idx = sgf->queue_cycle ? (sgf->queue_cycle - 1) / 5 : 0;
+      u64 cycle_idx = sgf->queue_cycle ? (sgf->queue_cycle - 1) / 1 : 0;
       enum skeleton_graph_mutator_phase normal_phase;
       if (cycle_idx % 3 == 0) {
         normal_phase = MO_FOOTPRINT_DRIVEN_PHASE;

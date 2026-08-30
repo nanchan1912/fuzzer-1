@@ -52,7 +52,7 @@ set<EventID> find_consistent_writes(const SkeletonGraph& graph,
         const Event* curr_event = graph.get_event_by_id(curr_id);
         if(!curr_event) continue; // Should not happen, but guard against invalid event IDs
 
-        // Condition 1: Found a WRITE or RMW or CAS_SUCCESS on the same location - this is a aware_of point
+        // Condition 1: Found a WRITE or RMW or CAS_SUCCESS on the same location - this is an aware_of point.
         // RMW and CAS_SUCCESS events are both reads and writes, so they can be cutoff points
         if (curr_event->get_location() == target_location &&
             (curr_event->get_event_type() == Event_Type::WRITE ||

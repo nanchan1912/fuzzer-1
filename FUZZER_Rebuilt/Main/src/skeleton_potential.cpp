@@ -49,20 +49,28 @@ static void load_interesting_locations() {
             line = line.substr(0, hash_pos);
         }
         
-        // Trim leading and trailing whitespace
-        size_t start = line.find_first_not_of(" \t\r\n");
-        if (start == std::string::npos) {
-            continue; // line is empty or only whitespace
+        // Strip thread prefix if present (e.g. "1: 0x... 0x...")
+        size_t colon_pos = line.find(':');
+        if (colon_pos != std::string::npos) {
+            line = line.substr(colon_pos + 1);
         }
-        size_t end = line.find_last_not_of(" \t\r\n");
-        std::string loc = line.substr(start, end - start + 1);
-        if (!loc.empty()) {
-            g_interesting_locations.insert(loc);
+        
+        std::stringstream ss(line);
+        std::string loc;
+        while (ss >> loc) {
+            if (!loc.empty()) {
+                g_interesting_locations.insert(loc);
+            }
         }
     }
     
-    ACTF("Loaded %zu interesting locations from %s", g_interesting_locations.size(), filepath);
-    g_interesting_locations_valid = true;
+    if (!g_interesting_locations.empty()) {
+        ACTF("Loaded %zu interesting locations from %s", g_interesting_locations.size(), filepath);
+        g_interesting_locations_valid = true;
+    } else {
+        WARNF("No valid interesting locations found in %s", filepath);
+        g_interesting_locations_valid = false;
+    }
     file.close();
 }
 
@@ -113,6 +121,11 @@ static void load_potential_locations(const char* filepath) {
     g_potential_locations.clear();
     std::string line;
     while (std::getline(file, line)) {
+        // Strip comment tokens (#...)
+        size_t hash_pos = line.find('#');
+        if (hash_pos != std::string::npos) {
+            line = line.substr(0, hash_pos);
+        }
         if (line.empty()) continue;
         size_t colon_pos = line.find(':');
         if (colon_pos == std::string::npos) continue;
@@ -129,8 +142,11 @@ static void load_potential_locations(const char* filepath) {
             }
         }
     }
-    ACTF("Loaded potential locations for %zu threads from %s", g_potential_locations.size(), filepath);
-    g_potential_locations_loaded = true;
+    if (!g_potential_locations.empty()) {
+        ACTF("Loaded potential locations for %zu threads from %s", g_potential_locations.size(), filepath);
+    } else {
+        WARNF("No valid potential locations found in %s", filepath);
+    }
     file.close();
 }
 
@@ -186,6 +202,10 @@ static std::unordered_set<std::string> find_future_read_locations_from_static_ev
 static void build_future_read_cache() {
     if (g_future_read_cache_ready) {
         return;
+    }
+
+    if (!g_interesting_locations_loaded) {
+        load_interesting_locations();
     }
 
     if (cfg_new.nodes.empty() && !eg_file.empty()) {
@@ -246,6 +266,16 @@ static void build_future_read_cache() {
 static const std::unordered_set<std::string>& get_cached_future_read_locations(const FutureReadCacheKey& key) {
     static const std::unordered_set<std::string> empty;
     build_future_read_cache();
+
+    char* fb = getenv("SGF_ENABLE_FEEDBACK");
+    bool feedback_enabled = (fb != nullptr && std::atoi(fb) > 0);
+    if (feedback_enabled && !g_potential_locations.empty()) {
+        auto it = g_potential_locations.find(key.first);
+        if (it != g_potential_locations.end()) {
+            return it->second;
+        }
+        return empty;
+    }
 
     auto it = g_future_read_cache.find(key);
     if (it == g_future_read_cache.end()) {
