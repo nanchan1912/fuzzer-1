@@ -112,7 +112,7 @@ def parse_pg(pg_text: str) -> Tuple[Dict[str, dict], Dict[str, List[str]], Dict[
         # Parse event line: E <id> <tid> <kind> <loc_id> <var_name> <mode> <addr> <call_context> <instruction>
         if line.startswith('E\t'):
             parts = line.split('\t')
-            if len(parts) >= 9:
+            if len(parts) >= 8:
                 eid = parts[1]
                 tid = parts[2]
                 kind = parts[3]
@@ -120,7 +120,7 @@ def parse_pg(pg_text: str) -> Tuple[Dict[str, dict], Dict[str, List[str]], Dict[
                 var_name = parts[5]
                 mode = parts[6]
                 addr = parts[7]
-                call_context = parts[8]  # Filter on this
+                call_context = parts[8] if len(parts) >= 9 else ""
                 
                 # Only include events from main thread context (TID 0)
                 if tid != "0":
@@ -222,10 +222,10 @@ def create_init_seed_from_pg(events: Dict[str, dict],
     for root in roots:
         dfs(root)
     
-    # Build output structures
     nodes = []
     po_map: Dict[str, List[List[str]]] = {}
     mo_map: Dict[str, List[List[str]]] = {}
+    visit_counters: Dict[str, Dict[str, int]] = {} # tid -> {inst_id -> count}
     
     for idx, ev in enumerate(cf_seed_writes, start=1):
         tid = ev.get('tid', '0')
@@ -244,22 +244,28 @@ def create_init_seed_from_pg(events: Dict[str, dict],
         # Map mode to seed format
         seed_mode = map_mode_to_seed(mode)
         
+        # Compute dynamic visit_id based on occurrences of the instruction in program order
+        thread_counters = visit_counters.setdefault(tid, {})
+        visit_num = thread_counters.get(stable_id, 0) + 1
+        thread_counters[stable_id] = visit_num
+        visit_id_str = str(visit_num)
+        
         node = {
             'event_id': str(idx),
             'thread_id': tid,
             'kind': 'W',
             'loc_id': loc_hex,
             'instruction_id': stable_id,
-            'visit_id': '1',
+            'visit_id': visit_id_str,
             'access_mode': seed_mode,
         }
         nodes.append(node)
         
         # Track program order per thread
-        po_map.setdefault(tid, []).append([tid, stable_id, '1'])
+        po_map.setdefault(tid, []).append([tid, stable_id, visit_id_str])
         
         # Track memory order per location
-        mo_map.setdefault(loc_hex, []).append([tid, stable_id, '1'])
+        mo_map.setdefault(loc_hex, []).append([tid, stable_id, visit_id_str])
     
     return {
         'nodes': nodes,
@@ -322,8 +328,15 @@ def main() -> int:
     events, succ, pred, addr_to_stable_id = parse_pg(pg_text)
     
     if not events:
-        print('No events found in .pg file.')
-        return 1
+        print('No events found in .pg file. Writing empty seed graph.')
+        seed = {
+            "nodes": [],
+            "po_per_thread": {},
+            "mo_per_location": {}
+        }
+        out_path = Path(args.out) if args.out else infer_output_path(in_path, '.init.sg.json')
+        out_path.write_text(json.dumps(seed, indent=2))
+        return 0
     
     # Generate seed
     seed = create_init_seed_from_pg(events, succ, pred, addr_to_stable_id)

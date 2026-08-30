@@ -29,10 +29,43 @@ using namespace llvm;
 using namespace std;
 using namespace SVF;
 
+// Set to 1 to enable verbose static analysis debug prints (which can be very large)
+#define VERBOSE_DEBUG_PRINT 0
+
+#if !VERBOSE_DEBUG_PRINT
+struct DummyStream {
+    template <typename T>
+    DummyStream& operator<<(const T&) { return *this; }
+    DummyStream& operator<<(std::ostream& (*)(std::ostream&)) { return *this; }
+    void flush() {}
+};
+static DummyStream dummy_stream;
+#define cout dummy_stream
+#define outs() nulls()
+#endif
+
 std::vector<std::pair<NodeID, NodeID>> points_to_info;
 std::set<std::pair<std::string, std::string>> missing_edges;
 std::ofstream outputFile("completeness_check.md");
 
+bool is_llvm_instruction_atomic(const Value* val) {
+    if (!val) return false;
+    if (const LoadInst* LI = dyn_cast<LoadInst>(val)) {
+        return LI->isAtomic();
+    }
+    if (const StoreInst* SI = dyn_cast<StoreInst>(val)) {
+        return SI->isAtomic();
+    }
+    if (isa<AtomicRMWInst>(val) || isa<AtomicCmpXchgInst>(val) || isa<FenceInst>(val)) {
+        return true;
+    }
+    return false;
+}
+
+bool is_call_or_invoke(const Value* val) {
+    if (!val) return false;
+    return isa<CallInst>(val) || isa<InvokeInst>(val);
+}
 
 typedef class event_info
 {
@@ -44,13 +77,14 @@ public:
     string field_index = "";
     string var_name;
     string access_mode;
+    string is_atomic = "unknown";
 
     inst_cxt_pair inst_cxt;
     bool is_global; //just a temporary thing I added for soundness check for edges within thread 0 - well, it turned out to be useful for some checks in write_to_file func as well! :)
 
 
-    event_info(string eventID, string tid, string k, const SVF::SVFValue*  loc, string offset, string varName, string mode, inst_cxt_pair ic, bool is_global = false)
-        : event_id(eventID), threadID(tid), kind(k), location_addr(loc), field_index(offset), var_name(varName), access_mode(mode), inst_cxt(ic), is_global(is_global){}
+    event_info(string eventID, string tid, string k, const SVF::SVFValue*  loc, string offset, string varName, string mode, inst_cxt_pair ic, bool is_global = false, string atomic = "unknown")
+        : event_id(eventID), threadID(tid), kind(k), location_addr(loc), field_index(offset), var_name(varName), access_mode(mode), is_atomic(atomic), inst_cxt(ic), is_global(is_global){}
 } event_info;
 
 // storing the shared locations, events on those locations per thread and the control flow edges btwn events
@@ -503,7 +537,7 @@ std::pair<std::vector<std::pair<SVFInstruction*, CallStrCxt>>, CxtThread> check_
 
     const SVF::SVFValue* val = static_cast<const SVF::SVFValue*>(inst);
 
-    if(isa<CallInst>(llvmmod->getLLVMValue(val))){
+    if(is_call_or_invoke(llvmmod->getLLVMValue(val))){
 
         // Checking if its a fork instruction and dealign with it
         const ThreadAPI* thread_api = ThreadAPI::getThreadAPI();
@@ -706,7 +740,7 @@ std::vector<std::pair<SVFInstruction*, CallStrCxt>> analyze_func(SVFIR* pag, TCT
             }
             last_insts.clear();
 
-        }else if(isa<CallInst>(llvmmod->getLLVMValue(val))){
+        }else if(is_call_or_invoke(llvmmod->getLLVMValue(val))){
             std::vector<std::pair<SVFInstruction*, CallStrCxt>> last_insts_temp;
 
             //creating an empty cxt_thread
@@ -853,6 +887,11 @@ std::vector<std::pair<SVFInstruction*, CallStrCxt>> analyze_func(SVFIR* pag, TCT
         auto curr_bb = curr_bb_pair.first;
         cout << "Looking for a shared event in the successors of bb [" << curr_bb->getName() << "]" << endl;
         bb_to_connect_queue.pop();
+
+        if (visited_bbs.find({curr_bb, curr_bb_pair.second}) != visited_bbs.end()) {
+            cout << "bb [" << curr_bb->getName() << "] already visited with this inst/cxt. Skipping." << endl;
+            continue;
+        }
         
         
         SVFInstruction* parent_last_shared_inst = curr_bb_pair.second.first;
@@ -895,7 +934,7 @@ std::vector<std::pair<SVFInstruction*, CallStrCxt>> analyze_func(SVFIR* pag, TCT
                     }
                     last_insts.clear();
 
-                }else if(isa<CallInst>(llvmmod->getLLVMValue(val))){
+                }else if(is_call_or_invoke(llvmmod->getLLVMValue(val))){
                     cout << "Exploring a call instruction" << endl;
                     std::vector<std::pair<SVFInstruction*, CallStrCxt>> last_insts_temp;
                     std::vector<std::pair<SVFInstruction*, CallStrCxt>> last_insts_from_func;
@@ -1028,7 +1067,15 @@ void write_to_thread_events(const SVFInstruction* inst, const CallStrCxt cs_cxt,
     //This doesn't work here - it is not prefixing the correct function - I moved this logic to the get_location_pointed_to function where I am extracting the location from the instruction
     //TODO: check if that is working fine
     std::string threadIDStr = threads_last_events_map[cxt_thread].first;
-    event_info* info = new event_info(eventID, threadIDStr, kind, location_addr, field_index, var_name, access_mode, std::make_pair(inst, cs_cxt));
+    std::string is_atomic_str = "unknown";
+    if (const Value* val = llvmmod->getLLVMValue(inst)) {
+        if (is_llvm_instruction_atomic(val)) {
+            is_atomic_str = "Atomic";
+        } else {
+            is_atomic_str = "NonAtomic";
+        }
+    }
+    event_info* info = new event_info(eventID, threadIDStr, kind, location_addr, field_index, var_name, access_mode, std::make_pair(inst, cs_cxt), false, is_atomic_str);
 
     threadEvents[threadIDStr].push_back(info);
 
@@ -1236,6 +1283,29 @@ static std::string getDeterministicGlobalInitID(const std::string& varName) {
     return ss.str();
 }
 
+std::string get_location_atomic_status(const SVF::SVFValue* loc, std::string field) {
+    bool has_atomic = false;
+    bool has_nonatomic = false;
+    
+    for (const auto& t : threadEvents) {
+        if (t.first == "0") continue; // Skip thread 0 (global_init)
+        for (const auto* event : t.second) {
+            if (event->location_addr == loc && event->field_index == field) {
+                if (event->is_atomic == "Atomic") {
+                    has_atomic = true;
+                } else if (event->is_atomic == "NonAtomic") {
+                    has_nonatomic = true;
+                }
+            }
+        }
+    }
+    
+    if (has_atomic && !has_nonatomic) return "Atomic";
+    if (!has_atomic && has_nonatomic) return "NonAtomic";
+    if (has_atomic && has_nonatomic) return "Mixed";
+    return "unknown";
+}
+
 // Write to .pg format file
 void write_to_file()
 {
@@ -1244,18 +1314,19 @@ void write_to_file()
 
     pgFile << "# Shared Locations\n";
     for (const auto& loc : shared_vars){
+        std::string atomic_status = get_location_atomic_status(loc.first.first, loc.first.second);
         if(loc.first.second != ""){
             // pgFile << "LOC " << getDeterministicLocID(loc.second, loc.first) << " " << loc.second << "\n";
             // pgFile << "LOC " << loc.first.first << ":field_index=" << loc.first.second << " " << loc.second << "\n";
-            pgFile << "LOC " << getDeterministicLocID(loc.second, loc.first.first) << ":field_index=" << loc.first.second << " " << loc.second << "\n";
+            pgFile << "LOC " << getDeterministicLocID(loc.second, loc.first.first) << ":field_index=" << loc.first.second << " " << loc.second << " " << atomic_status << "\n";
 
         }else{
             // pgFile << "LOC " << loc.first.first << " " << loc.second << "\n";
-            pgFile << "LOC " << getDeterministicLocID(loc.second, loc.first.first) << " " << loc.second << "\n";
+            pgFile << "LOC " << getDeterministicLocID(loc.second, loc.first.first) << " " << loc.second << " " << atomic_status << "\n";
         }
     }
 
-    pgFile << "\n# Event: ID TID  Kind  Loc VarName  Mode   Instruction_Address     Call_string_context     Instruction\n";
+    pgFile << "\n# Event: ID TID  Kind  Loc VarName  Mode  Atomic  Instruction_Address     Call_string_context     Instruction\n";
 
     for (const auto& t : threadEvents){
         for (const auto& event_info : t.second){
@@ -1284,12 +1355,12 @@ void write_to_file()
             if(event_info->field_index != ""){  
                 pgFile << "E\t" << event_info->event_id << "\t" << t.first
                    << "\t" << event_info->kind << "\t"
-                   << getDeterministicLocID(event_info->var_name, event_info->location_addr) << ":field_index=" << event_info->field_index << "\t" << event_info->var_name << "\t" << event_info->access_mode << "\t" << instID << "\t" << get_call_context_string(event_info->inst_cxt.second) << "\t[" << instStr << "]\t" << fnName
+                   << getDeterministicLocID(event_info->var_name, event_info->location_addr) << ":field_index=" << event_info->field_index << "\t" << event_info->var_name << "\t" << event_info->access_mode << "\t" << instID << "\t" << get_call_context_string(event_info->inst_cxt.second) << "\t[" << instStr << "]\t" << fnName << "\t" << event_info->is_atomic
                    << "\n";
             }else{
                 pgFile << "E\t" << event_info->event_id << "\t" << t.first
                    << "\t" << event_info->kind << "\t"
-                   << getDeterministicLocID(event_info->var_name, event_info->location_addr) << "\t" << event_info->var_name << "\t" << event_info->access_mode << "\t" << instID << "\t" << get_call_context_string(event_info->inst_cxt.second) << "\t[" << instStr << "]\t" << fnName
+                   << getDeterministicLocID(event_info->var_name, event_info->location_addr) << "\t" << event_info->var_name << "\t" << event_info->access_mode << "\t" << instID << "\t" << get_call_context_string(event_info->inst_cxt.second) << "\t[" << instStr << "]\t" << fnName << "\t" << event_info->is_atomic
                    << "\n"; 
             }
         }
@@ -1437,21 +1508,21 @@ std::set<NodeID> get_thread_ids_for_pag_node(NodeID pagNodeID, SVFIR* pag, MHP* 
 void print_thread_ids_for_pag_node(NodeID pagNodeID, SVFIR* pag, MHP* mhp){
     const std::set<NodeID> threadIDs = get_thread_ids_for_pag_node(pagNodeID, pag, mhp);
 
-    std::cout << "[INFO] PAG node " << pagNodeID << " is executed by thread IDs: ";
+    cout << "[INFO] PAG node " << pagNodeID << " is executed by thread IDs: ";
     if (threadIDs.empty()){
-        std::cout << "(none found)";
+        cout << "(none found)";
     }
     else{
         bool first = true;
         for (NodeID tid : threadIDs){
             if (!first){
-                std::cout << ", ";
+                cout << ", ";
             }
-            std::cout << tid;
+            cout << tid;
             first = false;
         }
     }
-    std::cout << std::endl;
+    cout << std::endl;
 }
 
 //Helper func to identify shared variables
@@ -1689,7 +1760,7 @@ void identify_shared_global_variables(SVFIR* pag, MHP* mhp, SVFModule* svfModule
 
                 instToEventID[std::make_pair(global_val_inst, empty_cxt)] = eventID;
 
-                event_info* info = new event_info(eventID, "0", "W", location_addr, field_index, name, "NA", std::make_pair(global_val_inst, empty_cxt), true);
+                event_info* info = new event_info(eventID, "0", "W", location_addr, field_index, name, "NA", std::make_pair(global_val_inst, empty_cxt), true, "NonAtomic");
 
                 threadEvents["0"].push_back(info);
 
@@ -1749,7 +1820,7 @@ void identify_shared_variables(SVFIR* pag, FSMPTA* fsmpta, MHP* mhp, SVFModule* 
                 }
 
                 if (differentThreadFound){
-                    std::cout << "[SHARED-CANDIDATE] PAG nodes " << var
+                    cout << "[SHARED-CANDIDATE] PAG nodes " << var
                               << " and " << other_pair.first
                               << " point to MemObj " << points_to_node
                               << " and may be shared across threads."
@@ -2215,7 +2286,11 @@ int main(int argc, char** argv){
         // process_thread(pag, tct, it);
     }
     // process the main thread (thread 0) alone - other threads will be processed when we encounter a fork instruction in the main thread
-    process_thread(pag, tct, tct->begin());
+    if (tct->begin() != tct->end()) {
+        process_thread(pag, tct, tct->begin());
+    } else {
+        cout << "No threads detected in TCT. Skipping thread analysis." << endl;
+    }
 
     // add_cf_for_forked_threads(tct);
 
