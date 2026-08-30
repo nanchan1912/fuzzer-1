@@ -897,12 +897,16 @@ extern "C" void* potential_calculation_on_rf_mutation(const SkeletonGraph* graph
 // uses the generic Event_Type::CAS (not yet split into CAS_SUCCESS/CAS_FAIL
 // as in the skeleton graph). Mirrors is_read_like_type's logic in
 // skeleton_graph_mutator.cpp, which is file-local there.
-static bool is_write_like(Event_Type type) {
+// Named is_static_*_like (rather than is_write_like/is_read_like) to avoid
+// colliding with the dynamic-skeleton-graph predicates of the same short
+// name in skeleton_graph_events.hpp -- those two intentionally disagree on
+// bare CAS (invalid on the dynamic graph, but the only form cfg_new has).
+static bool is_static_write_like(Event_Type type) {
     return type == Event_Type::WRITE || type == Event_Type::RMW ||
            type == Event_Type::CAS;
 }
 
-static bool is_read_like(Event_Type type) {
+static bool is_static_read_like(Event_Type type) {
     return type == Event_Type::READ || type == Event_Type::CAS ||
            type == Event_Type::CAS_FAIL || type == Event_Type::CAS_SUCCESS ||
            type == Event_Type::RMW;
@@ -924,7 +928,7 @@ extern "C" size_t get_max_static_potential(void) {
     // Map location -> count of static writes
     std::unordered_map<std::string, size_t> loc_write_counts;
     for (const auto& [id, node] : cfg_new.nodes) {
-        if (is_write_like(node.event.get_event_type())) {
+        if (is_static_write_like(node.event.get_event_type())) {
             loc_write_counts[node.event.get_location()]++;
         }
     }
@@ -935,7 +939,7 @@ extern "C" size_t get_max_static_potential(void) {
         for (int eid : event_ids) {
             auto node_it = cfg_new.nodes.find(eid);
             if (node_it != cfg_new.nodes.end()) {
-                if (is_read_like(node_it->second.event.get_event_type())) {
+                if (is_static_read_like(node_it->second.event.get_event_type())) {
                     thread_read_locs.insert(node_it->second.event.get_location());
                 }
             }

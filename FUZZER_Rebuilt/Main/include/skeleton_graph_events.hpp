@@ -2,17 +2,61 @@
 #define EVENTS_H
 
 #include <bits/stdc++.h>
+#include "shm_next_events.h"
 using namespace std;
 
+/* Ordinals for READ/WRITE/RMW/FENCE/CAS_SUCCESS/CAS_FAIL are explicit because
+ * they are an ABI: the runtime writes the matching WMM_EV_* value into
+ * Shared_event::event_type and AFL reads it back via event_type_from_wire()
+ * below. APPEND ONLY -- see the note in shm_next_events.h. CAS (bare, no
+ * outcome) has no runtime/wire counterpart -- it exists only in the static
+ * analysis output before a fuzzer run seeds it as CAS_SUCCESS -- so it keeps
+ * an implicit ordinal rather than a WMM_EV_* one. */
 enum class Event_Type {
-    READ,
-    WRITE,
-    RMW,
-    FENCE,
+    READ  = WMM_EV_READ,
+    WRITE = WMM_EV_WRITE,
+    RMW   = WMM_EV_RMW,
+    FENCE = WMM_EV_FENCE,
     CAS, // Will be only in static program abstraction, not in skeleton graph
-    CAS_SUCCESS,
-    CAS_FAIL
+    /* A CAS reads unconditionally but writes only when it succeeds. The two
+     * outcomes are separate types so that every downstream check can classify
+     * them structurally: CAS_SUCCESS is write-like, CAS_FAIL is read-only. */
+    CAS_SUCCESS = WMM_EV_CAS_SUCCESS,
+    CAS_FAIL    = WMM_EV_CAS_FAIL
 };
+
+/* Structural classification. Prefer these over open-coded == comparisons:
+ * adding a future event type then only needs these three predicates updated,
+ * rather than the many scattered call sites that branch on type. */
+inline bool is_write_like(Event_Type t) {
+    return t == Event_Type::WRITE || t == Event_Type::RMW ||
+           t == Event_Type::CAS_SUCCESS;
+}
+inline bool is_read_like(Event_Type t) {
+    return t == Event_Type::READ || t == Event_Type::RMW ||
+           t == Event_Type::CAS_SUCCESS || t == Event_Type::CAS_FAIL;
+}
+/* Governs RMW atomicity: at most one rmw-like event may read from a given
+ * write. A failed CAS does not write, so it does not participate. */
+inline bool is_rmw_like(Event_Type t) {
+    return t == Event_Type::RMW || t == Event_Type::CAS_SUCCESS;
+}
+
+/* Validating decode of an untrusted shm byte. A raw static_cast would happily
+ * manufacture Event_Type(200) from a version-skewed runtime and let it flow
+ * into the mutator. CAS (bare) is deliberately not accepted here: it has no
+ * WMM_EV_* wire value and must never arrive from the runtime. */
+inline bool event_type_from_wire(uint8_t w, Event_Type& out) {
+    switch (w) {
+        case WMM_EV_READ:        out = Event_Type::READ;        return true;
+        case WMM_EV_WRITE:       out = Event_Type::WRITE;       return true;
+        case WMM_EV_RMW:         out = Event_Type::RMW;         return true;
+        case WMM_EV_FENCE:       out = Event_Type::FENCE;       return true;
+        case WMM_EV_CAS_SUCCESS: out = Event_Type::CAS_SUCCESS; return true;
+        case WMM_EV_CAS_FAIL:    out = Event_Type::CAS_FAIL;    return true;
+        default:                 return false;
+    }
+}
 
 enum class Access_Mode {
     NON_ATOMIC,
@@ -22,6 +66,13 @@ enum class Access_Mode {
     ACQ_REL,
     SC  //REVISIT: Is SC needed?
 };
+
+/* Same untrusted-shm-byte concern as event_type_from_wire above. */
+inline bool access_mode_from_wire(uint8_t w, Access_Mode& out) {
+    if (w > static_cast<uint8_t>(Access_Mode::SC)) { return false; }
+    out = static_cast<Access_Mode>(w);
+    return true;
+}
 
 using ThreadID = int;                                    // Unique identifier for a thread
 using InstructionID = long long;                         // Unique identifier for an instruction
