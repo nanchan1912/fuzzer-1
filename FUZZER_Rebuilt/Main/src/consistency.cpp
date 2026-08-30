@@ -52,24 +52,21 @@ set<EventID> find_consistent_writes(const SkeletonGraph& graph,
         const Event* curr_event = graph.get_event_by_id(curr_id);
         if(!curr_event) continue; // Should not happen, but guard against invalid event IDs
 
-        // Condition 1: Found a WRITE or RMW or CAS_SUCCESS on the same location - this is an aware_of point.
-        // RMW and CAS_SUCCESS events are both reads and writes, so they can be cutoff points
+        // Condition 1: Found a write-like event on the same location - this is an aware_of point.
+        // RMW and a successful CAS are both reads and writes, so they can be cutoff points.
+        // A failed CAS does not write, so it is excluded here.
         if (curr_event->get_location() == target_location &&
-            (curr_event->get_event_type() == Event_Type::WRITE ||
-             curr_event->get_event_type() == Event_Type::RMW ||
-             curr_event->get_event_type() == Event_Type::CAS_SUCCESS)) {
+            is_write_like(curr_event->get_event_type())) {
             aware_of_writes.insert(curr_id);
             // Continue exploring from this write through PO edges
             // (don't stop here - there may be other writes reachable through different paths)
         }
 
-        // Condition 2: Found a READ or CAS_FAIL or RMW or CAS_SUCCESS on the same location - follow RF edges to find writes
-        // RMW and CAS_SUCCESS events are both reads and writes, so their read part can follow RF edges
+        // Condition 2: Found a read-like event on the same location - follow RF edges to find writes.
+        // RMW and a successful CAS are both reads and writes, so their read part can follow RF edges.
+        // A failed CAS still reads (it just does not write), so it follows RF here too.
         if (curr_event->get_location() == target_location &&
-            (curr_event->get_event_type() == Event_Type::READ ||
-             curr_event->get_event_type() == Event_Type::RMW ||
-             curr_event->get_event_type() == Event_Type::CAS_SUCCESS||
-             curr_event->get_event_type() == Event_Type::CAS_FAIL)) {
+            is_read_like(curr_event->get_event_type())) {
             // Find what this read reads from via RF reverse edge
             auto rf_it = rf_reverse.find(curr_id);
             if (rf_it != rf_reverse.end()) {
@@ -160,7 +157,9 @@ set<EventID> find_consistent_writes(const SkeletonGraph& graph,
                 bool rmw_cas_found = false;
                 for(const auto& read_id : rf_it->second){
                     const Event* read_event = graph.get_event_by_id(read_id);
-                    if(read_event && (read_event->get_event_type() == Event_Type::RMW || read_event->get_event_type() == Event_Type::CAS_SUCCESS)){
+                    // A failed CAS does not write, so it does not consume the
+                    // write and never blocks another rmw-like reader.
+                    if(read_event && is_rmw_like(read_event->get_event_type())){
                         rmw_cas_found = true;
                         break;
                     }
