@@ -548,17 +548,31 @@ public:
         int64Ty,     // loc_id
         int64Ty);    // value_size
 
-    FunctionCallee instrumentCmpXchg = M.getOrInsertFunction(
-        "__instrument_cmpxchg",
-        int64Ty,     // Returns old value
-        int64Ty,     // uid
-        i8PtrTy,     // addr
-        int64Ty,     // compare_val
-        int64Ty,     // new_val
-        int32Ty,     // order
-        int64Ty,     // thread_id
-        int64Ty,     // loc_id
-        int64Ty);    // value_size
+    // Strong and weak cmpxchg are separate entry points rather than a flag
+    // argument, so the runtime can apply the right instantiability rule
+    // without the graph vocabulary having to carry strong/weak at all.
+    //
+    // The final i8* is an out-parameter for the scheduler's verdict on whether
+    // the swap happened. It is an out-param rather than a {i64, i8} return
+    // because a struct return would have to match clang's ABI lowering for the
+    // C definition exactly (register pair vs sret, target dependent), whereas
+    // a pointer is trivially portable.
+    auto makeCmpXchgCallee = [&](const char *name) {
+        return M.getOrInsertFunction(
+            name,
+            int64Ty,     // Returns old value
+            int64Ty,     // uid
+            i8PtrTy,     // addr
+            int64Ty,     // compare_val
+            int64Ty,     // new_val
+            int32Ty,     // order
+            int64Ty,     // thread_id
+            int64Ty,     // loc_id
+            int64Ty,     // value_size
+            i8PtrTy);    // success_out
+    };
+    FunctionCallee instrumentCmpXchgStrong = makeCmpXchgCallee("__instrument_cmpxchg_strong");
+    FunctionCallee instrumentCmpXchgWeak   = makeCmpXchgCallee("__instrument_cmpxchg_weak");
 
     FunctionCallee instrumentFence = M.getOrInsertFunction(
         "__instrument_fence",
@@ -739,8 +753,20 @@ public:
             Value *compareVal = castToUInt64(cmpxchg->getCompareOperand(), builder);
             Value *newVal = castToUInt64(cmpxchg->getNewValOperand(), builder);
             Value *locIdVal = computeRuntimeLocId(cmpxchg->getPointerOperand(), meta.loc_id, DL, builder);
+
+            // Slot for the runtime's verdict. Allocated in the entry block so
+            // a cmpxchg inside a loop does not grow the stack per iteration.
+            IRBuilder<> entryBuilder(&F.getEntryBlock(),
+                                     F.getEntryBlock().getFirstInsertionPt());
+            AllocaInst *successSlot =
+                entryBuilder.CreateAlloca(Type::getInt8Ty(ctx), nullptr, "wmm.cas.success");
+            builder.CreateStore(ConstantInt::get(Type::getInt8Ty(ctx), 0), successSlot);
+            Value *successPtr = builder.CreateBitCast(successSlot, i8PtrTy);
+
+            // C11 compare_exchange_weak may fail spuriously; the scheduler
+            // needs to know which flavour this is to decide instantiability.
             Value *call = builder.CreateCall(
-                instrumentCmpXchg,
+                cmpxchg->isWeak() ? instrumentCmpXchgWeak : instrumentCmpXchgStrong,
                 {
                     ConstantInt::get(int64Ty, meta.uid),
                     addr,
@@ -750,9 +776,19 @@ public:
                     ConstantInt::get(int64Ty, meta.thread_id),
                     locIdVal,
                     ConstantInt::get(int64Ty, size),
+                    successPtr,
                 });
             Value *oldVal = castFromUInt64(call, valTy, builder);
-            Value *success = builder.CreateICmpEQ(oldVal, cmpxchg->getCompareOperand());
+
+            // Use the scheduler's verdict, NOT `oldVal == compareOperand`.
+            // Recomputing the comparison here would report success whenever the
+            // values happen to match, even on a weak CAS the scheduler
+            // deliberately failed and did not store -- so the program would
+            // take the success branch while memory still held the old value.
+            Value *successByte = builder.CreateLoad(Type::getInt8Ty(ctx), successSlot);
+            Value *success = builder.CreateICmpNE(
+                successByte, ConstantInt::get(Type::getInt8Ty(ctx), 0));
+
             StructType *structTy = cast<StructType>(cmpxchg->getType());
             Value *structVal = UndefValue::get(structTy);
             structVal = builder.CreateInsertValue(structVal, oldVal, 0);
