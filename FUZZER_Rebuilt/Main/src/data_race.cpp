@@ -106,14 +106,37 @@ static void append_event_ids_by_modes(std::vector<EventID>& out,
  * @param location The memory location to look for events at
  * @return A vector of event IDs that are reads, writes, or RMWs at the given location
 */
+/* event_type_sets is keyed by the exact Event_Type, so a structural query has
+ * to enumerate every concrete type in the class. These two helpers are the
+ * single place that enumeration lives, replacing what was previously three
+ * separate hand-written repetitions of the same READ/WRITE/RMW/CAS_* lists
+ * across this function and both case groups in
+ * collect_candidate_second_events below. */
+
+/* Events that write: a successful CAS does, a failed one does not. */
+static void append_write_like_ids(std::vector<EventID>& out,
+                                  const SkeletonGraph* graph,
+                                  const Location& location,
+                                  bool only_non_atomic) {
+    append_event_ids_by_modes(out, graph, location, Event_Type::WRITE, only_non_atomic);
+    append_event_ids_by_modes(out, graph, location, Event_Type::RMW, only_non_atomic);
+    append_event_ids_by_modes(out, graph, location, Event_Type::CAS_SUCCESS, only_non_atomic);
+}
+
+/* Every event that touches the location, each type listed exactly once. */
+static void append_all_access_ids(std::vector<EventID>& out,
+                                  const SkeletonGraph* graph,
+                                  const Location& location,
+                                  bool only_non_atomic) {
+    append_event_ids_by_modes(out, graph, location, Event_Type::READ, only_non_atomic);
+    append_event_ids_by_modes(out, graph, location, Event_Type::CAS_FAIL, only_non_atomic);
+    append_write_like_ids(out, graph, location, only_non_atomic);
+}
+
 static std::vector<EventID> collect_target_event_ids_at_location(
     const SkeletonGraph* graph, const Location& location) {
     std::vector<EventID> targets;
-    append_event_ids_by_modes(targets, graph, location, Event_Type::READ, false);
-    append_event_ids_by_modes(targets, graph, location, Event_Type::CAS_FAIL, false);
-    append_event_ids_by_modes(targets, graph, location, Event_Type::WRITE, false);
-    append_event_ids_by_modes(targets, graph, location, Event_Type::RMW, false);
-    append_event_ids_by_modes(targets, graph, location, Event_Type::CAS_SUCCESS, false);
+    append_all_access_ids(targets, graph, location, false);
     return targets;
 }
 
@@ -136,37 +159,23 @@ static std::vector<EventID> collect_candidate_second_events(const SkeletonGraph*
     const bool target_is_non_atomic = target_event->get_access_mode() == Access_Mode::NON_ATOMIC;
 
     switch (target_event->get_event_type()) {
+        // Read-only targets (READ, a failed CAS) race only against writers.
         case Event_Type::READ:
         case Event_Type::CAS_FAIL:
-            if (target_is_non_atomic) {
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, false);
-            } else {
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, true);
-            }
+            append_write_like_ids(candidates, graph, location, !target_is_non_atomic);
             break;
 
+        // Writers (WRITE, RMW, a successful CAS) race against everything that
+        // touches the location.
         case Event_Type::WRITE:
         case Event_Type::RMW:
         case Event_Type::CAS_SUCCESS:
-            if (target_is_non_atomic) {
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::READ, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAIL, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, false);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, false);
-            } else {
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::READ, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_FAIL, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::WRITE, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::RMW, true);
-                append_event_ids_by_modes(candidates, graph, location, Event_Type::CAS_SUCCESS, true);
-            }
+            append_all_access_ids(candidates, graph, location, !target_is_non_atomic);
             break;
 
+        // FENCE touches no location, so it cannot participate in a race.
+        // (This Event_Type has no EOP enumerator, unlike upstream.)
+        case Event_Type::FENCE:
         default:
             break;
     }
@@ -258,17 +267,15 @@ static bool is_read_or_write(const Event* event) {
     if (!event) {
         return false;
     }
-    const Event_Type type = event->get_event_type();
-    return type == Event_Type::READ || type == Event_Type::WRITE ||
-           type == Event_Type::RMW || type == Event_Type::CAS_SUCCESS || type == Event_Type::CAS_FAIL;
+    // Both CAS outcomes read; a successful one also writes.
+    return is_read_like(event->get_event_type()) || is_write_like(event->get_event_type());
 }
 
 static bool is_write(const Event* event) {
     if (!event) {
         return false;
     }
-    const Event_Type type = event->get_event_type();
-    return type == Event_Type::WRITE || type == Event_Type::RMW || type == Event_Type::CAS_SUCCESS;
+    return is_write_like(event->get_event_type());
 }
 
 static bool is_non_atomic(const Event* event) {
