@@ -300,12 +300,19 @@ EOF
         # Compile runtime C files and create libwmm_runtime.a
         pushd "$runtime_dir" > /dev/null
         local cc_bin="${CC_BIN}"
+        local cxx_bin="${CXX_BIN}"
         local c_flags="-O0 -g -fPIC"
         if [[ "$quiet_mode" -eq 1 ]]; then
             c_flags="$c_flags -DQUIET"
         fi
         "$cc_bin" $c_flags -I"${REPO_ROOT}/Main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
-        ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o
+        # shm_next_events.cpp is C++ and lives under Main/src, not here -- it must be
+        # compiled and archived too, or scheduler_terminate_locked's calls to
+        # begin_update_c/finish_update_c are left undefined at link time for every
+        # instrumented benchmark binary. This mirrors build_project()'s complete
+        # rebuild below; this lighter auto-build path had drifted out of sync with it.
+        "$cxx_bin" -O0 -g -fPIC -I"${REPO_ROOT}/Main/include" -c "${REPO_ROOT}/Main/src/shm_next_events.cpp" -o shm_next_events.o
+        ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o shm_next_events.o
         rm -f *.o
         popd > /dev/null
         log "WMM runtime library and stub successfully built."
