@@ -672,7 +672,9 @@ static void* update_potential_impl(void* potential,
         return create_skeleton_potential(graph);
     }
 
-    if (mutation->kind == MUT_MUTATE_RF) {
+    // Both of these change mo membership / rf reachability globally, which the
+    // incremental updaters below do not model -- recompute from scratch instead.
+    if (mutation->kind == MUT_MUTATE_RF || mutation->kind == MUT_FLIP_CAS) {
         SkeletonPotential recalculated = calculate_skeleton_potential(*graph, analyzer);
         if (potential) {
             delete static_cast<SkeletonPotential*>(potential);
@@ -715,9 +717,10 @@ static void* update_potential_impl(void* potential,
                                                    std::string(mutation->location));
             break;
         case MUT_MUTATE_RF:
+        case MUT_FLIP_CAS:
             // Already handled by the early-return recalculation block above
-            // (destroy_skeleton_potential + create_skeleton_potential), so this
-            // case is unreachable here. Kept as a no-op for clarity.
+            // (destroy_skeleton_potential + create_skeleton_potential), so these
+            // cases are unreachable here. Kept as a no-op for clarity.
         case MUT_NONE:
         default:
             break;
