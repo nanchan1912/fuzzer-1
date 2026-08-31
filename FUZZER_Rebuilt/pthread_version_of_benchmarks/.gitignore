@@ -38,25 +38,27 @@ C11FuzzerTmp*
 *.txt
 *.so
 
-# Compiled benchmark binaries
-**/barrier
-**/barrier-change
-**/chase-lev-deque
-**/chasechange
-**/dekker-change
-**/dekker-fences
-**/test2
-**/test_lfringbuffer
-**/linuxrwchange
-**/linuxrwlocks
-**/mcs-change
-**/mcs-lock
-**/mcs2
-**/mpmc-change
-**/mpmc-queue
-**/mpmc3
-**/ms-queue
-**/spsc-queue
-**/:wq
+# Compiled benchmark binaries (matches only <name>/<name>, the built
+# executable, not the source directory of the same name -- the previous
+# bare **/<name> patterns matched the directory too and hid every source
+# file in it from git, e.g. ms-queue/main.cc).
+**/barrier/barrier
+**/barrier-change/barrier-change
+**/chase-lev-deque/chase-lev-deque
+**/chasechange/chasechange
+**/dekker-change/dekker-change
+**/dekker-fences/dekker-fences
+**/test2/test2
+**/test_lfringbuffer/test_lfringbuffer
+**/linuxrwchange/linuxrwchange
+**/linuxrwlocks/linuxrwlocks
+**/mcs-change/mcs-change
+**/mcs-lock/mcs-lock
+**/mcs2/mcs2
+**/mpmc-change/mpmc-change
+**/mpmc-queue/mpmc-queue
+**/mpmc3/mpmc3
+**/ms-queue/ms-queue
+**/spsc-queue/spsc-queue
 
 core
