@@ -602,6 +602,7 @@ extern "C" SkeletonGraph* empty_skeleton_graph() {
 // - Hardik
 // Defined below, alongside the other mutate_rf_edge helpers.
 void remove_po_rf_sw_successors(SkeletonGraph& graph, const EventID& target);
+static void insert_mo_after(SkeletonGraph* graph, const Location& loc, const EventID& after_event, const EventID& new_event);
 
 // Flip an existing CAS event between its two outcomes.
 //
@@ -682,7 +683,16 @@ bool flip_cas_outcome(SkeletonGraph* graph) {
             }
         }
 
-        graph->add_mo(target, loc);
+        // Insert immediately after the write it reads from, rather than
+        // appending to the end of mo: every other rmw-like write in this file
+        // relies on that adjacency, and corrupting it here would propagate
+        // into descendant graphs' consistent-writes computation the next
+        // time this graph is re-parsed as a parent for further mutation.
+        if (src_it != rf_rev.end() && !src_it->second.empty()) {
+            insert_mo_after(graph, loc, src_it->second.front(), target);
+        } else {
+            graph->add_mo(target, loc);
+        }
         ev_it->second.set_event_type(Event_Type::CAS_SUCCESS);
     }
 

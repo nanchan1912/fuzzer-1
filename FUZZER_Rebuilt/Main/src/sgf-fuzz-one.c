@@ -98,7 +98,15 @@ static inline void record_forbidden_mutation(struct queue_entry *parent, const M
   if (!parent->graph_data->forbidden_mutations) {
     parent->graph_data->forbidden_mutations = forbidden_mutations_create();
   }
-  if (mut_info->kind >= MUT_ADD_READ && mut_info->kind <= MUT_ADD_FENCE) {
+  /* Explicit per-kind checks rather than an ordinal range: MUT_ADD_CAS_SUCCESS
+   * and MUT_ADD_CAS_FAIL were appended after MUT_MUTATE_RF (append-only enum),
+   * outside any contiguous MUT_ADD_READ..MUT_ADD_FENCE range, so a range check
+   * silently missed them -- a rejected CAS-add candidate was never marked
+   * forbidden and the fuzzer would keep re-proposing the same doomed
+   * mutation forever. */
+  if (mut_info->kind == MUT_ADD_READ || mut_info->kind == MUT_ADD_WRITE ||
+      mut_info->kind == MUT_ADD_RMW  || mut_info->kind == MUT_ADD_FENCE ||
+      mut_info->kind == MUT_ADD_CAS_SUCCESS || mut_info->kind == MUT_ADD_CAS_FAIL) {
     forbidden_mutations_add_event(parent->graph_data->forbidden_mutations, mut_info->dest_id);
   }
 }
