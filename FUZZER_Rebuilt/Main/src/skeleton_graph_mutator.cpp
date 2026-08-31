@@ -1479,11 +1479,26 @@ static bool is_supported_candidate_type(Event_Type type) {
            type == Event_Type::FENCE;
 }
 
+/* Candidate selection asks for one concrete type at a time (READ, WRITE, RMW,
+ * FENCE). A CAS is structurally one of those: a successful CAS reads and
+ * writes like an RMW, a failed one only reads. Without this mapping a CAS
+ * candidate passes is_supported_candidate_type's whitelist and enters
+ * `enabled`, but every call site here only ever asks for READ/WRITE/RMW/
+ * FENCE, so it would sit there and never be picked by anything -- present,
+ * valid, and silently unreachable. */
+static bool matches_selection_class(Event_Type candidate, Event_Type wanted) {
+    if (candidate == wanted) { return true; }
+    if (wanted == Event_Type::RMW)  { return candidate == Event_Type::CAS_SUCCESS; }
+    if (wanted == Event_Type::READ) { return candidate == Event_Type::CAS_FAIL; }
+    return false;
+}
+
 static int pick_random_index_for_type(const std::vector<CandidateEvent>& candidates, Event_Type type) {
     std::vector<int> indices;
     indices.reserve(candidates.size());
     for (size_t i = 0; i < candidates.size(); ++i) {
-        if (candidates[i].event && candidates[i].event->get_event_type() == type) {
+        if (candidates[i].event &&
+            matches_selection_class(candidates[i].event->get_event_type(), type)) {
             indices.push_back((int)i);
         }
     }
@@ -2003,13 +2018,32 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
                         continue;
                     }
                 }
-                CandidateEvent temp; 
+                /* Validate before trusting: these bytes come from the target
+                 * process's shared memory. A raw cast of a value this AFL
+                 * build does not know (version skew against the runtime)
+                 * would fabricate an out-of-range enum and let it flow into
+                 * the mutator, corrupting graphs with no diagnostic. */
+                Event_Type fb_type;
+                Access_Mode fb_mode;
+                if (!event_type_from_wire(se->event_type, fb_type)) {
+                    WARNF("feedback: unknown event_type %u on the wire "
+                          "(runtime/AFL version skew?); skipping candidate",
+                          (unsigned)se->event_type);
+                    continue;
+                }
+                if (!access_mode_from_wire(se->access_mode, fb_mode)) {
+                    WARNF("feedback: unknown access_mode %u on the wire; "
+                          "skipping candidate", (unsigned)se->access_mode);
+                    continue;
+                }
+
+                CandidateEvent temp;
                 std::stringstream loc_stream;
                 loc_stream << "0x" << std::hex << se->location;
                 temp.event = std::make_unique<Event>(
                                 se->tid,
-                                static_cast<Access_Mode>(se->access_mode), 
-                                static_cast<Event_Type>(se->event_type), 
+                                fb_mode,
+                                fb_type,
                                 loc_stream.str(),
                                 se->iid,
                                 se->vid
@@ -2449,6 +2483,21 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
             // update_mo_coverage(prev_last_event_triple, new_event_triple);
         // }
 
+    } else {
+        // Reaching here means an event type nobody added a branch for. The node
+        // has already been inserted into events/threadwise_po above, but with
+        // no rf edge and no mo entry -- a graph the simulator rejects with an
+        // invalid-input exit, which the fuzzer reads as a merely boring input.
+        // That combination is silent: the campaign would simply stop making
+        // progress on every benchmark using this type. Fail loudly instead.
+        WARNF("add_new_node: unhandled event type %d for event t%d i%lld v%d "
+              "at %s -- node added with no rf and no mo; the resulting graph "
+              "will be rejected by the simulator",
+              (int)new_event->get_event_type(),
+              new_event->get_thread_id(),
+              (long long)new_event->get_instruction_id(),
+              new_event->get_visit_id(),
+              new_event->get_location().c_str());
     }
 
     // Finalize to rebuild event_index with correct indices after all adds complete
