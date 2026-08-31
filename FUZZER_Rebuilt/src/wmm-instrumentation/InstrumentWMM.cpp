@@ -481,17 +481,30 @@ static Value *computeRuntimeLocId(Value *ptrVal, uint64_t baseLocId, const DataL
     return baseLocVal;
   }
   
+  /* totalOffset below is measured from the base object, so every constant
+     contribution along the *whole* GEP chain has to come back out -- not just
+     the outermost one. Constant indices are already folded into baseLocId by
+     parseFieldSensitiveLocID (":field_index=N"), so leaving an inner field's
+     offset in would count it twice: `this->data_buff[idx]` used to yield
+     base + 16 + 8*idx, which meant even element 0 missed the static base and
+     no array event ever matched the location the fuzzer reasons about. */
+  int64_t constOffset = 0;
   Value *basePtr = const_cast<GEPOperator*>(outermostGep);
   while (GEPOperator *gep = dyn_cast<GEPOperator>(basePtr->stripPointerCasts())) {
+    constOffset += getConstantGEPOffset(gep, DL);
     basePtr = gep->getPointerOperand();
   }
-  
+
   Value *ptrValInt = builder.CreatePtrToInt(ptrVal, int64Ty);
   Value *basePtrInt = builder.CreatePtrToInt(basePtr, int64Ty);
   Value *totalOffset = builder.CreateSub(ptrValInt, basePtrInt);
-  
-  int64_t constOffset = getConstantGEPOffset(outermostGep, DL);
-  
+
+  /* What remains is the variable part only, so an array element keeps its own
+     identity (base + i*elemsize) while element 0 coincides with the base.
+     Note a constant index a[4] is still modelled by SVF as a struct-like
+     ":field_index=4" (anal.cpp get_field_index_from_ptr), so it does NOT share
+     an id with a[i] where i==4. Closing that would mean collapsing arrays on
+     both sides; deliberately not done here. */
   Value *dynamicOffset = builder.CreateSub(totalOffset, ConstantInt::get(int64Ty, constOffset));
   
   return builder.CreateAdd(baseLocVal, dynamicOffset);

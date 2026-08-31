@@ -441,8 +441,13 @@ static WriteEvent* find_random_overlapping_write(void *addr, size_t size) {
     return candidates[rand() % count];
 }
 
-static void satisfy_load_from_write(void *buf_out, size_t buf_size, void *load_addr, const WriteEvent *we) {
-    if (!buf_out || buf_size == 0) return;
+/* Returns true if the write actually overlaps the load, i.e. the rf edge is
+ * physically realizable. A false return means the caller was told to read from
+ * a write to *different memory*; the value produced in that case is arbitrary,
+ * so any caller enforcing a forced rf edge must treat it as not instantiable
+ * rather than proceed. */
+static bool satisfy_load_from_write(void *buf_out, size_t buf_size, void *load_addr, const WriteEvent *we) {
+    if (!buf_out || buf_size == 0) return true;
     
     // First, initialize buf_out with current memory contents if load_addr is valid
     if (load_addr && (uintptr_t)load_addr >= 4096) {
@@ -474,13 +479,38 @@ static void satisfy_load_from_write(void *buf_out, size_t buf_size, void *load_a
             memcpy((unsigned char *)buf_out + (O_start - L_start),
                    src_bytes + (O_start - W_start),
                    O_end - O_start);
-            return;
+            return true;
         }
+
+        /* Both addresses are known and they do not overlap. Copying the source
+         * bytes anyway (the fallback below) would hand the load some other
+         * object's value and let the run continue as if the rf edge had been
+         * honoured -- e.g. a read of arr[0] "reading from" a write to arr[7].
+         * Report it instead. */
+        return false;
     }
     
     // Fallback: copy from the beginning
     size_t n = src_size < buf_size ? src_size : buf_size;
     memcpy(buf_out, src_bytes, n);
+    return true;
+}
+
+/* Guard for the *forced* rf paths only. A graph that pairs a load with a write
+ * to different memory is not a schedule of this program, so it is reported as
+ * not instantiable rather than executed with a fabricated value. Inference and
+ * random-sampling callers deliberately do not use this: there the write is a
+ * guess, not a constraint. */
+static void require_rf_overlap_locked(bool overlapped,
+                                      unsigned long long tid,
+                                      unsigned long long event_uid,
+                                      unsigned long long target_write_id) {
+    if (overlapped) return;
+    fprintf(stderr,
+            "[SCHED] Not instantiable: forced rf source write=%llu does not overlap the "
+            "load address (tid=%llu uid=%llx).\n",
+            target_write_id, tid, event_uid);
+    scheduler_terminate_locked(WMM_EXIT_NOT_INSTANTIABLE);
 }
 
 static uint64_t record_event_node_locked(uint64_t tid, long long iid,
@@ -1865,7 +1895,10 @@ bool scheduler_on_load_bytes_ex(void *addr, Access_Mode order,
                     eg_node_t *rn = eg_find_node_by_id(recording_graph, recorded_id);
                     if (rn) {
                         uint8_t temp_val_buf[sizeof(intptr_t)];
-                        satisfy_load_from_write(temp_val_buf, sizeof(temp_val_buf), addr, latest);
+                        /* Inferred, not forced: find_latest_write_by_loc may
+                           return a non-overlapping write, which is a guess we
+                           record rather than a constraint we enforce. */
+                        (void)satisfy_load_from_write(temp_val_buf, sizeof(temp_val_buf), addr, latest);
                         rn->value = bytes_to_intptr(temp_val_buf, sizeof(temp_val_buf));
                     }
                 }
@@ -1892,7 +1925,10 @@ bool scheduler_on_load_bytes_ex(void *addr, Access_Mode order,
         while (1) {
             WriteEvent *we = find_write_in_history(target_write_id);
             if (we) {
-                satisfy_load_from_write(buf_out, buf_size, addr, we);
+                require_rf_overlap_locked(
+                    satisfy_load_from_write(buf_out, buf_size, addr, we),
+                    (unsigned long long)tid, (unsigned long long)event_uid,
+                    (unsigned long long)target_write_id);
                 intptr_t loaded_val = bytes_to_intptr(buf_out, buf_size);
                 if (current_graph && node)
                     mark_rf_edge_covered(target_write_id, node->id);
@@ -1970,7 +2006,8 @@ bool scheduler_on_load_bytes_ex(void *addr, Access_Mode order,
         }
         
         if (we) {
-            satisfy_load_from_write(buf_out, buf_size, addr, we);
+            /* Sampled, not forced -- see require_rf_overlap_locked. */
+            (void)satisfy_load_from_write(buf_out, buf_size, addr, we);
             intptr_t loaded_val = bytes_to_intptr(buf_out, buf_size);
             LOG("[WARN] Sampling value %ld from write %llu\n", (long)loaded_val,
                 (unsigned long long)we->graph_node_id);
@@ -2218,7 +2255,10 @@ uint64_t scheduler_on_rmw_bytes_ex(void *addr, size_t size, uint32_t op, uint64_
         while (1) {
             we = find_write_in_history(target_write_id);
             if (we) {
-                satisfy_load_from_write(old_buf, copy_size, addr, we);
+                require_rf_overlap_locked(
+                    satisfy_load_from_write(old_buf, copy_size, addr, we),
+                    (unsigned long long)tid, (unsigned long long)event_uid,
+                    (unsigned long long)target_write_id);
                 if (current_graph && node)
                     mark_rf_edge_covered(target_write_id, node->id);
                 if (recording_graph && recorded_id != 0) {
@@ -2394,7 +2434,10 @@ uint64_t scheduler_on_cmpxchg_bytes_ex(void *addr, size_t size, uint64_t compare
         while (1) {
             we = find_write_in_history(target_write_id);
             if (we) {
-                satisfy_load_from_write(old_buf, copy_size, addr, we);
+                require_rf_overlap_locked(
+                    satisfy_load_from_write(old_buf, copy_size, addr, we),
+                    (unsigned long long)tid, (unsigned long long)event_uid,
+                    (unsigned long long)target_write_id);
                 if (current_graph && node)
                     mark_rf_edge_covered(target_write_id, node->id);
                 if (slot >= 0)
