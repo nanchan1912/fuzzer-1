@@ -1486,7 +1486,13 @@ static bool is_supported_candidate_type(Event_Type type) {
            type == Event_Type::WRITE ||
            type == Event_Type::RMW ||
            type == Event_Type::CAS_SUCCESS ||
-           type == Event_Type::FENCE;
+           type == Event_Type::FENCE ||
+           /* The form a cmpxchg candidate actually arrives in, from both the
+            * static analysis (bare "CAS") and runtime feedback (WMM_EV_CAS).
+            * Excluding it would drop every CAS at the feedback boundary, which
+            * is the one place they all come through before add_new_node
+            * resolves them to a concrete outcome. */
+           type == Event_Type::CAS;
 }
 
 /* Candidate selection asks for one concrete type at a time (READ, WRITE, RMW,
@@ -1498,8 +1504,11 @@ static bool is_supported_candidate_type(Event_Type type) {
  * valid, and silently unreachable. */
 static bool matches_selection_class(Event_Type candidate, Event_Type wanted) {
     if (candidate == wanted) { return true; }
-    if (wanted == Event_Type::RMW)  { return candidate == Event_Type::CAS_SUCCESS; }
-    if (wanted == Event_Type::READ) { return candidate == Event_Type::CAS_FAIL; }
+    /* An unresolved CAS answers to both classes: until add_new_node picks an
+     * outcome it could become either, so refusing it under one class would
+     * make that class's callers unable to reach any cmpxchg at all. */
+    if (wanted == Event_Type::RMW)  { return candidate == Event_Type::CAS_SUCCESS || candidate == Event_Type::CAS; }
+    if (wanted == Event_Type::READ) { return candidate == Event_Type::CAS_FAIL || candidate == Event_Type::CAS; }
     return false;
 }
 
@@ -2082,10 +2091,31 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
                 
                 // ACTF("[FEEDBACK-MUTATOR] Number of Parent event IDs for this event from skel_feedback_data: %zu", se->source_nodes_count);
                 
-                // there can't be a case where the parents are null as we start from initilaization events as seed
+                /* An event whose declared predecessors are all absent from the
+                 * graph cannot be positioned in program order, so it is
+                 * unusable -- skipped, exactly like the unknown-type and
+                 * unknown-mode candidates handled elsewhere in this loop.
+                 *
+                 * This used to be assert(0) on the reasoning that the seed
+                 * starts from the initialisation events so a parent must
+                 * always exist. That does not hold: the runtime reports the
+                 * executing thread's last event, which may be one it ran
+                 * through freely rather than one the graph prescribes. The
+                 * assertion therefore killed the entire fuzzer process on a
+                 * recoverable condition. */
                 if(temp.parents.size() == 0){
-                    assert(0 && "No parents found for the event from feedback");
-                    exit(0);
+                    static u32 warned = 0;
+                    if (warned < 10) {
+                        WARNF("feedback: event t%d i%lld v%d has %zu source(s), "
+                              "none present in the graph; skipping candidate",
+                              se->tid, (long long)se->iid, se->vid,
+                              se->source_nodes_count);
+                        if (++warned == 10) {
+                            WARNF("feedback: further parentless-candidate "
+                                  "warnings suppressed");
+                        }
+                    }
+                    continue;
                 }
 
                 enabled.push_back(std::move(temp));
@@ -2293,12 +2323,35 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
     * Adding respective node to the skeleton graph.
     */
 
-    if(new_event->get_event_type() == Event_Type::CAS){
-        if(skel_rand_below(2) == 0){
-            new_event->set_event_type(Event_Type::CAS_SUCCESS);
-        }else{
-            new_event->set_event_type(Event_Type::CAS_FAIL);
+    /*
+    * CAS OUTCOME RESOLUTION
+    *
+    * A cmpxchg reaches us outcome-free, from both of its sources: the static
+    * analysis emits "CAS", and the runtime publishes WMM_EV_CAS as feedback.
+    * Neither can do better -- whether the comparison succeeds depends on the
+    * value the CAS reads, and that is decided by the rf edge chosen below,
+    * which is our decision, not theirs.
+    *
+    * So pick one here. Success is only offered when some write can actually
+    * be read by an rmw-like event (RMW atomicity: at most one may read a
+    * given write), because a CAS_SUCCESS with no legal rf source is a graph
+    * the runtime would reject. Where both are open the choice is random
+    * rather than fixed, so neither outcome becomes the default the other
+    * side of every CAS has to be flipped away from; MUT_FLIP_CAS then
+    * explores the other branch of an existing node.
+    */
+    if (new_event->get_event_type() == Event_Type::CAS) {
+        bool success_possible = false;
+        if (!parent_nodes.empty()) {
+            success_possible = !get_consistent_writes(*graph,
+                                                      parent_nodes,
+                                                      new_event->get_location(),
+                                                      current_potential,
+                                                      /*is_rmw_or_cas_success=*/true).empty();
         }
+        const bool choose_success = success_possible && (skel_rand_below(2) == 0);
+        new_event->set_event_type(choose_success ? Event_Type::CAS_SUCCESS
+                                                 : Event_Type::CAS_FAIL);
     }
 
     // add the event to the skeleton graph
