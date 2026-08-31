@@ -24,6 +24,13 @@
 /* 4 reserved for AFL's EOP */
 #define EG_OP_CAS_SUCCESS 5
 #define EG_OP_CAS_FAIL    6
+/* Outcome undetermined -- published to AFL as feedback for a cmpxchg the
+ * runtime has never executed, and never valid as an input node type. See the
+ * comment on WMM_EV_CAS. Deliberately absent from the three predicates below:
+ * it is neither read-like nor write-like because that is precisely what is not
+ * yet decided, so any check site reached by an unresolved CAS is a bug and
+ * should fail loudly rather than pick a side. */
+#define EG_OP_CAS         7
 
 /* Structural classification of an event type. These mirror
  * is_read_like/is_write_like/is_rmw_like in

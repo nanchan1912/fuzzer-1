@@ -45,7 +45,14 @@ typedef int VisitID;
 #define WMM_EV_EOP         4  /* AFL-only, never on the wire */
 #define WMM_EV_CAS_SUCCESS 5
 #define WMM_EV_CAS_FAIL    6
-#define WMM_EV_MAX         6
+/* Outcome undetermined. Feedback-only: the runtime publishes this for a
+ * cmpxchg it has never seen, because at that point it cannot know whether the
+ * comparison will succeed -- the value the CAS reads is chosen by the rf edge
+ * the fuzzer has not yet added. Only the fuzzer can decide the outcome, so it
+ * resolves every CAS to CAS_SUCCESS or CAS_FAIL before serializing a graph;
+ * the runtime never accepts this value as an input node type. */
+#define WMM_EV_CAS         7
+#define WMM_EV_MAX         7
 
 struct Event_id_triple {
     ThreadID tid;

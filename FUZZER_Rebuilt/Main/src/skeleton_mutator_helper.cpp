@@ -51,7 +51,13 @@ std::string event_type_to_string(Event_Type t) {
         case Event_Type::RMW:   return "RMW";
         case Event_Type::CAS_SUCCESS: return "CAS_SUCCESS";
         case Event_Type::FENCE: return "F";
-        case Event_Type::CAS:   return "CAS";
+        /* Present only to keep the switch exhaustive for -Wswitch. Reaching it
+         * means an unresolved CAS is being written into a skeleton graph: by
+         * the time a graph is serialized, add_new_node has already resolved
+         * every CAS to CAS_SUCCESS or CAS_FAIL, so this is a bug worth
+         * surfacing rather than re-guessing an outcome. */
+        case Event_Type::CAS:
+            throw std::runtime_error("Unresolved CAS event reached serialization");
     }
     throw std::runtime_error("Unknown Event_Type enum value");
 }

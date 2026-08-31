@@ -5,6 +5,7 @@
 #include <errno.h>
 #include "eg.h"
 #include "json.h"
+#include "scheduler.h" /* for scheduler_terminate, used by eg_validate_cas_resolved */
 
 #ifdef QUIET
 #define EG_LOG(...) do {} while (0)
@@ -281,6 +282,7 @@ static const char* eg_type_to_string(int type) {
         case EG_OP_RMW: return "RMW";
         case EG_OP_CAS_SUCCESS: return "CAS_SUCCESS";
         case EG_OP_CAS_FAIL: return "CAS_FAIL";
+        case EG_OP_CAS: return "CAS";
         default: return "Unknown";
     }
 }
@@ -293,9 +295,10 @@ static int eg_string_to_type(const char* str) {
     if (strcmp(str, "RMW") == 0) return EG_OP_RMW;
     if (strcmp(str, "CAS_SUCCESS") == 0) return EG_OP_CAS_SUCCESS;
     if (strcmp(str, "CAS_FAIL") == 0) return EG_OP_CAS_FAIL;
-    /* Bare "CAS" carries no outcome; seed it as success, matching
-     * parse_event_type on the AFL side. Accepted but never emitted. */
-    if (strcmp(str, "CAS") == 0) return EG_OP_CAS_SUCCESS;
+    /* Bare "CAS" means "outcome not yet decided". It is parsed rather than
+     * rejected here so the diagnostic can name the real problem, but a graph
+     * containing one is not executable -- see eg_validate_cas_resolved. */
+    if (strcmp(str, "CAS") == 0) return EG_OP_CAS;
     return -1;
 }
 
@@ -343,6 +346,32 @@ static void eg_validate_read_nodes_have_rf(const eg_graph_t *g) {
                 n->visit_id);
             exit(WMM_EXIT_INVALID_INPUT);
         }
+    }
+}
+
+/* An input graph must commit to an outcome for every CAS.
+ *
+ * EG_OP_CAS travels one way only -- runtime to fuzzer, as feedback for a
+ * cmpxchg whose comparison could not be known yet. Coming back the other way
+ * it is meaningless: the scheduler would have no expectation to enforce, the
+ * node is neither a legal rf source nor reliably a non-source, and it belongs
+ * in mo only if it swaps. Rather than guess (the old behaviour, which silently
+ * assumed success and made the failure half of every CAS unreachable), refuse
+ * the graph and name the fuzzer's obligation. */
+static void eg_validate_cas_resolved(const eg_graph_t *g) {
+    for (int i = 0; i < g->node_count; ++i) {
+        const eg_node_t *n = &g->nodes[i];
+        if (n->type != EG_OP_CAS)
+            continue;
+        fprintf(stderr,
+            "[EGF] Error: unresolved CAS event (kind \"CAS\") in input graph: "
+            "id=%llu tid=%llu iid=%llx vid=%d. A CAS node must be CAS_SUCCESS "
+            "or CAS_FAIL; \"CAS\" only exists as runtime feedback.\n",
+            (unsigned long long)n->id,
+            (unsigned long long)n->tid,
+            n->instruction_id,
+            n->visit_id);
+        scheduler_terminate(WMM_EXIT_INVALID_INPUT);
     }
 }
 
@@ -420,7 +449,11 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
         }
         EG_LOG("Loaded %d nodes from JSON\n", g->node_count);
     }
-    
+
+    /* Before the rf edges, so an unresolved CAS is reported as itself rather
+     * than as a downstream "rf edge dest must be READ/RMW/CAS_*" type error. */
+    eg_validate_cas_resolved(g);
+
     JsonNode *edges_arr = json_find_member(root, "rf_edges");
     JsonNode *e;
     if (edges_arr && edges_arr->tag == JSON_ARRAY) {

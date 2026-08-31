@@ -176,6 +176,13 @@ static std::vector<EventID> collect_candidate_second_events(const SkeletonGraph*
         // FENCE touches no location, so it cannot participate in a race.
         // (This Event_Type has no EOP enumerator, unlike upstream.)
         case Event_Type::FENCE:
+            break;
+
+        // Unreachable: every CAS in a graph has been resolved to one of the
+        // two outcomes by add_new_node. Listed so the switch stays
+        // exhaustive, and so an unresolved node reports nothing rather than
+        // guessing which racers apply.
+        case Event_Type::CAS:
         default:
             break;
     }

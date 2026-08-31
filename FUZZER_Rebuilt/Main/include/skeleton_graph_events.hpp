@@ -5,24 +5,28 @@
 #include "shm_next_events.h"
 using namespace std;
 
-/* Ordinals for READ/WRITE/RMW/FENCE/CAS_SUCCESS/CAS_FAIL are explicit because
- * they are an ABI: the runtime writes the matching WMM_EV_* value into
+/* Ordinals for READ/WRITE/RMW/FENCE/CAS/CAS_SUCCESS/CAS_FAIL are explicit
+ * because they are an ABI: the runtime writes the matching WMM_EV_* value into
  * Shared_event::event_type and AFL reads it back via event_type_from_wire()
- * below. APPEND ONLY -- see the note in shm_next_events.h. CAS (bare, no
- * outcome) has no runtime/wire counterpart -- it exists only in the static
- * analysis output before a fuzzer run seeds it as CAS_SUCCESS -- so it keeps
- * an implicit ordinal rather than a WMM_EV_* one. */
+ * below. APPEND ONLY -- see the note in shm_next_events.h. */
 enum class Event_Type {
     READ  = WMM_EV_READ,
     WRITE = WMM_EV_WRITE,
     RMW   = WMM_EV_RMW,
     FENCE = WMM_EV_FENCE,
-    CAS, // Will be only in static program abstraction, not in skeleton graph
     /* A CAS reads unconditionally but writes only when it succeeds. The two
      * outcomes are separate types so that every downstream check can classify
      * them structurally: CAS_SUCCESS is write-like, CAS_FAIL is read-only. */
     CAS_SUCCESS = WMM_EV_CAS_SUCCESS,
-    CAS_FAIL    = WMM_EV_CAS_FAIL
+    CAS_FAIL    = WMM_EV_CAS_FAIL,
+    /* Outcome not yet decided -- how a cmpxchg arrives, both as runtime
+     * feedback and from the static analysis, because neither can know which
+     * value the CAS will read. It is a transient: add_new_node turns it into
+     * one of the two concrete types as the node is materialized, and no CAS
+     * node is ever stored or serialized in this state. It is deliberately
+     * excluded from the three predicates below, so anything that does leak
+     * through fails a classification rather than defaulting. */
+    CAS = WMM_EV_CAS
 };
 
 /* Structural classification. Prefer these over open-coded == comparisons:
@@ -54,6 +58,7 @@ inline bool event_type_from_wire(uint8_t w, Event_Type& out) {
         case WMM_EV_FENCE:       out = Event_Type::FENCE;       return true;
         case WMM_EV_CAS_SUCCESS: out = Event_Type::CAS_SUCCESS; return true;
         case WMM_EV_CAS_FAIL:    out = Event_Type::CAS_FAIL;    return true;
+        case WMM_EV_CAS:         out = Event_Type::CAS;         return true;
         default:                 return false;
     }
 }

@@ -396,6 +396,7 @@ public:
                 case Event_Type::RMW:   return "RMW";
                 case Event_Type::CAS_SUCCESS: return "CAS_SUCCESS";
                 case Event_Type::CAS_FAIL: return "CAS_FAIL";
+                case Event_Type::CAS:  return "CAS";
                 case Event_Type::FENCE: return "FENCE";
             }
             return "UNKNOWN";
