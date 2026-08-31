@@ -16,7 +16,7 @@ static pthread_t thread1, thread2, thread3, thread4;
 static unsigned int *input;
 static unsigned int *output;
 static int num_threads;
-int LOOPNUM;
+int LOOPNUM = 1;
 int get_thread_num()
 {
 	pthread_t curr = pthread_self();
@@ -92,10 +92,14 @@ int user_main(int argc, char **argv)
 		// param[i] = i;
 		// pthread_create(&threads[i], NULL, main_task, &param[i]);
 	// }
-	pthread_create(&thread1, NULL, main_task, (void *)0);
-	pthread_create(&thread2, NULL, main_task, (void *)1);
-	pthread_create(&thread3, NULL, main_task, (void *)2);
-	pthread_create(&thread4, NULL, main_task, (void *)3);
+	/* main_task dereferences its argument, so it needs real pointers. Passing
+	   the literals 0..3 cast to void* made every worker fault on its first
+	   instruction, so no queue code ever ran. */
+	static int params[4] = {0, 1, 2, 3};
+	pthread_create(&thread1, NULL, main_task, &params[0]);
+	pthread_create(&thread2, NULL, main_task, &params[1]);
+	pthread_create(&thread3, NULL, main_task, &params[2]);
+	pthread_create(&thread4, NULL, main_task, &params[3]);
 
 	// for (i = 0; i < num_threads; i++)
 	// 	pthread_join(threads[i], NULL);
@@ -113,12 +117,10 @@ int user_main(int argc, char **argv)
 		printf("input[%d] = %u\n", i, input[i]);
 	for (i = 0; i < num_threads; i++)
 		printf("output[%d] = %u\n", i, output[i]);
-/*
 	if (succ1 && succ2)
 		MODEL_ASSERT(in_sum == out_sum);
 	else
 		MODEL_ASSERT(false);
-*/
 	// free(param);
 	// free(threads);
 	free(queue);
