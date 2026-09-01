@@ -122,22 +122,37 @@ def equivalence_hash(payload: Dict[str, Any]) -> str:
 
 
 def parse_race_file_content(content: str) -> Dict[str, Any]:
-    race_info = {}
+    race_info: Dict[str, Any] = {
+        "pairs": [],
+        "racing_nodes": {},
+    }
     for line in content.splitlines():
         line = line.strip()
         if not line:
             continue
         match = re.match(
-            r"(race_[01]):\s+thread_id=(-?\d+)\s+instruction_id=(-?\d+)\s+visit_id=(-?\d+)",
+            r"race_(?:(\d+)_)?([01]):\s+thread_id=(-?\d+)\s+instruction_id=(-?\d+)\s+visit_id=(-?\d+)",
             line
         )
         if match:
-            op_name = match.group(1)
-            race_info[op_name] = {
-                "thread_id": match.group(2),
-                "instruction_id": match.group(3),
-                "visit_id": match.group(4)
+            pair_idx = int(match.group(1)) if match.group(1) is not None else 0
+            op_idx = match.group(2)
+            op_name = f"race_{op_idx}"
+            event_dict = {
+                "thread_id": match.group(3),
+                "instruction_id": match.group(4),
+                "visit_id": match.group(5),
             }
+            if pair_idx == 0:
+                race_info[op_name] = event_dict
+
+            node_key = f"{event_dict['thread_id']}:{event_dict['instruction_id']}:{event_dict['visit_id']}"
+            race_info["racing_nodes"][node_key] = f"R{op_idx}"
+
+            while len(race_info["pairs"]) <= pair_idx:
+                race_info["pairs"].append({})
+            race_info["pairs"][pair_idx][op_name] = event_dict
+
     return race_info
 
 
@@ -223,6 +238,98 @@ def load_afl_out(afl_out_dir: Path) -> List[QueueEntry]:
 
     all_entries.sort(key=lambda entry: (corpus_order.get(entry.corpus, 99), entry.id_num, entry.file_name))
     return all_entries
+
+
+def extract_energy_by_queue_id(plot_data: List[Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
+    """Extract per-queue-item energy, perf_score, and component scores from plot_data records."""
+    energy_by_id: Dict[int, Dict[str, Any]] = {}
+
+    # Initial default for seed (item 0)
+    energy_by_id[0] = {
+        "perf_score": 1.0,
+        "potential_score": 1.0,
+        "mo_score": 1.0,
+        "rf_score": 1.0,
+        "children_enqueued": 0,
+        "fuzzed": False,
+    }
+
+    # Pass 1: candidate enqueued records (candidate_added == 1)
+    for row in plot_data:
+        cand_added = row.get("candidate_added", 0)
+        corpus_count = row.get("corpus_count")
+        if cand_added == 1 and corpus_count is not None:
+            try:
+                item_id = int(corpus_count) - 1
+                cand_score = float(row.get("candidate_score", 0.0))
+                cand_pot = float(row.get("candidate_potential", 0.0))
+                cand_mo = float(row.get("candidate_mo", 0.0))
+                cand_rf = float(row.get("candidate_rf", 0.0))
+                parent_id = row.get("candidate_parent_id", row.get("cur_item", None))
+                if parent_id is not None:
+                    try:
+                        parent_id = int(parent_id)
+                    except Exception:
+                        pass
+
+                energy_by_id[item_id] = {
+                    "perf_score": round(cand_score, 4),
+                    "potential_score": round(cand_pot, 4),
+                    "mo_score": round(cand_mo, 4),
+                    "rf_score": round(cand_rf, 4),
+                    "parent_id": parent_id,
+                    "children_enqueued": 0,
+                    "fuzzed": False,
+                    "creation_time": float(row.get("relative_time", 0.0)),
+                    "creation_execs": int(row.get("total_execs", 0)),
+                    "creation_cycle": int(row.get("cycles_done", 0)),
+                }
+            except Exception:
+                pass
+
+    # Pass 2: cur_item records (when the item is selected/fuzzed by AFL)
+    for row in plot_data:
+        cur_item = row.get("cur_item")
+        if cur_item is not None:
+            try:
+                item_id = int(cur_item)
+                cur_score = float(row.get("cur_item_score", 0.0))
+                cur_pot = float(row.get("cur_item_potential", 0.0))
+                cur_mo = float(row.get("cur_item_mo", 0.0))
+                cur_rf = float(row.get("cur_item_rf", 0.0))
+                cur_children = int(row.get("cur_item_children_enqueued", 0))
+
+                if item_id not in energy_by_id:
+                    energy_by_id[item_id] = {
+                        "perf_score": round(cur_score, 4),
+                        "potential_score": round(cur_pot, 4),
+                        "mo_score": round(cur_mo, 4),
+                        "rf_score": round(cur_rf, 4),
+                        "children_enqueued": cur_children,
+                        "fuzzed": True,
+                        "fuzzed_time": float(row.get("relative_time", 0.0)),
+                        "fuzzed_execs": int(row.get("total_execs", 0)),
+                        "fuzzed_cycle": int(row.get("cycles_done", 0)),
+                    }
+                else:
+                    e = energy_by_id[item_id]
+                    e["fuzzed"] = True
+                    if cur_score > 0:
+                        e["perf_score"] = round(cur_score, 4)
+                    if cur_pot > 0:
+                        e["potential_score"] = round(cur_pot, 4)
+                    if cur_mo > 0:
+                        e["mo_score"] = round(cur_mo, 4)
+                    if cur_rf > 0:
+                        e["rf_score"] = round(cur_rf, 4)
+                    e["children_enqueued"] = max(e.get("children_enqueued", 0), cur_children)
+                    e["fuzzed_time"] = float(row.get("relative_time", 0.0))
+                    e["fuzzed_execs"] = int(row.get("total_execs", 0))
+                    e["fuzzed_cycle"] = int(row.get("cycles_done", 0))
+            except Exception:
+                pass
+
+    return energy_by_id
 
 
 def parse_event_ref(ref: Any) -> Optional[Tuple[str, str, str]]:
@@ -849,7 +956,7 @@ def build_dashboard_data(
         try:
             lines = plot_path.read_text(encoding="utf-8").splitlines()
             if lines:
-                headers = [h.strip() for h in lines[0].split(",")]
+                headers = [h.strip().lstrip("#").strip() for h in lines[0].split(",")]
                 for line in lines[1:]:
                     parts = [p.strip() for p in line.split(",")]
                     if len(parts) == len(headers):
@@ -867,6 +974,8 @@ def build_dashboard_data(
                         plot_data.append(row)
         except Exception:
             pass
+
+    energy_by_id = extract_energy_by_queue_id(plot_data)
 
     lineage_nodes: List[Dict[str, Any]] = []
     lineage_edges: List[Dict[str, Any]] = []
@@ -935,6 +1044,20 @@ def build_dashboard_data(
         skeleton_sizes.append(int(skel_stats.get("nodeCount", 0)))
         total_rf += int(skel_stats.get("rfCount", 0))
 
+        # Extract energy / score metrics for this graph
+        energy_info: Dict[str, Any] = {}
+        if entry.corpus == "queue":
+            energy_info = energy_by_id.get(entry.id_num, {})
+        elif entry.parent_src_id is not None:
+            parent_energy = energy_by_id.get(entry.parent_src_id, {})
+            if parent_energy:
+                energy_info = dict(parent_energy)
+                energy_info["is_parent_energy"] = True
+
+        skel["energy"] = energy_info
+        if isinstance(entry.raw, dict):
+            entry.raw["energy"] = energy_info
+
         node_count = int(skel_stats.get("nodeCount", 0))
         thread_count = int(skel_stats.get("threadCount", 0))
         rf_count = int(skel_stats.get("rfCount", 0))
@@ -947,6 +1070,12 @@ def build_dashboard_data(
         depth_wrap_col = depth_col // depth_row_wrap
         depth_row = depth_col % depth_row_wrap
         corpus_tag = {"queue": "Q", "hangs": "H", "crashes": "C", "races": "R", "non_instantiable": "N"}.get(entry.corpus, "?")
+
+        perf_score_str = f"{energy_info['perf_score']:.4f}" if "perf_score" in energy_info else "n/a"
+        pot_score_str = f"{energy_info['potential_score']:.4f}" if "potential_score" in energy_info else "n/a"
+        mo_score_str = f"{energy_info['mo_score']:.4f}" if "mo_score" in energy_info else "n/a"
+        rf_score_str = f"{energy_info['rf_score']:.4f}" if "rf_score" in energy_info else "n/a"
+        children_str = str(energy_info.get("children_enqueued", 0))
 
         lineage_nodes.append(
             {
@@ -961,6 +1090,11 @@ def build_dashboard_data(
                     f"threads={thread_count}\\n"
                     f"skeleton_nodes={node_count}\\n"
                     f"rf_edges={rf_count}\\n"
+                    f"energy(perf_score)={perf_score_str}\\n"
+                    f"potential_score={pot_score_str}\\n"
+                    f"mo_score={mo_score_str}\\n"
+                    f"rf_score={rf_score_str}\\n"
+                    f"children_enqueued={children_str}\\n"
                     f"is_source={is_source}\\n"
                     f"is_leaf={is_leaf}"
                 ),
@@ -981,6 +1115,7 @@ def build_dashboard_data(
                 "discoveryTime": max(0.0, entry.mtime - fuzzer_start_time),
                 "fileName": entry.file_name,
                 "filePath": str(entry.file_path),
+                "energy": energy_info,
             }
         )
         skeleton_by_id[uid] = skel
@@ -1655,6 +1790,21 @@ def render_html(payload: Dict[str, Any]) -> str:
                         </button>
                     </div>
                     <div class="selected-info" id="selectedInfo">Select a lineage node to inspect its parallel execution skeleton.</div>
+                    <div id="energyMetricsBar" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; padding: 8px 12px; background: var(--subpanel); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; align-items: center;">
+                        <div style="font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 13px;">⚡</span> <span>Energy (Score):</span> <span id="ePerfScore" style="color: #38bdf8; font-weight: 800; font-family: 'JetBrains Mono', monospace;">-</span>
+                        </div>
+                        <div style="color: var(--border);">|</div>
+                        <div><span style="color: var(--muted); font-weight: 600;">🎯 Potential:</span> <span id="ePotentialScore" style="color: #34d399; font-weight: 700; font-family: 'JetBrains Mono', monospace;">-</span></div>
+                        <div style="color: var(--border);">|</div>
+                        <div><span style="color: var(--muted); font-weight: 600;">📦 MO:</span> <span id="eMoScore" style="color: #fbbf24; font-weight: 700; font-family: 'JetBrains Mono', monospace;">-</span></div>
+                        <div style="color: var(--border);">|</div>
+                        <div><span style="color: var(--muted); font-weight: 600;">🔗 RF:</span> <span id="eRfScore" style="color: #a78bfa; font-weight: 700; font-family: 'JetBrains Mono', monospace;">-</span></div>
+                        <div style="color: var(--border);">|</div>
+                        <div><span style="color: var(--muted); font-weight: 600;">🌱 Children:</span> <span id="eChildren" style="color: var(--text); font-weight: 700; font-family: 'JetBrains Mono', monospace;">-</span></div>
+                        <div style="color: var(--border);">|</div>
+                        <div><span style="color: var(--muted); font-weight: 600;">⏱️ Timeline:</span> <span id="eTimeline" style="color: var(--muted); font-family: 'JetBrains Mono', monospace;">-</span></div>
+                    </div>
                     <div class="toolbar" id="skeletonStats" style="font-size: 11px; font-weight: 700; color: var(--accent);">Threads: - | Nodes: - | RF: - | SW: - | MO: -</div>
                     <div id="skeleton" class="graph"></div>
                     <div class="details" id="eventDetails"><div class="muted">Selected Event Details</div></div>
@@ -2632,7 +2782,12 @@ def render_html(payload: Dict[str, Any]) -> str:
 
                     // Check if this node is a racing instruction
                     let isRaceNode = false;
-                    if (raceInfo.race_0 && 
+                    const racingNodes = raceInfo.racing_nodes || {{}};
+                    const nodeKey = `${{meta.thread_id}}:${{meta.instruction_id}}:${{meta.visit_id}}`;
+                    if (racingNodes[nodeKey]) {{
+                        isRaceNode = true;
+                        raceLabel = ` [${{racingNodes[nodeKey]}}]`;
+                    }} else if (raceInfo.race_0 && 
                         String(meta.thread_id) === String(raceInfo.race_0.thread_id) && 
                         String(meta.instruction_id) === String(raceInfo.race_0.instruction_id) && 
                         String(meta.visit_id) === String(raceInfo.race_0.visit_id)) {{
@@ -2751,8 +2906,40 @@ def render_html(payload: Dict[str, Any]) -> str:
             bannerHtml += classMembersHtml;
             infoBanner.innerHTML = bannerHtml;
 
+            // Update Energy & Score Metrics
+            const energy = skel.energy || {{}};
+            const eBar = document.getElementById('energyMetricsBar');
+            if (eBar) {{
+                if (energy && (energy.perf_score !== undefined || energy.potential_score !== undefined)) {{
+                    document.getElementById('ePerfScore').textContent = energy.perf_score !== undefined ? Number(energy.perf_score).toFixed(4) : '-';
+                    document.getElementById('ePotentialScore').textContent = energy.potential_score !== undefined ? Number(energy.potential_score).toFixed(4) : '-';
+                    document.getElementById('eMoScore').textContent = energy.mo_score !== undefined ? Number(energy.mo_score).toFixed(4) : '-';
+                    document.getElementById('eRfScore').textContent = energy.rf_score !== undefined ? Number(energy.rf_score).toFixed(4) : '-';
+                    document.getElementById('eChildren').textContent = energy.children_enqueued !== undefined ? String(energy.children_enqueued) : '0';
+
+                    let timelineText = '';
+                    if (energy.fuzzed && energy.fuzzed_time !== undefined) {{
+                        timelineText = `Fuzzed at ${{formatRelativeTime(energy.fuzzed_time)}} (Cycle ${{energy.fuzzed_cycle || 0}}, Exec #${{energy.fuzzed_execs || 0}})`;
+                    }} else if (energy.creation_time !== undefined) {{
+                        timelineText = `Created at ${{formatRelativeTime(energy.creation_time)}} (Cycle ${{energy.creation_cycle || 0}}, Exec #${{energy.creation_execs || 0}})`;
+                    }} else if (energy.is_parent_energy) {{
+                        timelineText = `Parent energy (src:#${{energy.parent_id !== undefined ? energy.parent_id : '?'}})`;
+                    }}
+                    document.getElementById('eTimeline').textContent = timelineText || '-';
+                    eBar.style.display = 'flex';
+                }} else {{
+                    document.getElementById('ePerfScore').textContent = 'N/A';
+                    document.getElementById('ePotentialScore').textContent = 'N/A';
+                    document.getElementById('eMoScore').textContent = 'N/A';
+                    document.getElementById('eRfScore').textContent = 'N/A';
+                    document.getElementById('eChildren').textContent = '-';
+                    document.getElementById('eTimeline').textContent = '-';
+                }}
+            }}
+
+            const perfScoreText = (energy && energy.perf_score !== undefined) ? ` | Energy (Score): ${{Number(energy.perf_score).toFixed(4)}}` : '';
             document.getElementById('skeletonStats').textContent =
-                `Threads: ${{skel.stats.threadCount || 0}} | Nodes: ${{skel.stats.nodeCount || 0}} | PO: ${{skel.stats.poCount || 0}} | RF: ${{skel.stats.rfCount || 0}} | SW: ${{skel.stats.swCount || 0}} | MO: ${{skel.stats.moCount || 0}} | TCJ: ${{skel.stats.tcjCount || 0}}`;
+                `Threads: ${{skel.stats.threadCount || 0}} | Nodes: ${{skel.stats.nodeCount || 0}} | PO: ${{skel.stats.poCount || 0}} | RF: ${{skel.stats.rfCount || 0}} | SW: ${{skel.stats.swCount || 0}} | MO: ${{skel.stats.moCount || 0}} | TCJ: ${{skel.stats.tcjCount || 0}}${{perfScoreText}}`;
 
             updateEventDetails(null, [], []);
             const fitNodeIds = (currentSkeletonNodes || []).map(n => n.id).filter(id => !String(id).startsWith('lane:'));
