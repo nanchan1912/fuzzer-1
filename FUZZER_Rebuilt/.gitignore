@@ -1,2 +1,3 @@
 core
 .direnv/
+__pycache__/
