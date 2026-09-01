@@ -336,47 +336,30 @@ endif
 help:
 	@echo "HELP --- the following make targets exist:"
 	@echo "=========================================="
-	@echo "all: the main AFL++ binaries and llvm/gcc instrumentation"
-	@echo "binary-only: everything for binary-only fuzzing: nyx_mode, qemu_mode, frida_mode, unicorn_mode, coresight_mode, libdislocator, libtokencap"
-	@echo "source-only: everything for source code fuzzing: nyx_mode, libdislocator, libtokencap"
-	@echo "distrib: everything (for both binary-only and source code fuzzing)"
-	@echo "man: creates simple man pages from the help option of the programs"
-	@echo "install: installs everything you have compiled with the build option above"
-	@echo "clean: cleans everything compiled (not downloads when on a checkout)"
-	@echo "deepclean: cleans everything including downloads"
-	@echo "uninstall: uninstall AFL++ from the system"
-	@echo "code-format: format the code, do this before you commit and send a PR please!"
-	@echo "tests: this runs the test framework. It is more catered for the developers, but if you run into problems this helps pinpointing the problem"
-	@echo "unit: perform unit tests (based on cmocka and GNU linker)"
-	@echo "document: creates sgf-fuzz-document which will only do one run and save all manipulated inputs into out/queue/mutations"
+	@echo "sgf-fuzz: builds the main SGF fuzzer binary (this is what run.sh uses)"
+	@echo "sgf-showmap: displays coverage bitmap for a given input"
+	@echo "sgf-tmin: minimizes a testcase"
+	@echo "sgf-analyze: analyzes byte-level dependencies in a testcase"
+	@echo "sgf-gotcpu: shows which CPU cores are idle"
+	@echo "clean: cleans everything compiled"
 	@echo "help: shows these build options :-)"
 	@echo "=========================================="
-	@echo "Recommended: \"distrib\" or \"source-only\", then \"install\""
+	@echo "Recommended: \"make sgf-fuzz\", then run via ./run.sh"
 	@echo
 	@echo Known build environment options:
 	@echo "=========================================="
 	@echo "PERFORMANCE - compile with performance options that make the binary not transferable to other systems. Recommended!"
-	@echo STATIC - compile AFL++ static
-	@echo "CODE_COVERAGE - compile the target for code coverage (see docs/instrumentation/README.llvm.md)"
-	@echo ASAN_BUILD - compiles AFL++ with memory sanitizer for debug purposes
-	@echo UBSAN_BUILD - compiles AFL++ tools with undefined behaviour sanitizer for debug purposes
+	@echo STATIC - compile statically
+	@echo "CODE_COVERAGE - compile the target for code coverage"
+	@echo ASAN_BUILD - compiles with memory sanitizer for debug purposes
+	@echo UBSAN_BUILD - compiles with undefined behaviour sanitizer for debug purposes
 	@echo DEBUG - no optimization, -ggdb3, all warnings and -Werror
-	@echo LLVM_DEBUG - shows llvm deprecation warnings
 	@echo PROFILING - compile sgf-fuzz with profiling information
 	@echo INTROSPECTION - compile sgf-fuzz with mutation introspection
 	@echo NO_PYTHON - disable python support
-	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen (fallback to G1 box drawing, of vanilla AFL)"
-	@echo NO_NYX - disable building nyx mode dependencies
-	@echo "NO_CORESIGHT - disable building coresight (arm64 only)"
-	@echo NO_QEMU - disable building QEMU support
-	@echo NO_FRIDA - disable building FRIDA support
-	@echo NO_UNICORN - disable building unicorn
-	@echo NO_UNICORN_ARM64 - disable building unicorn on arm64
-	@echo "WAFL_MODE - enable for WASM fuzzing with https://github.com/fgsect/WAFL"
+	@echo "NO_UTF - do not use UTF-8 for line rendering in status screen"
 	@echo AFL_NO_X86 - if compiling on non-intel/amd platforms
-	@echo "LLVM_CONFIG - if your distro doesn't use the standard name for llvm-config (e.g., Debian)"
 	@echo "=========================================="
-	@echo e.g.: make LLVM_CONFIG=llvm-config-16
 
 .PHONY: test_x86
 ifndef AFL_NO_X86
@@ -664,183 +647,7 @@ ifdef IS_IOS
 	@ldid -Sentitlements.plist $@ && echo "[+] Signed $@" || { echo "[-] Failed to sign $@"; }
 endif
 
-.PHONY: unit_clean
-unit_clean:
-	@rm -f ./test/unittests/unit_preallocable ./test/unittests/unit_list ./test/unittests/unit_maybe_alloc test/unittests/*.o
-
-.PHONY: unit
-ifneq "$(SYS)" "Darwin"
-unit:	unit_maybe_alloc unit_preallocable unit_list unit_clean unit_rand unit_hash
-else
-unit:
-	@echo [-] unit tests are skipped on Darwin \(lacks GNU linker feature --wrap\)
-endif
-
 .PHONY: clean
 clean:
-	rm -rf $(PROGS) sgf-fuzz-document as sgf-as afl-g++ sgf-clang sgf-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 test/unittests/*.o test/unittests/unit_maybe_alloc test/unittests/preallocable .afl-* afl-gcc afl-g++ sgf-clang sgf-clang++ test/unittests/unit_hash test/unittests/unit_rand *.dSYM lib*.a
-	rm -rf nyx_mode/packer/linux_initramfs/init.cpio.gz nyx_mode/libnyx/libnyx/target/release/* nyx_mode/QEMU-Nyx/x86_64-softmmu/qemu-system-x86_64
-ifeq "$(IN_REPO)" "1"
-	-test -e coresight_mode/coresight-trace/Makefile && $(MAKE) -C coresight_mode/coresight-trace clean || true
-	-test -e qemu_mode/qemuafl/Makefile && $(MAKE) -C qemu_mode/qemuafl clean || true
-	-test -e unicorn_mode/unicornafl/Makefile && $(MAKE) -C unicorn_mode/unicornafl clean || true
-	-test -e nyx_mode/QEMU-Nyx/Makefile && $(MAKE) -C nyx_mode/QEMU-Nyx clean || true
-else
-	rm -rf coresight_mode/coresight_trace
-	rm -rf qemu_mode/qemuafl
-	rm -rf unicorn_mode/unicornafl
-endif
-
-.PHONY: deepclean
-deepclean:	clean
-	rm -rf coresight_mode/coresight-trace
-	rm -rf unicorn_mode/unicornafl
-	rm -rf qemu_mode/qemuafl
-	rm -rf nyx_mode/libnyx nyx_mode/packer nyx_mode/QEMU-Nyx
-	rm -rf .format-cache
-ifeq "$(IN_REPO)" "1"
-	git checkout coresight_mode/coresight-trace
-	git checkout unicorn_mode/unicornafl
-	git checkout qemu_mode/qemuafl
-	git checkout nyx_mode/libnyx
-	git checkout nyx_mode/packer
-	git checkout nyx_mode/QEMU-Nyx
-endif
-
-.PHONY: distrib
-distrib: all
-	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
-ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-endif
-	-$(MAKE) -C utils/afl_network_proxy
-	-$(MAKE) -C utils/socket_fuzzing
-	-$(MAKE) -C utils/argv_fuzzing
-	# -$(MAKE) -C utils/plot_ui
-ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode -j1
-endif
-ifneq "$(SYS)" "Darwin"
-ifeq "$(ARCH)" "aarch64"
-  ifndef NO_CORESIGHT
-	-$(MAKE) -C coresight_mode
-  endif
-endif
-ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
-	-cd nyx_mode && ./build_nyx_support.sh
-endif
-endif
-ifndef NO_QEMU
-	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
-endif
-ifndef NO_UNICORN
-	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
-endif
-endif
-
-.PHONY: binary-only
-binary-only: test_shm test_python ready $(PROGS)
-ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-endif
-	-$(MAKE) -C utils/afl_network_proxy
-	-$(MAKE) -C utils/socket_fuzzing
-	-$(MAKE) -C utils/argv_fuzzing
-	# -$(MAKE) -C utils/plot_ui
-ifndef NO_FRIDA
-	-$(MAKE) -C frida_mode -j1
-endif
-ifneq "$(SYS)" "Darwin"
-ifeq "$(ARCH)" "aarch64"
-  ifndef NO_CORESIGHT
-	-$(MAKE) -C coresight_mode
-  endif
-endif
-ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
-	-cd nyx_mode && ./build_nyx_support.sh
-endif
-endif
-ifndef NO_QEMU
-	-cd qemu_mode && unset CFLAGS && ./build_qemu_support.sh
-endif
-ifndef NO_UNICORN
-	-cd unicorn_mode && unset CFLAGS && ./build_unicorn_support.py
-endif
-endif
-	@echo
-	@echo
-	@echo Build Summary:
-	@test -e sgf-fuzz && echo "[+] sgf-fuzz and supporting tools successfully built" || echo "[-] sgf-fuzz could not be built, please set CC to a working compiler"
-ifneq "$(SYS)" "Darwin"
-ifeq "$(ARCH)" "aarch64"
-  ifndef NO_CORESIGHT
-	@test -e afl-cs-proxy && echo "[+] coresight_mode successfully built" || echo "[-] coresight_mode could not be built, it is optional and experimental, see coresight_mode/README.md for what is needed"
-  endif
-endif
-ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
-	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
-endif
-endif
-	@test -e afl-qemu-trace && echo "[+] qemu_mode successfully built" || echo "[-] qemu_mode could not be built, see docs/INSTALL.md for what is needed"
-ifndef NO_UNICORN
-	@test -e unicorn_mode/lib/libunicorn.a && echo "[+] unicorn_mode successfully built" || echo "[-] unicorn_mode could not be built, it is optional, see unicorn_mode/README.md for what is needed"
-endif
-endif
-	@echo
-
-.PHONY: source-only
-source-only: all
-	-$(MAKE) -j$(nproc) -f GNUmakefile.llvm
-ifneq "$(SYS)" "Darwin"
-	-$(MAKE) -f GNUmakefile.gcc_plugin
-	-$(MAKE) -C utils/libdislocator
-	-$(MAKE) -C utils/libtokencap
-endif
-	# -$(MAKE) -C utils/plot_ui
-ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
-	-cd nyx_mode && ./build_nyx_support.sh
-endif
-endif
-	@echo
-	@echo
-	@echo Build Summary:
-	@test -e sgf-fuzz && echo "[+] sgf-fuzz and supporting tools successfully built" || echo "[-] sgf-fuzz could not be built, please set CC to a working compiler"
-	@test -e afl-llvm-pass.so && echo "[+] LLVM basic mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-11 and clang-11 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoveragePCGUARD.so && echo "[+] LLVM mode successfully built" || echo "[-] LLVM mode could not be built, please install at least llvm-13 and clang-13 or newer, see docs/INSTALL.md"
-	@test -e SanitizerCoverageLTO.so && echo "[+] LLVM LTO mode successfully built" || echo "[-] LLVM LTO mode could not be built, it is optional, if you want it, please install LLVM 11-14. More information at instrumentation/README.lto.md on how to build it"
-ifneq "$(SYS)" "Darwin"
-	@test -e afl-gcc-pass.so && echo "[+] gcc_mode successfully built" || echo "[-] gcc_mode could not be built, it is optional, install gcc-VERSION-plugin-dev to enable this"
-endif
-ifeq "$(SYS)" "Linux"
-ifndef NO_NYX
-	@test -e libnyx.so && echo "[+] nyx_mode successfully built" || echo "[-] nyx_mode could not be built, it is optional, see nyx_mode/README.md for what is needed"
-endif
-endif
-	@echo
-
-%.8:	%
-	@echo .TH $* 8 $(BUILD_DATE) "AFL++" > $@
-	@echo .SH NAME >> $@
-	@echo .B $* >> $@
-	@echo >> $@
-	@echo .SH SYNOPSIS >> $@
-	@./$* -h 2>&1 | head -n 3 | tail -n 1 | sed 's/^\.\///' >> $@
-	@echo >> $@
-	@echo .SH OPTIONS >> $@
-	@echo .nf >> $@
-	@./$* -hh 2>&1 | tail -n +4 >> $@
-	@echo >> $@
-	@echo .SH AUTHOR >> $@
-	@echo "AFL++ was written by Michal \"lcamtuf\" Zalewski and is maintained by Marc \"van Hauser\" Heuse <mh@mh-sec.de>, Dominik Maier <domenukk@gmail.com>, Andrea Fioraldi <andreafioraldi@gmail.com> and Heiko \"hexcoder-\" Eissfeldt <heiko.eissfeldt@hexco.de>" >> $@
-	@echo  The homepage of AFL++ is: https://github.com/AFLplusplus/AFLplusplus >> $@
-	@echo >> $@
-	@echo .SH LICENSE >> $@
-	@echo Apache License Version 2.0, January 2004 >> $@
+	rm -rf $(PROGS) sgf-fuzz-document as sgf-as afl-g++ sgf-clang sgf-clang++ *.o src/*.o *~ a.out core core.[1-9][0-9]* *.stackdump .test .test1 .test2 test-instr .test-instr0 .test-instr1 afl-cs-proxy afl-qemu-trace afl-gcc-fast afl-g++-fast ld *.so *.8 .afl-* afl-gcc afl-g++ sgf-clang sgf-clang++ *.dSYM lib*.a
 
