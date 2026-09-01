@@ -132,6 +132,15 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   sgf->max_queued_id = 0;
   sgf->cycle_start_execs = 0;
 
+  char *intel_init_env = getenv("DO_INTELLIGENT_SG_FUZZING");
+  if (intel_init_env) {
+    sgf->do_intelligent_sg_fuzzing = (u8)atoi(intel_init_env);
+    sgf->sgf_env.do_intelligent_sg_fuzzing = sgf->do_intelligent_sg_fuzzing;
+  } else {
+    sgf->do_intelligent_sg_fuzzing = 1;
+    sgf->sgf_env.do_intelligent_sg_fuzzing = 1;
+  }
+
   sgf->sgf_env.skeleton_graph_stage_max = 3;
   sgf->sgf_env.check_data_race = 0;
   sgf->sgf_env.enable_feedback = 0;
@@ -379,6 +388,13 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
             if (cval) {
               sgf->sgf_env.queue_growth_threshold = (u32)atoi(cval);
               sgf->queue_growth_threshold = sgf->sgf_env.queue_growth_threshold;
+            }
+
+          } else if(!strncmp(env, "DO_INTELLIGENT_SG_FUZZING", sgf_environment_variable_len)){
+            char *cval = get_afl_env(sgf_environment_variables[i]);
+            if (cval) {
+              sgf->sgf_env.do_intelligent_sg_fuzzing = (u8)atoi(cval);
+              sgf->do_intelligent_sg_fuzzing = sgf->sgf_env.do_intelligent_sg_fuzzing;
             }
 
           }
@@ -1027,6 +1043,12 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
       sgf->min_phase_runs = 100;
       sgf->sgf_env.min_phase_runs = 100;
     }
+  }
+
+  char *intel_read_env = getenv("DO_INTELLIGENT_SG_FUZZING");
+  if (intel_read_env) {
+    sgf->sgf_env.do_intelligent_sg_fuzzing = (u8)atoi(intel_read_env);
+    sgf->do_intelligent_sg_fuzzing = sgf->sgf_env.do_intelligent_sg_fuzzing;
   }
 
   if (issue_detected) { sleep(2); }

@@ -1301,6 +1301,7 @@ void update_bitmap_rescore(sgf_state_t *sgf, struct queue_entry *q, u32 index) {
 
 double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
 
+  if (!sgf->do_intelligent_sg_fuzzing) { return 100.0; }
   if (!sgi) { return 1.0; }
 
   // Check cached potential score if still valid within the NN recalculation interval
@@ -1376,6 +1377,7 @@ double calculate_potential_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi
 }
 
 double calculate_mo_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi){
+  if (!sgf->do_intelligent_sg_fuzzing) { return 100.0; }
   (void)sgf;
   double score = 1.0;
   if (sgi && sgi->skeleton_graph) {
@@ -1390,6 +1392,7 @@ double calculate_mo_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *
 }
 
 double calculate_rf_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi){
+  if (!sgf->do_intelligent_sg_fuzzing) { return 100.0; }
   (void)sgf;
   double score = 1.0;
   if (sgi && sgi->skeleton_graph) {
@@ -1404,6 +1407,7 @@ double calculate_rf_footprint_score(sgf_state_t *sgf, struct SkeletonGraphData *
 }
 
 double calculate_score(sgf_state_t *sgf, struct SkeletonGraphData *sgi) {
+  if (!sgf->do_intelligent_sg_fuzzing) { return 100.0; }
   if (!sgi) { return 1.0; }
   // potential_score should be between 1 and 100
   double potential_score = calculate_potential_score(sgf, sgi);

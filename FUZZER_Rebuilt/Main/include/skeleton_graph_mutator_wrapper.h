@@ -95,7 +95,8 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                               struct SHM_next_events* current_feedback,
                                               MutationInfo* out_info,
                                               bool skel_feedback_enabled,
-                                              void* forbidden_mutations);
+                                              void* forbidden_mutations,
+                                              bool do_intelligent_sg_fuzzing);
 
 // Forbidden mutations API
 void* forbidden_mutations_create(void);

@@ -63,6 +63,7 @@ uint32_t track_rf_cov_k[30] = {0};
 
 void update_cutoff(sgf_state_t *sgf, double current_cutoff, double new_score) {
   (void)current_cutoff;
+  if (!sgf->do_intelligent_sg_fuzzing) return;
 
   if (sgf->queued_mu == 0.0) {
     sgf->queued_mu = new_score;
@@ -131,10 +132,13 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
 
   /* Use parent's potential directly as read-only context during mutation to avoid
    * deep-cloning heavy structures on the 90%+ of mutations that get discarded. */
-  void *parent_pot = parent->graph_data->skeleton_potential;
-  if (!parent_pot) {
-    ACTF("Parents graph didn't had potential stored, so we create for it");
-    parent_pot = parent->graph_data->skeleton_potential = create_skeleton_potential(parent->graph_data->skeleton_graph);
+  void *parent_pot = NULL;
+  if (sgf->do_intelligent_sg_fuzzing) {
+    parent_pot = parent->graph_data->skeleton_potential;
+    if (!parent_pot) {
+      ACTF("Parents graph didn't had potential stored, so we create for it");
+      parent_pot = parent->graph_data->skeleton_potential = create_skeleton_potential(parent->graph_data->skeleton_graph);
+    }
   }
 
   /* Perform mutation */
@@ -146,7 +150,8 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
                                                             (sgf->enable_feedback && parent->graph_data) ?
                                                                parent->graph_data->simulator_feedback : NULL,
                                                             &mut_info, sgf->enable_feedback,
-                                                            parent->graph_data ? parent->graph_data->forbidden_mutations : NULL);
+                                                            parent->graph_data ? parent->graph_data->forbidden_mutations : NULL,
+                                                            sgf->do_intelligent_sg_fuzzing);
 
   if (!working_graph) {
     working_graph = empty_skeleton_graph();
@@ -169,14 +174,17 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   while (working_graph && skeleton_graph_seen(sgf, working_graph) && chain_step < 3) {
     MutationInfo next_mut_info;
     memset(&next_mut_info, 0, sizeof(MutationInfo));
-    void *temp_pot = create_skeleton_potential(working_graph);
+    void *temp_pot = sgf->do_intelligent_sg_fuzzing ? create_skeleton_potential(working_graph) : NULL;
     SkeletonGraph *deeper_graph = mutate_skeleton_graph_with_info(working_graph, (int)sgf->current_phase,
                                                                  temp_pot,
                                                                  NULL,
                                                                  &next_mut_info,
                                                                  sgf->enable_feedback,
-                                                                 (parent && parent->graph_data) ? parent->graph_data->forbidden_mutations : NULL);
-    destroy_skeleton_potential(temp_pot);
+                                                                 (parent && parent->graph_data) ? parent->graph_data->forbidden_mutations : NULL,
+                                                                 sgf->do_intelligent_sg_fuzzing);
+    if (temp_pot) {
+      destroy_skeleton_potential(temp_pot);
+    }
     if (!deeper_graph) {
       break;
     }
@@ -232,18 +240,20 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   mutated_graph_metadata->id = graph_id++;  
   /* Construct potential for the enqueued child graph */
   void *potential_obj = NULL;
-  if (chain_step > 0) {
-    potential_obj = create_skeleton_potential(working_graph);
-  } else if (parent_pot) {
-    potential_obj = clone_skeleton_potential(parent_pot);
-    potential_obj = update_potential(potential_obj, working_graph, &mut_info);
-  } else {
-    potential_obj = create_skeleton_potential(working_graph);
-  }
+  if (sgf->do_intelligent_sg_fuzzing) {
+    if (chain_step > 0) {
+      potential_obj = create_skeleton_potential(working_graph);
+    } else if (parent_pot) {
+      potential_obj = clone_skeleton_potential(parent_pot);
+      potential_obj = update_potential(potential_obj, working_graph, &mut_info);
+    } else {
+      potential_obj = create_skeleton_potential(working_graph);
+    }
 
-  if (!potential_obj) {
-    ACTF("Potential update failed, creating new potential");
-    potential_obj = create_skeleton_potential(working_graph);
+    if (!potential_obj) {
+      ACTF("Potential update failed, creating new potential");
+      potential_obj = create_skeleton_potential(working_graph);
+    }
   }
   
   void *race_pairs_obj = NULL;
@@ -325,7 +335,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
       parent_is_complete &&
       parent->graph_data->children_enqueued < sgf->complete_graph_budget;
 
-  if (new_score > sgf->cutoff_score || sgf->queued_items == 0 || (sgf->check_data_race && mutated_graph_metadata->is_racy) || has_no_children || complete_parent_has_budget) {
+  if (!sgf->do_intelligent_sg_fuzzing || new_score > sgf->cutoff_score || sgf->queued_items == 0 || (sgf->check_data_race && mutated_graph_metadata->is_racy) || has_no_children || complete_parent_has_budget) {
 
     /* Mark graph as seen now that it passed cutoff and is being added to queue */
     skeleton_graph_seen_or_add(sgf, mutated_graph_metadata->skeleton_graph);
@@ -358,7 +368,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
       child->perf_score = new_score;
 
       // Index in NN since we are keeping it
-      if (child->graph_data->skeleton_potential && !child->graph_data->potential_indexed) {
+      if (sgf->do_intelligent_sg_fuzzing && child->graph_data->skeleton_potential && !child->graph_data->potential_indexed) {
         potential_nn_index_add(child, child->graph_data->skeleton_potential);
         child->graph_data->potential_indexed = 1;
       }
@@ -983,11 +993,15 @@ havoc_stage:
         }
       }
       // If no potential object exists for the skeleton graph, create one
-      if (!sgf->queue_cur->graph_data->skeleton_potential) {
-        sgf->queue_cur->graph_data->skeleton_potential = create_skeleton_potential(sgf->queue_cur->graph_data->skeleton_graph);
-      }
-      if (sgf->queue_cur->graph_data->potential_score == 0.0 || sgf->queue_cur->graph_data->mo_footprint_score == 0.0 || sgf->queue_cur->graph_data->rf_footprint_score == 0.0) {
-        calculate_score(sgf, sgf->queue_cur->graph_data);
+      if (sgf->do_intelligent_sg_fuzzing) {
+        if (!sgf->queue_cur->graph_data->skeleton_potential) {
+          sgf->queue_cur->graph_data->skeleton_potential = create_skeleton_potential(sgf->queue_cur->graph_data->skeleton_graph);
+        }
+        if (sgf->queue_cur->graph_data->potential_score == 0.0 || sgf->queue_cur->graph_data->mo_footprint_score == 0.0 || sgf->queue_cur->graph_data->rf_footprint_score == 0.0) {
+          calculate_score(sgf, sgf->queue_cur->graph_data);
+        }
+      } else {
+        sgf->queue_cur->perf_score = 100.0;
       }
     }
 
@@ -1059,10 +1073,14 @@ end_skeleton_fuzzing:
 
       sgf->queue_cur->graph_data->decay_ratio = new_decay_ratio;
 
-      if (sgf->queue_cur->perf_score > 1.0) {
-        double decayed = sgf->queue_cur->perf_score * (1.0 - new_decay_ratio);
-        if (decayed < 1.0) { decayed = 1.0; }
-        sgf->queue_cur->perf_score = decayed;
+      if (sgf->do_intelligent_sg_fuzzing) {
+        if (sgf->queue_cur->perf_score > 1.0) {
+          double decayed = sgf->queue_cur->perf_score * (1.0 - new_decay_ratio);
+          if (decayed < 1.0) { decayed = 1.0; }
+          sgf->queue_cur->perf_score = decayed;
+        }
+      } else {
+        sgf->queue_cur->perf_score = 100.0;
       }
 
       if (mutations_added > 0) {

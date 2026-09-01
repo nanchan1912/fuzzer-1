@@ -272,8 +272,8 @@ static void add_release_chain_sw_to_acquire(SkeletonGraph* graph,
 }
 
 // Forward declarations for functions implemented later in this file
-SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* forbidden_mutations = nullptr);
-SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations = nullptr);
+SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* forbidden_mutations = nullptr, bool do_intelligent_sg_fuzzing = true);
+SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations = nullptr, bool do_intelligent_sg_fuzzing = true);
 void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, vector<Event*> parent_events);
 
 /*
@@ -472,13 +472,21 @@ static EventID choose_write_weighted(const std::set<EventID>& consistent_writes,
                                      const EventID& prev_write_id,
                                      bool has_prev_write,
                                      const EventID& read_event_id,
-                                     int current_phase) {
+                                     int current_phase,
+                                     bool do_intelligent_sg_fuzzing = true) {
     (void)current_phase;
     if (consistent_writes.empty()) {
         return std::make_tuple(-1, -1, -1);
     }
     if (consistent_writes.size() == 1) {
         return *consistent_writes.begin();
+    }
+
+    if (!do_intelligent_sg_fuzzing) {
+        auto it = consistent_writes.begin();
+        size_t idx = (size_t)skel_rand_below((u32)consistent_writes.size());
+        std::advance(it, idx);
+        return *it;
     }
 
     EventTriple read_triple = {std::get<0>(read_event_id), std::get<1>(read_event_id), std::get<2>(read_event_id)};
@@ -736,8 +744,13 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                                                     void* current_potential,
                                                     struct SHM_next_events* current_feedback,
                                                     bool skel_feedback_enabled,
-                                                    void* forbidden_mutations = nullptr) {
+                                                    void* forbidden_mutations = nullptr,
+                                                    bool do_intelligent_sg_fuzzing = true) {
     assert(original != NULL);
+
+    if (!do_intelligent_sg_fuzzing) {
+        current_potential = nullptr;
+    }
 
     //REVISIT: clonling seems unnecessary to me for now. Uncomment if necessary.
     SkeletonGraph* new_graph = clone_SkeletonGraph(original);
@@ -759,7 +772,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     };
 
     auto try_add_node = [&]() {
-        add_new_node(new_graph, current_phase, current_potential, current_feedback, skel_feedback_enabled, forbidden_mutations);
+        add_new_node(new_graph, current_phase, current_potential, current_feedback, skel_feedback_enabled, forbidden_mutations, do_intelligent_sg_fuzzing);
         if (last_mutation_info.kind != MUT_NONE) {
             return true;
         }
@@ -768,7 +781,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     };
 
     auto try_mutate_rf = [&]() {
-        mutate_rf_edge(new_graph, current_phase, current_potential, forbidden_mutations);
+        mutate_rf_edge(new_graph, current_phase, current_potential, forbidden_mutations, do_intelligent_sg_fuzzing);
         if (last_mutation_info.kind != MUT_NONE) {
             return true;
         }
@@ -802,7 +815,36 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     // shared ratio. Each option falls back through the other two so a graph
     // is rarely left unmutated.
     bool mutated = false;
-    if (current_phase == PRUNING_PHASE) {
+    if (!do_intelligent_sg_fuzzing) {
+        // Dumb-mode: flat 50:50 (Add:RF) -> with CAS: 15 (flip) : 43 (add) : 42 (rf)
+        if (!has_cas) {
+            if (skel_rand_below(101) < 50) {
+                mutated = try_add_node();
+                if (!mutated) {
+                    mutated = try_mutate_rf();
+                }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) {
+                    mutated = try_add_node();
+                }
+            }
+        } else {
+            const u32 roll = skel_rand_below(100);
+            if (roll < 15) {
+                mutated = try_flip_cas();
+                if (!mutated) { mutated = try_add_node(); }
+                if (!mutated) { mutated = try_mutate_rf(); }
+            } else if (roll < 58) {
+                mutated = try_add_node();
+                if (!mutated) { mutated = try_mutate_rf(); }
+                if (!mutated) { mutated = try_flip_cas(); }
+            } else {
+                mutated = try_mutate_rf();
+                if (!mutated) { mutated = try_flip_cas(); }
+            }
+        }
+    } else if (current_phase == PRUNING_PHASE) {
         // Baseline 25:75 (Add:RF) -> with CAS: 15 (flip) : 21 (add) : 64 (rf)
         if (!has_cas) {
             if (skel_rand_below(101) < 25) {
@@ -962,7 +1004,12 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                                struct SHM_next_events* current_feedback,
                                                MutationInfo* out_info,
                                                bool skel_feedback_enabled,
-                                               void* forbidden_mutations) {
+                                               void* forbidden_mutations,
+                                               bool do_intelligent_sg_fuzzing) {
+
+    if (!do_intelligent_sg_fuzzing) {
+        current_potential = nullptr;
+    }
 
     // ACTF("Mutating skeleton graph with skel_feedback_enabled: %d", skel_feedback_enabled);
     //clearing last_mutation_info (as it is defined as static) before calling the mutate function 
@@ -995,7 +1042,8 @@ SkeletonGraph* mutate_skeleton_graph_with_info(SkeletonGraph* original,
                                                 current_potential,
                                                 current_feedback,
                                                 skel_feedback_enabled,
-                                                forbidden_mutations);
+                                                forbidden_mutations,
+                                                do_intelligent_sg_fuzzing);
     // ACTF("---> Mutated skeleton graph has %d events", (int)out->get_events().size());
 
     // if(skel_feedback_enabled){
@@ -1194,9 +1242,11 @@ static void insert_mo_after(SkeletonGraph* graph, const Location& loc, const Eve
 //REVISIT: can I choose an edge cleverly instead of a random rf edge
 // I could choose a more recently added event (assuming that the earlier read events would have less number of consistent writes to read from, besides, they would have undergone an rf edge mutation earlier - atleast, that seems more likely than the later read events undergoing muation of rf edge)
 
-SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations){
+SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* current_potential, void* forbidden_mutations, bool do_intelligent_sg_fuzzing){
     (void)current_phase;
-    (void)current_potential;
+    if (!do_intelligent_sg_fuzzing) {
+        current_potential = nullptr;
+    }
     int num_rf_edges = graph->get_rf_reverse().size();
     if(num_rf_edges == 0){
         last_mutation_info.kind = MUT_NONE;
@@ -1277,34 +1327,38 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
         }
 
         if (!available_writes.empty()) {
-            // Direct RF mutation: A new alternate write was found using smooth RF-guided inverse-frequency selection
-            EventTriple read_triple = {
-                std::get<0>(read_event_id_copy),
-                std::get<1>(read_event_id_copy),
-                std::get<2>(read_event_id_copy)
-            };
-
-            std::vector<uint32_t> write_weights;
-            write_weights.reserve(available_writes.size());
-            uint64_t total_w = 0;
-
-            for (const auto& wid : available_writes) {
-                EventTriple w_triple = {std::get<0>(wid), std::get<1>(wid), std::get<2>(wid)};
-                uint32_t freq = get_rf_footprint_edge_freq(w_triple, read_triple);
-                uint32_t w = smooth_rarity_weight(freq, 100, 20);
-                write_weights.push_back(w);
-                total_w += w;
-            }
-
             EventID chosen_write_id = available_writes[0];
-            if (total_w > 0) {
-                u32 r = skel_rand_below(static_cast<u32>(std::min<uint64_t>(total_w, UINT32_MAX)));
-                uint64_t cumulative = 0;
-                for (size_t i = 0; i < write_weights.size(); ++i) {
-                    cumulative += write_weights[i];
-                    if (r < cumulative) {
-                        chosen_write_id = available_writes[i];
-                        break;
+            if (!do_intelligent_sg_fuzzing) {
+                chosen_write_id = available_writes[skel_rand_below((u32)available_writes.size())];
+            } else {
+                // Direct RF mutation: A new alternate write was found using smooth RF-guided inverse-frequency selection
+                EventTriple read_triple = {
+                    std::get<0>(read_event_id_copy),
+                    std::get<1>(read_event_id_copy),
+                    std::get<2>(read_event_id_copy)
+                };
+
+                std::vector<uint32_t> write_weights;
+                write_weights.reserve(available_writes.size());
+                uint64_t total_w = 0;
+
+                for (const auto& wid : available_writes) {
+                    EventTriple w_triple = {std::get<0>(wid), std::get<1>(wid), std::get<2>(wid)};
+                    uint32_t freq = get_rf_footprint_edge_freq(w_triple, read_triple);
+                    uint32_t w = smooth_rarity_weight(freq, 100, 20);
+                    write_weights.push_back(w);
+                    total_w += w;
+                }
+
+                if (total_w > 0) {
+                    u32 r = skel_rand_below(static_cast<u32>(std::min<uint64_t>(total_w, UINT32_MAX)));
+                    uint64_t cumulative = 0;
+                    for (size_t i = 0; i < write_weights.size(); ++i) {
+                        cumulative += write_weights[i];
+                        if (r < cumulative) {
+                            chosen_write_id = available_writes[i];
+                            break;
+                        }
                     }
                 }
             }
@@ -1370,7 +1424,7 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
             auto parent_consistent_writes = get_consistent_writes(working_graph,
                                                                   p_parents,
                                                                   read_loc,
-                                                                  current_potential,
+                                                                  nullptr,
                                                                   true);
 
             if (!parent_consistent_writes.empty()) {
@@ -1391,7 +1445,7 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
                 auto curr_consistent_writes = get_consistent_writes(working_graph,
                                                                     curr_parents,
                                                                     read_loc,
-                                                                    current_potential,
+                                                                    nullptr,
                                                                     true);
 
                 if (!curr_consistent_writes.empty()) {
@@ -2107,7 +2161,10 @@ static std::pair<Event*, vector<Event*>> choose_event(std::vector<CandidateEvent
     return {selected, parents};
 }
 
-std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int current_phase, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* current_potential = nullptr, void* forbidden_mutations = nullptr) {
+std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int current_phase, struct SHM_next_events* current_feedback, bool skel_feedback_enabled, void* current_potential = nullptr, void* forbidden_mutations = nullptr, bool do_intelligent_sg_fuzzing = true) {
+    if (!do_intelligent_sg_fuzzing) {
+        current_potential = nullptr;
+    }
     if(!thread_counts_loaded){
         thread_counts_valid = load_thread_event_counts(expected_thread_counts); 
         thread_counts_loaded = true;
@@ -2236,6 +2293,11 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
 
     if (enabled.empty()) {
         return {nullptr, {}};//return empty vector instead of nullptr
+    }
+
+    if (!do_intelligent_sg_fuzzing) {
+        int selected_index = static_cast<int>(skel_rand_below(static_cast<u32>(enabled.size())));
+        return choose_event(enabled, selected_index);
     }
 
     int selected_index = -1;
@@ -2402,13 +2464,16 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
     return choose_event(enabled, selected_index);
 }
 
-SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool is_feedback_enabled, void* forbidden_mutations) {
+SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* current_potential, struct SHM_next_events* current_feedback, bool is_feedback_enabled, void* forbidden_mutations, bool do_intelligent_sg_fuzzing) {
+    if (!do_intelligent_sg_fuzzing) {
+        current_potential = nullptr;
+    }
     /*
     * FINDING NODE TO ADD LOGIC
     * Retrieve an event from the program abstraction or using feedback if in feedback mode.
     */
 
-    auto new_event_with_parent = get_a_new_event(graph, current_phase, current_feedback, is_feedback_enabled, current_potential, forbidden_mutations);
+    auto new_event_with_parent = get_a_new_event(graph, current_phase, current_feedback, is_feedback_enabled, current_potential, forbidden_mutations, do_intelligent_sg_fuzzing);
     std::unique_ptr<Event> new_event(new_event_with_parent.first);
     if(!new_event){
         // ACTF("No new event to add to the skeleton graph");
@@ -2526,7 +2591,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
                 }
             }
 
-            write_event_id = choose_write_weighted(consistent_writes, prev_write_id, has_prev_write, new_event->get_event_id(), current_phase);
+            write_event_id = choose_write_weighted(consistent_writes, prev_write_id, has_prev_write, new_event->get_event_id(), current_phase, do_intelligent_sg_fuzzing);
             write_event = graph->get_event_by_id(write_event_id);
             graph -> add_rf(write_event_id, new_event->get_event_id());
 
@@ -2629,7 +2694,7 @@ SkeletonGraph* add_new_node(SkeletonGraph* graph, int current_phase, void* curre
                 }
             }
 
-            write_event_id = choose_write_weighted(consistent_writes, prev_write_id, has_prev_write, new_event->get_event_id(), current_phase);
+            write_event_id = choose_write_weighted(consistent_writes, prev_write_id, has_prev_write, new_event->get_event_id(), current_phase, do_intelligent_sg_fuzzing);
             write_event = graph->get_event_by_id(write_event_id);
             graph -> add_rf(write_event_id, new_event->get_event_id());
             

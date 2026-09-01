@@ -52,7 +52,12 @@ ENABLE_FEEDBACK="${SGF_ENABLE_FEEDBACK:-1}"
 CHECK_DATA_RACE="${SGF_CHECK_DATA_RACE:-0}"
 SC_MODE="${SGF_SC_MODE:-0}"
 HIGHEST_STEP="${SGF_SKELETON_GRAPH_HIGHEST_STEP:-3}"
-CUTOFF_PERCENTILE="${SGF_CUTOFF_PERCENTILE:-0}"
+CUTOFF_PERCENTILE="${SGF_CUTOFF_PERCENTILE:-20}"
+CLEAR_QUEUE_AFTER_PHASES="${SGF_CLEAR_QUEUE_AFTER_PHASES:-1}"
+KEEP_ENTRIES_PER_EDGE="${SGF_KEEP_ENTRIES_PER_EDGE:-30}"
+MIN_PHASE_RUNS="${SGF_MIN_PHASE_RUNS:-500}"
+QUEUE_GROWTH_THRESHOLD="${SGF_QUEUE_GROWTH_THRESHOLD:-50}"
+DO_INTELLIGENT_SG_FUZZING="${DO_INTELLIGENT_SG_FUZZING:-1}"
 POTENTIAL_LOCATIONS=""
 INTERESTING_LOCATIONS=""
 
@@ -107,7 +112,12 @@ ENVIRONMENT VARIABLES:
   SGF_CHECK_DATA_RACE     Enable data race checking (0 or 1, default: 0)
   SGF_SC_MODE             Enable SC-consistency crash filtering (0 or 1, default: 0)
   SGF_SKELETON_GRAPH_HIGHEST_STEP  Skeleton graph highest step (default: 3)
-  SGF_CUTOFF_PERCENTILE   Score cutoff percentile (default: 0)
+  SGF_CUTOFF_PERCENTILE   Score cutoff percentile (default: 20)
+  SGF_CLEAR_QUEUE_AFTER_PHASES  Compact queue every 3rd cycle (0 or 1, default: 1)
+  SGF_KEEP_ENTRIES_PER_EDGE     Top entries kept per MO/RF edge on compaction (default: 30)
+  SGF_MIN_PHASE_RUNS      Minimum runs before completing a phase cycle (default: 500)
+  SGF_QUEUE_GROWTH_THRESHOLD    Queue growth required to trigger compaction (default: 50)
+  DO_INTELLIGENT_SG_FUZZING  Enable intelligent scoring, footprints, NN, and guiding (0 or 1, default: 1)
   MAX_TIME / RUN_TIME     Fuzzing time limit in seconds (default: 10)
   SGF_BENCH_UNTIL_CRASH   Set automatically by -c/--until-crash
 ==============================================================================
@@ -414,6 +424,11 @@ export SGF_CHECK_DATA_RACE="$CHECK_DATA_RACE"
 export SGF_SC_MODE="$SC_MODE"
 export SGF_SKELETON_GRAPH_HIGHEST_STEP="$HIGHEST_STEP"
 export SGF_CUTOFF_PERCENTILE="$CUTOFF_PERCENTILE"
+export SGF_CLEAR_QUEUE_AFTER_PHASES="$CLEAR_QUEUE_AFTER_PHASES"
+export SGF_KEEP_ENTRIES_PER_EDGE="$KEEP_ENTRIES_PER_EDGE"
+export SGF_MIN_PHASE_RUNS="$MIN_PHASE_RUNS"
+export SGF_QUEUE_GROWTH_THRESHOLD="$QUEUE_GROWTH_THRESHOLD"
+export DO_INTELLIGENT_SG_FUZZING="$DO_INTELLIGENT_SG_FUZZING"
 export SGF_POTENTIAL_LOCATIONS_FILE="$POTENTIAL_LOCATIONS"
 export SGF_INTERESTING_LOCATIONS_FILE="$INTERESTING_LOCATIONS"
 

@@ -552,7 +552,7 @@ typedef struct sgf_env_vars {
       sgf_forksrv_gid_set,
       // By us
       check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode,
-      log_graph_run_details, complete_graph_budget, clear_queue_after_phases;
+      log_graph_run_details, complete_graph_budget, clear_queue_after_phases, do_intelligent_sg_fuzzing;
 
   u32 keep_entries_per_edge;
   u32 min_phase_runs;
@@ -693,6 +693,7 @@ typedef struct sgf_state {
   u8  *static_program_abstraction;
 
   u8  clear_queue_after_phases;         /* Clear queue after completing all mutation phases once */
+  u8  do_intelligent_sg_fuzzing;        /* Enable intelligent scoring, footprints, NN, and guiding */
   u32 keep_entries_per_edge;            /* Number of top entries to keep per MO/RF edge (default: 10) */
   u32 min_phase_runs;                   /* Minimum fuzzing runs before completing a phase cycle */
   u32 queue_growth_threshold;           /* Minimum queue growth required to trigger compaction */
