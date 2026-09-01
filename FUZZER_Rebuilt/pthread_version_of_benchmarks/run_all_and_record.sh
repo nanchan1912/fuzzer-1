@@ -58,6 +58,7 @@ BENCHMARKS_DEFAULT=(
     ringbuffer rwqueue spsc-queue
     sb-loop test-array test-struct test-mp
     check_arrays check_loops null-deref test-sb-loop test-template-complex
+    cas-simple
 )
 
 # ------------------------------------------------------------

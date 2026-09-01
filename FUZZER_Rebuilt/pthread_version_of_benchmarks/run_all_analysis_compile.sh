@@ -48,6 +48,10 @@ benchmark_dirs=(
     "test-array"
     "test-struct"
     "test-mp"
+    # Minimal compare-and-swap coverage: the larger CAS benchmarks
+    # (ms-queue, mschange) starve before their cmpxchg is reached, so this is
+    # the one that actually exercises the CAS event path end to end.
+    "cas-simple"
 )
 
 declare CXX_BIN
