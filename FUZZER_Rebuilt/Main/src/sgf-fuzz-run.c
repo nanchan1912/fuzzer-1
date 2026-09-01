@@ -60,6 +60,7 @@ void save_non_instantiable_skeleton_graph(sgf_state_t *sgf,
                                              u32 graph_id) {
 
   if (unlikely(!sgf || !graph || !sgf->log_graph_run_details)) { return; }
+  if (saved_non_instantiable_graphs >= KEEP_UNIQUE_NON_INSTANTIABLE) { return; }
 
   char *dir = alloc_printf("%s/non_instantiable", sgf->out_dir);
   if (mkdir(dir, 0700) && errno != EEXIST) {

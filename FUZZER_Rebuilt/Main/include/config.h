@@ -208,6 +208,7 @@
 #define KEEP_UNIQUE_HANG 512U
 #define KEEP_UNIQUE_CRASH 25600U
 #define KEEP_UNIQUE_RACE 25600U
+#define KEEP_UNIQUE_NON_INSTANTIABLE 1000U
 
 /* Baseline number of random tweaks during a single 'havoc' stage: */
 

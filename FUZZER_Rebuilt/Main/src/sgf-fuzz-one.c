@@ -176,8 +176,8 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
                                                                  temp_pot,
                                                                  NULL,
                                                                  &next_mut_info,
-                                                                 false,
-                                                                 NULL);
+                                                                 sgf->enable_feedback,
+                                                                 (parent && parent->graph_data) ? parent->graph_data->forbidden_mutations : NULL);
     destroy_skeleton_potential(temp_pot);
     if (!deeper_graph) {
       break;
