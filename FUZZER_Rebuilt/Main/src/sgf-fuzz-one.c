@@ -165,7 +165,30 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     default: break;
   }
 
-  /* Skip duplicates already in queue/seen set */
+  /* If the single-step mutation is already seen, attempt up to 3 extra mutation steps
+   * to chain through seen intermediate graphs and discover novel reachable graphs. */
+  u32 chain_step = 0;
+  while (working_graph && skeleton_graph_seen(sgf, working_graph) && chain_step < 3) {
+    MutationInfo next_mut_info;
+    memset(&next_mut_info, 0, sizeof(MutationInfo));
+    void *temp_pot = create_skeleton_potential(working_graph);
+    SkeletonGraph *deeper_graph = mutate_skeleton_graph_with_info(working_graph, (int)sgf->current_phase,
+                                                                 temp_pot,
+                                                                 NULL,
+                                                                 &next_mut_info,
+                                                                 false,
+                                                                 NULL);
+    destroy_skeleton_potential(temp_pot);
+    if (!deeper_graph) {
+      break;
+    }
+    destroy_SkeletonGraph(working_graph);
+    working_graph = deeper_graph;
+    mut_info = next_mut_info;
+    chain_step++;
+  }
+
+  /* Skip duplicates already in queue/seen set if still seen after multi-step escape */
   if (skeleton_graph_seen(sgf, working_graph)) {
     destroy_SkeletonGraph(working_graph);
     destroy_skeleton_potential(potential_obj);
@@ -211,7 +234,12 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   // We reach here only when run was successful
   mutated_graph_metadata->id = graph_id++;  
   /* Update potential */
-  potential_obj = update_potential(potential_obj, working_graph, &mut_info);
+  if (chain_step > 0) {
+    destroy_skeleton_potential(potential_obj);
+    potential_obj = create_skeleton_potential(working_graph);
+  } else {
+    potential_obj = update_potential(potential_obj, working_graph, &mut_info);
+  }
 
   if (!potential_obj) {
     ACTF("Potential update failed, creating new potential");
@@ -223,7 +251,9 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
 
   /* Clone/create race pairs */
   if (sgf->check_data_race) {
-    if (parent->graph_data->race_pairs) {
+    if (chain_step > 0) {
+      race_pairs_obj = race_pair_store_collect(working_graph);
+    } else if (parent->graph_data->race_pairs) {
       race_pairs_obj = race_pair_store_clone(parent->graph_data->race_pairs);
     } else {
       ACTF("Parents graph didn't had potential stored, so we calculate for it");
@@ -246,7 +276,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
       }
     }
     /* Update race pairs */
-    if (race_pairs_obj != NULL) {
+    if (chain_step == 0 && race_pairs_obj != NULL) {
       race_pair_store_update_incremental(race_pairs_obj, working_graph, mut_info.dest_id);
     }
   }

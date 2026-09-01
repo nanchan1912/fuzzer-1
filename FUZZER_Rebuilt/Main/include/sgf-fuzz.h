@@ -698,6 +698,7 @@ typedef struct sgf_state {
   u32 queue_growth_threshold;           /* Minimum queue growth required to trigger compaction */
   u32 last_cleared_queue_count;         /* Queue count at last compaction */
   u32 max_queued_id;                    /* Monotonic ID counter for queue filenames */
+  u64 cycle_start_execs;                /* Forkserver total_execs at start of cycle */
   // End changes by us
 
   u8 *in_dir,                           /* Input directory with test cases  */

@@ -130,6 +130,7 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   sgf->queue_growth_threshold = 20;
   sgf->last_cleared_queue_count = 0;
   sgf->max_queued_id = 0;
+  sgf->cycle_start_execs = 0;
 
   sgf->sgf_env.skeleton_graph_stage_max = 3;
   sgf->sgf_env.check_data_race = 0;

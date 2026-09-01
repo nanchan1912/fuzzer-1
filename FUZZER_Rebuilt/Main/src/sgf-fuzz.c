@@ -2999,15 +2999,22 @@ int main(int argc, char **argv_orig, char **envp) {
 
   // real start time, we reset, so this works correctly with -V
   sgf->start_time = get_cur_time();
+  sgf->cycle_start_execs = sgf->fsrv.total_execs;
   u8 very_first_run = 1;
 
   while (likely(!sgf->stop_soon)) {
 
     cull_queue(sgf);
 
+    u64 execs_in_current_cycle = (sgf->fsrv.total_execs >= sgf->cycle_start_execs) ?
+                                 (sgf->fsrv.total_execs - sgf->cycle_start_execs) : 0;
+
     if (unlikely((!sgf->old_seed_selection &&
                   runs_in_current_cycle > sgf->queued_items &&
-                  runs_in_current_cycle >= sgf->min_phase_runs) ||
+                  runs_in_current_cycle >= sgf->min_phase_runs &&
+                  (sgf->min_phase_runs == 0 ||
+                   execs_in_current_cycle >= sgf->min_phase_runs ||
+                   runs_in_current_cycle >= 10 * sgf->min_phase_runs)) ||
                  (sgf->old_seed_selection && !sgf->queue_cur))) {
 
       if (unlikely((sgf->last_sync_cycle < sgf->queue_cycle ||
@@ -3045,6 +3052,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       }
 
+      sgf->cycle_start_execs = sgf->fsrv.total_execs;
       runs_in_current_cycle = (u32)-1;
       sgf->cur_skipped_items = 0;
 

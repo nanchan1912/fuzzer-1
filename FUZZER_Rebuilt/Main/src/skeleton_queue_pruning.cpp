@@ -193,13 +193,16 @@ extern "C" void clear_and_compact_queue_after_phases(sgf_state_t *sgf, uint32_t 
     sgf->queued_mu = 0.0;
     sgf->queued_mad = 0.0;
 
-    // 6. Reset and rebuild Potential NN Index with surviving entries only
+    // 6. Reset and rebuild Potential NN Index with surviving entries only, and reset children_enqueued
     potential_nn_index_reset();
     for (u32 i = 0; i < new_count; i++) {
         struct queue_entry *q = sgf->queue_buf[i];
-        if (q && q->graph_data && q->graph_data->skeleton_potential) {
-            potential_nn_index_add(q, q->graph_data->skeleton_potential);
-            q->graph_data->potential_indexed = 1;
+        if (q && q->graph_data) {
+            q->graph_data->children_enqueued = 0;
+            if (q->graph_data->skeleton_potential) {
+                potential_nn_index_add(q, q->graph_data->skeleton_potential);
+                q->graph_data->potential_indexed = 1;
+            }
         }
     }
 
