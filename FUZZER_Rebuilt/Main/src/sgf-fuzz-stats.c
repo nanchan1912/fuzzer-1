@@ -747,7 +747,11 @@ void log_graph_candidate_to_plot_file(sgf_state_t *sgf,
   }
 
   fprintf(sgf->fsrv.plot_file, "\n");
-  fflush(sgf->fsrv.plot_file);
+  static u32 cand_plot_flush_cnt = 0;
+  if (++cand_plot_flush_cnt >= 1024) {
+    cand_plot_flush_cnt = 0;
+    fflush(sgf->fsrv.plot_file);
+  }
 
 }
 

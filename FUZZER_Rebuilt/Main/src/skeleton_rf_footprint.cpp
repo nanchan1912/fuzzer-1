@@ -34,6 +34,8 @@ static std::unordered_map<StaticEventID,
                           std::unordered_map<StaticEventID, uint32_t, StaticEventIDHash>,
                           StaticEventIDHash> rf_edge_frequencies;
 
+static uint32_t g_total_rf_edges = 0;
+
 extern "C" int update_rf_footprint(EventTriple write_event, EventTriple read_event) {
     StaticEventID r_id = {read_event.thread_id, read_event.instruction_id};
     StaticEventID w_id = {write_event.thread_id, write_event.instruction_id};
@@ -41,11 +43,13 @@ extern "C" int update_rf_footprint(EventTriple write_event, EventTriple read_eve
     auto r_it = rf_edge_frequencies.find(r_id);
     if (r_it == rf_edge_frequencies.end()) {
         rf_edge_frequencies[r_id] = {{w_id, 1}};
+        g_total_rf_edges++;
         return 1;
     } else {
         auto w_it = r_it->second.find(w_id);
         if (w_it == r_it->second.end()) {
             r_it->second[w_id] = 1;
+            g_total_rf_edges++;
             return 1;
         } else {
             w_it->second += 1;
@@ -66,11 +70,7 @@ extern "C" void update_rf_footprint_for_graph(SkeletonGraph* graph) {
 }
 
 extern "C" uint32_t get_rf_footprint_coverage_count() {
-    uint32_t total_edges = 0;
-    for (const auto& [read_id, src_map] : rf_edge_frequencies) {
-        total_edges += src_map.size();
-    }
-    return total_edges;
+    return g_total_rf_edges;
 }
 
 extern "C" void print_rf_edge_frequencies() {

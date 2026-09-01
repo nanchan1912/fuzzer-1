@@ -129,14 +129,12 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   memset(&mut_info, 0, sizeof(mut_info));
   mut_info.kind = MUT_NONE;
 
-  void *potential_obj = NULL;
-
-  /* Clone/create potential */
-  if (parent->graph_data->skeleton_potential) {
-    potential_obj = clone_skeleton_potential(parent->graph_data->skeleton_potential);
-  } else {
+  /* Use parent's potential directly as read-only context during mutation to avoid
+   * deep-cloning heavy structures on the 90%+ of mutations that get discarded. */
+  void *parent_pot = parent->graph_data->skeleton_potential;
+  if (!parent_pot) {
     ACTF("Parents graph didn't had potential stored, so we create for it");
-    potential_obj = create_skeleton_potential(parent->graph_data->skeleton_graph);
+    parent_pot = parent->graph_data->skeleton_potential = create_skeleton_potential(parent->graph_data->skeleton_graph);
   }
 
   /* Perform mutation */
@@ -144,11 +142,11 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     parent->graph_data->forbidden_mutations = forbidden_mutations_create();
   }
   SkeletonGraph *working_graph = mutate_skeleton_graph_with_info(parent->graph_data->skeleton_graph, (int)sgf->current_phase,
-                                                            potential_obj,
+                                                            parent_pot,
                                                             (sgf->enable_feedback && parent->graph_data) ?
                                                                parent->graph_data->simulator_feedback : NULL,
-                                                             &mut_info, sgf->enable_feedback,
-                                                             parent->graph_data ? parent->graph_data->forbidden_mutations : NULL);
+                                                            &mut_info, sgf->enable_feedback,
+                                                            parent->graph_data ? parent->graph_data->forbidden_mutations : NULL);
 
   if (!working_graph) {
     working_graph = empty_skeleton_graph();
@@ -191,7 +189,6 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   /* Skip duplicates already in queue/seen set if still seen after multi-step escape */
   if (skeleton_graph_seen(sgf, working_graph)) {
     destroy_SkeletonGraph(working_graph);
-    destroy_skeleton_potential(potential_obj);
     return NULL;
   }
 
@@ -233,12 +230,15 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
   
   // We reach here only when run was successful
   mutated_graph_metadata->id = graph_id++;  
-  /* Update potential */
+  /* Construct potential for the enqueued child graph */
+  void *potential_obj = NULL;
   if (chain_step > 0) {
-    destroy_skeleton_potential(potential_obj);
     potential_obj = create_skeleton_potential(working_graph);
-  } else {
+  } else if (parent_pot) {
+    potential_obj = clone_skeleton_potential(parent_pot);
     potential_obj = update_potential(potential_obj, working_graph, &mut_info);
+  } else {
+    potential_obj = create_skeleton_potential(working_graph);
   }
 
   if (!potential_obj) {

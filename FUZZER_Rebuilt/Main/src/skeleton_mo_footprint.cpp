@@ -65,6 +65,8 @@ inline bool operator==(const EventTriple& a,
 // Nested unordered Map to store frequencies of MO edges
 std::unordered_map<EventTriple, std::unordered_map<EventTriple, uint32_t, EventIDHash>, EventIDHash> mo_edge_frequencies; 
 
+static uint32_t g_total_mo_edges = 0;
+
 /* 
  * Check and update MO edge coverage
  * Takes two event triples representing an MO edge (from_event -> to_event)
@@ -81,6 +83,7 @@ int update_mo_coverage(EventTriple from_event_id, EventTriple to_event_id){
         // This is a new source event, create a new entry in the map
         // ACTF("This is a new source event, creating a new entry in the map");
         mo_edge_frequencies[from_event_id] = {{to_event_id, 1}};
+        g_total_mo_edges++;
         return 1; // New edge, coverage improved
     } else {
         // Check if the destination event exists for this source
@@ -89,6 +92,7 @@ int update_mo_coverage(EventTriple from_event_id, EventTriple to_event_id){
             // This is a new destination event for this source, add it
             // ACTF("This is a new destination event for this source, adding it");
             from_it->second[to_event_id] = 1;
+            g_total_mo_edges++;
             return 1; // New edge, coverage improved
         }else{
             // Edge already exists from src to dest nodes given, so incrementing the frequency
@@ -156,11 +160,7 @@ void update_mo_coverage_for_graph(SkeletonGraph* graph){
  * reports the true count of unique directed MO edges explored across the corpus.
  */
 uint32_t get_mo_coverage_count(){
-    uint32_t total_edges = 0;
-    for (const auto& [from_event_id, dest_map] : mo_edge_frequencies) {
-        total_edges += dest_map.size();
-    }
-    return total_edges;
+    return g_total_mo_edges;
 }
 
 //func to print the frequencies of all mo-next edges explored so far

@@ -153,8 +153,14 @@ extern "C" int potential_nn_find_diff(const void* entry,
       consider_entry(cand);
     }
   } else {
+    // If no candidate was found via rarest keys postings, sample a bounded number of entries
+    // (up to 32) instead of linear scanning tens of thousands of corpus entries.
+    size_t scanned = 0;
     for (auto& kv : g_entries) {
       consider_entry(kv.second);
+      if (++scanned >= 32) {
+        break;
+      }
     }
   }
 
