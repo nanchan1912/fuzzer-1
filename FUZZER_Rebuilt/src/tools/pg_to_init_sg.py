@@ -182,9 +182,10 @@ def create_init_seed_from_pg(events: Dict[str, dict],
             return True
         
         kind = ev.get('kind', '')
-        
-        # Stop at READ events
-        if kind == 'R':
+
+        # Stop at READ events. A failed CAS is a pure read, so it stops the
+        # traversal for the same reason; a successful one writes and does not.
+        if kind in ('R', 'CAS_FAIL'):
             return True
         
         # Stop at branch points (multiple outgoing edges)
@@ -205,9 +206,22 @@ def create_init_seed_from_pg(events: Dict[str, dict],
             return
         
         kind = ev.get('kind', '')
-        
-        # Collect WRITE events (and RMW, FENCE, CMPXCHG as memory ops)
-        if kind in ('W', 'RMW', 'CMPXCHG', 'F'):
+
+        # Collect WRITE events (and RMW, FENCE, CAS as memory ops).
+        # 'CAS' is what the static analysis (anal.cpp) actually emits for a
+        # cmpxchg -- 'CMPXCHG' here previously never matched anything, so
+        # every cmpxchg event was silently excluded from seed-write
+        # collection regardless of any CAS-specific handling below.
+        # 'CAS' cannot know the outcome, so the seed treats it as the success
+        # case (matching the alias used by AFL's parse_event_type and the
+        # runtime's eg_string_to_type). That does not matter here only because
+        # every node is emitted as kind 'W' regardless (see the comment at the
+        # node build below), which the runtime reads as "no expectation" --
+        # the legacy path, where the comparison alone decides whether the
+        # swap happens. Elsewhere an unresolved 'CAS' is not a write and must
+        # not be assumed to be one. CAS_SUCCESS/CAS_FAIL are accepted too in
+        # case a graph is round-tripped back through this tool.
+        if kind in ('W', 'RMW', 'F', 'CAS', 'CAS_SUCCESS', 'CAS_FAIL'):
             cf_seed_writes.append(ev)
         
         # Stop if this is a read or branch point
@@ -250,6 +264,18 @@ def create_init_seed_from_pg(events: Dict[str, dict],
         thread_counters[stable_id] = visit_num
         visit_id_str = str(visit_num)
         
+        # 'kind' is deliberately forced to 'W' rather than carrying ev['kind']
+        # through. This seed emits no rf edges, and the runtime rejects any
+        # read-like node without an incoming rf source
+        # (eg_validate_read_nodes_have_rf -> WMM_EXIT_RF_TYPE_MISMATCH). RMW,
+        # CAS_SUCCESS and CAS_FAIL are all read-like, so emitting the true kind
+        # here makes the seed unloadable; measured upstream: exit 12 for each.
+        #
+        # The seed only ever needs to describe the *write* half of the
+        # thread-0 prefix that bootstraps the fuzzer, which 'W' expresses
+        # correctly. Preserving the real kind would require emitting rf edges
+        # for these nodes as well -- worth doing, but a larger change than a
+        # relabel.
         node = {
             'event_id': str(idx),
             'thread_id': tid,
