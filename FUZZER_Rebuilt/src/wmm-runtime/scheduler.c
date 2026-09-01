@@ -620,6 +620,7 @@ static const char* eg_type_to_string(int type) {
         case EG_OP_RMW: return "RMW";
         case EG_OP_CAS_SUCCESS: return "CAS_SUCCESS";
         case EG_OP_CAS_FAIL: return "CAS_FAIL";
+        case EG_OP_CAS: return "CAS";
         default: return "Unknown";
     }
 }
