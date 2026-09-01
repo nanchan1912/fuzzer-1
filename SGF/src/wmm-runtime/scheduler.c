@@ -12,7 +12,7 @@
 #include <time.h>
 
 // TODO: This path is hardcoded - change it!
-#include "/home/aritra/fuzzer-1/FUZZER_Rebuilt/Main/include/shm_next_events.h"
+#include "/home/aritra/fuzzer-1/SGF/main/include/shm_next_events.h"
 
 /* eg.h keeps plain literals so it stays includable without going through
  * this hardcoded shm_next_events.h path; this is where the two vocabularies
@@ -1588,7 +1588,7 @@ void scheduler_thread_created(int tid,unsigned long long parentid) {
         pthread_cond_broadcast(&sched_cond);
     }
     add_to_all_threads(tid,parentid);
-    fprintf(stderr,"Registered thread=%d with parent=%d\n",tid,parentid);
+    fprintf(stderr,"Registered thread=%d with parent=%llu\n",tid,parentid);
     pthread_mutex_unlock(&sched_lock);
 }
 
@@ -1861,7 +1861,7 @@ bool scheduler_on_load_bytes_ex(void *addr, Access_Mode order,
                scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
             }
             (void)mark_node_covered(node->id);
-            fprintf(stderr,"Executing the LOAD event, tid=%d,iid=%lld,vid=%d\n",tid,iid,vid);
+            fprintf(stderr,"Executing the LOAD event, tid=%llu,iid=%lld,vid=%d\n",(unsigned long long)tid,iid,vid);
             update_last_executed_event(tid,iid,vid);
         }
     }

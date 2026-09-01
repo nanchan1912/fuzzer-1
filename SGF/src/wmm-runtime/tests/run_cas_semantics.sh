@@ -25,7 +25,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 echo "=== building ==="
-clang -O0 -g -I"${RUNTIME_DIR}" -I"${REPO_ROOT}/Main/include" \
+clang -O0 -g -I"${RUNTIME_DIR}" -I"${REPO_ROOT}/main/include" \
       "${SCRIPT_DIR}/test_cas_semantics.c" \
       -L"${RUNTIME_DIR}" -lwmm_runtime -lpthread -ldl -lrt -lstdc++ \
       -o "$BIN" || { echo "build failed"; exit 1; }

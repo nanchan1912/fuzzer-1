@@ -11,7 +11,7 @@
 #include "assert.h"
 #include "scheduler.h"
 //TODO: This path is hardcoded..change it later
-#include "/home/aritra/fuzzer-1/FUZZER_Rebuilt/Main/include/shm_next_events.h"
+#include "/home/aritra/fuzzer-1/SGF/main/include/shm_next_events.h"
 #include <sys/shm.h>
 #include "eg.h"
 
@@ -170,7 +170,7 @@ static inline void __wmm_log_event(const char *kind, uint64_t uid, uint64_t thre
             (unsigned long)visit_id,
             (unsigned long)pthread_self(),
             (unsigned long)thread_id,
-            (unsigned long)uid,
+            (unsigned long long)uid,
             kind,
             (unsigned long)loc_id,
             (unsigned int)order);
@@ -434,7 +434,7 @@ int wmm_pthread_join(pthread_t thread, void **retval) {
         }
     }
     if (child_tid == -1) {
-        printf(stderr, "[WMM-CRITICAL] pthread_join called on unmapped thread! Trace will be corrupted.\n");
+        fprintf(stderr, "[WMM-CRITICAL] pthread_join called on unmapped thread! Trace will be corrupted.\n");
     }
     scheduler_thread_join_wait_begin((int)__wmm_current_tid());
     int ret = real_pthread_join(thread, retval);
@@ -964,7 +964,7 @@ uint64_t __attribute__((weak)) __instrument_rmw(uint64_t uid, void *addr, uint32
 
     if (forced) {
         WMM_RT_LOG("[WMM][runtime][kind=RMW_LOAD_FORCED][uid=%llx][thread_id=%lu][loc=%lu]\n",
-                   (unsigned long)uid,
+                   (unsigned long long)uid,
                    (unsigned long)__wmm_tls_event_thread_id,
                    (unsigned long)loc_id);
     }
@@ -1021,7 +1021,7 @@ static uint64_t wmm_cmpxchg_common(uint64_t uid, void *addr, uint64_t compare_va
     if (forced) {
         WMM_RT_LOG("[WMM][runtime][kind=%s_LOAD_FORCED][uid=%llx][thread_id=%lu][loc=%lu]\n",
                    is_weak ? "CAS_WEAK" : "CAS_STRONG",
-                   (unsigned long)uid,
+                   (unsigned long long)uid,
                    (unsigned long)__wmm_tls_event_thread_id,
                    (unsigned long)loc_id);
     }

@@ -29,7 +29,7 @@ BIN="${SCRIPT_DIR}/test_cas_unknown.out"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"; rm -f "$BIN"' EXIT
 
-clang -O0 -g -I"${RUNTIME_DIR}" -I"${REPO_ROOT}/Main/include" \
+clang -O0 -g -I"${RUNTIME_DIR}" -I"${REPO_ROOT}/main/include" \
       "${SCRIPT_DIR}/test_cas_weak.c" \
       -L"${RUNTIME_DIR}" -lwmm_runtime -lpthread -ldl -lrt -lstdc++ \
       -o "$BIN" || { echo "build failed"; exit 1; }

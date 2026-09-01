@@ -242,7 +242,7 @@ eg_node_t* eg_find_node_by_uid(eg_graph_t *g, uint64_t uid) {
 eg_node_t* eg_find_node_by_dynamic(eg_graph_t *g, uint64_t tid, long long iid, int vid) {
     if (!g) return NULL;
     for (int i=0; i<g->node_count; i++) {
-         EG_LOG("[eg-debug] Checking node id=%lu tid=%lu iid=%llx vid=%d against query tid=%lu iid=%llx vid=%d\n",
+         EG_LOG("[eg-debug] Checking node id=%llu tid=%llu iid=%llx vid=%d against query tid=%llu iid=%llx vid=%d\n",
              (unsigned long long)g->nodes[i].id,
              (unsigned long long)g->nodes[i].tid,
              g->nodes[i].instruction_id,
@@ -502,13 +502,13 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                         if (tid_node && instr_node) {
                             uint64_t tid = json_to_u64(tid_node, 0);
                             long long instr = json_to_ll(instr_node, 0);
-                            EG_LOG("Looking up read node for RF edge: tid=%du, instr=%lld, visit_id=%d\n",
+                            EG_LOG("Looking up read node for RF edge: tid=%lu, instr=%lld, visit_id=%d\n",
                                 tid, instr, visit_id);
                             eg_node_t *n = eg_find_node_by_dynamic(g, tid, instr, visit_id);
                             if (n) {
                                 read_id = n->id;
                             } else {
-                                fprintf(stderr, "[EGF] Error: Read event not found for RF edge: tid=%du, instr=%lld, visit_id=%d\n",
+                                fprintf(stderr, "[EGF] Error: Read event not found for RF edge: tid=%lu, instr=%lld, visit_id=%d\n",
                                     tid, instr, visit_id);
                                 exit(EXIT_EVENT_NOT_FOUND);
                             }
@@ -516,7 +516,7 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                     } else if (to_item && (to_item->tag == JSON_NUMBER || to_item->tag == JSON_STRING)) {
                         read_id = json_to_u64(to_item, -1);
                     }
-                    EG_LOG("[eg-debug] Parsed RF edge from JSON: write_id=%d read_id=%d\n", write_id, read_id);
+                    EG_LOG("[eg-debug] Parsed RF edge from JSON: write_id=%lu read_id=%lu\n", write_id, read_id);
                     if (write_id != -1 && read_id != -1) {
                         eg_node_t *wn = eg_find_node_by_id(g, write_id);
                         eg_node_t *rn = eg_find_node_by_id(g, read_id);
@@ -524,14 +524,14 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                             /* Only an event that stores can be read from. A failed
                              * CAS is a legal rf DEST but never a legal rf SOURCE. */
                             if (wn && !eg_is_write_like(wn->type)) {
-                                fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW/CAS_SUCCESS. Found type %d (id=%d)\n", wn->type, write_id);
+                                fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW/CAS_SUCCESS. Found type %d (id=%lu)\n", wn->type, write_id);
                              exit(EXIT_RF_TYPE_MISMATCH);
                         }
                             if (rn && !eg_is_read_like(rn->type)) {
-                                fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW/CAS_*. Found type %d (id=%d)\n", rn->type, read_id);
+                                fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW/CAS_*. Found type %d (id=%lu)\n", rn->type, read_id);
                              exit(EXIT_RF_TYPE_MISMATCH);
                         }
-                        EG_LOG("[eg-debug] Adding RF edge: write_id=(%d) -> read_id=(%d)\n", write_id, read_id);
+                        EG_LOG("[eg-debug] Adding RF edge: write_id=(%lu) -> read_id=(%lu)\n", write_id, read_id);
                         eg_add_edge_rf(g, write_id, read_id);
                     }
                 }
