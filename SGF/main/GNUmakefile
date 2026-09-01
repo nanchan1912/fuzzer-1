@@ -31,9 +31,6 @@ PROGNAME    = afl
 VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f2)
 
 PROGS       = sgf-fuzz sgf-showmap sgf-tmin sgf-gotcpu sgf-analyze
-SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-cmin.py afl-whatsup afl-addseeds afl-system-config afl-persistent-config sgf-cc
-HEADERS     = include/data_race.hpp include/sgf-fuzz.h include/sgf-mutations.h include/skeleton_graph_mutator.hpp include/sgf-persistent-replay.h include/sgf-prealloc.h include/sgf-record-compat.h include/alloc-inl.h include/android-ashmem.h include/cmplog.h include/common.h include/config.h include/coverage-32.h include/coverage-64.h include/debug.h include/envs.h include/forkserver.h include/hash.h include/list.h include/sharedmem.h include/snapshot-inl.h include/t1ha.h include/t1ha0_ia32aes_b.h include/t1ha_bits.h include/t1ha_selfcheck.h include/types.h include/xxhash.h include/sgf-ijon-min.h include/skeleton_potential.hpp include/skeleton_graph.hpp include/retgraph_shm.h include/shm_next_events.h include/sgf-queue.h
-MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8)
 ASAN_OPTIONS=detect_leaks=0
 
 SYS = $(shell uname -s)

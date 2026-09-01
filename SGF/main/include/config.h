@@ -279,7 +279,7 @@
 #define TRIM_END_STEPS 1024
 
 /* Maximum size of input file, in bytes (keep under 100MB, default 1MB):
-   (note that if this value is changed, several areas in sgf-cc.c, sgf-fuzz.c
+   (note that if this value is changed, several areas in sgf-fuzz.c
    and sgf-fuzz-state.c have to be changed as well! */
 
 #define MAX_FILE (1 * 1024 * 1024L)
