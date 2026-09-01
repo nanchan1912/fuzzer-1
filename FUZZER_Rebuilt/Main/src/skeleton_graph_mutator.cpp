@@ -1727,14 +1727,30 @@ static bool can_enable_visit(const SkeletonGraph* graph, int event_id, int tid, 
 }
 
 void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, vector<Event*> parent_events) {
-    //Changed the if statement to accomodate the vector as parent_event is changed to vector<Event*> from Event*
+    const EventID new_event_id = new_event.get_event_id();
+
+    // 1. Add TCJ edges for any cross-thread parents explicitly passed (e.g. from feedback source_nodes)
+    for (const Event* par : parent_events) {
+        if (par != nullptr && par->get_thread_id() != new_event.get_thread_id()) {
+            const EventID& pred_event_id = par->get_event_id();
+            if (graph->get_event_by_id(pred_event_id) != nullptr) {
+                auto& tcj_vec = graph->get_tcj()[pred_event_id];
+                if (std::find(tcj_vec.begin(), tcj_vec.end(), new_event_id) == tcj_vec.end()) {
+                    graph->add_tcj(pred_event_id, new_event_id);
+                }
+            }
+        }
+    }
+
+    // Changed the if statement to accomodate the vector as parent_event is changed to vector<Event*> from Event*
     if (new_event.get_visit_id() > 1 && !parent_events.empty()) {
-        for(Event* par:parent_events){
-            if(par->get_thread_id() == new_event.get_thread_id())
+        for (Event* par : parent_events) {
+            if (par->get_thread_id() == new_event.get_thread_id())
                 return;
         }
     }
 
+    // 2. Add TCJ edges from static CFG cross-thread predecessors
     const int static_id = cfg_new.resolve_event_id(new_event.get_thread_id(), new_event.get_instruction_id());
     if (static_id < 0) {
         return;
@@ -1744,8 +1760,6 @@ void add_cfg_incoming_tcj_edges(SkeletonGraph* graph, const Event& new_event, ve
     if (cfg_it == cfg_new.nodes.end()) {
         return;
     }
-
-    const EventID new_event_id = new_event.get_event_id();
 
     std::unordered_set<ThreadID> cross_thread_pred_threads;
     for (int pred_id : cfg_it->second.pred) {
@@ -2210,7 +2224,7 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
     } else{
         // ACTF("[FEEDBACK-MUTATOR] using CFG-derived next-event selection");
         //collect_enabled_events is called only if the feedback is not expected
-        if (!initialized) {
+        if (!initialized && !eg_file.empty()) {
             parse_program_abstraction(eg_file.string(), cfg_new);
             // TODO: will be done only if feedack is disabled, to do correctly after discussing for with feedback also.
             // Initializing potential cache 
