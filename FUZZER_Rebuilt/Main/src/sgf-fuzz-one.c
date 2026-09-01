@@ -301,7 +301,7 @@ struct queue_entry* mutate_run_enqueue_graph(sgf_state_t* sgf, struct queue_entr
     skeleton_graph_seen_or_add(sgf, mutated_graph_metadata->skeleton_graph);
 
     /* Write graph */
-    char *filename = alloc_printf("%s/queue/id:%06u,src:%06u.json", sgf->out_dir, sgf->queued_items, parent->id);
+    char *filename = alloc_printf("%s/queue/id:%06u,src:%06u.json", sgf->out_dir, sgf->max_queued_id, parent->id);
     size_t json_len = 0;
     if (sgf->log_graph_run_details) {
       json_len = write_to_json(filename, mutated_graph_metadata->skeleton_graph);

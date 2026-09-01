@@ -565,6 +565,12 @@ src/event_pair_set.o: src/event_pair_set.c \
     include/event_pair_set.h
 	$(CC) $(CFLAGS) -c src/event_pair_set.c -o $@
 
+src/skeleton_queue_pruning.o: src/skeleton_queue_pruning.cpp \
+	include/skeleton_queue_pruning.hpp \
+	include/skeleton_graph.hpp \
+	include/potential_nn.h
+	$(CXX) $(CXXFLAGS) -c src/skeleton_queue_pruning.cpp -o $@
+
 # --- Final target: sgf-fuzz ---
 sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
           $(AFL_FUZZ_FILES:.c=.o) \
@@ -600,6 +606,7 @@ sgf-fuzz: $(COMM_HDR) include/sgf-fuzz.h \
 	    src/skeleton_rf_footprint.o \
 	    src/potential_nn.o \
 	    src/skeleton_mutator_helper.o \
+	    src/skeleton_queue_pruning.o \
 	    src/event_pair_set.o \
 	    src/diversity_checker.o \
 	    src/retgraph_shm.o \

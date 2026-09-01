@@ -3006,7 +3006,8 @@ int main(int argc, char **argv_orig, char **envp) {
     cull_queue(sgf);
 
     if (unlikely((!sgf->old_seed_selection &&
-                  runs_in_current_cycle > sgf->queued_items) ||
+                  runs_in_current_cycle > sgf->queued_items &&
+                  runs_in_current_cycle >= sgf->min_phase_runs) ||
                  (sgf->old_seed_selection && !sgf->queue_cur))) {
 
       if (unlikely((sgf->last_sync_cycle < sgf->queue_cycle ||
@@ -3028,6 +3029,19 @@ int main(int argc, char **argv_orig, char **envp) {
       if (sgf->sgf_env.sgf_no_ui) {
 
         ACTF("Entering queue cycle %llu\n", sgf->queue_cycle);
+
+      }
+
+      if (sgf->clear_queue_after_phases && sgf->queue_cycle > 1 &&
+          (sgf->queue_cycle - 1) % 3 == 0) {
+
+        u32 growth_req = sgf->queue_growth_threshold ? sgf->queue_growth_threshold : (2 * sgf->keep_entries_per_edge);
+        if (sgf->queued_items >= growth_req ||
+            (sgf->last_cleared_queue_count > 0 && sgf->queued_items > sgf->last_cleared_queue_count + growth_req)) {
+
+          clear_and_compact_queue_after_phases(sgf, sgf->keep_entries_per_edge);
+
+        }
 
       }
 

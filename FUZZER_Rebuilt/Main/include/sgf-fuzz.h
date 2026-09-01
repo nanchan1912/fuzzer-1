@@ -552,7 +552,11 @@ typedef struct sgf_env_vars {
       sgf_forksrv_gid_set,
       // By us
       check_data_race, enable_feedback, skeleton_graph_stage_max, cutoff_percentile, sc_mode,
-      log_graph_run_details, complete_graph_budget;
+      log_graph_run_details, complete_graph_budget, clear_queue_after_phases;
+
+  u32 keep_entries_per_edge;
+  u32 min_phase_runs;
+  u32 queue_growth_threshold;
 
   u16 sgf_forksrv_nb_supl_gids;
 
@@ -687,6 +691,13 @@ typedef struct sgf_state {
   u32 rf_coverage;
 
   u8  *static_program_abstraction;
+
+  u8  clear_queue_after_phases;         /* Clear queue after completing all mutation phases once */
+  u32 keep_entries_per_edge;            /* Number of top entries to keep per MO/RF edge (default: 10) */
+  u32 min_phase_runs;                   /* Minimum fuzzing runs before completing a phase cycle */
+  u32 queue_growth_threshold;           /* Minimum queue growth required to trigger compaction */
+  u32 last_cleared_queue_count;         /* Queue count at last compaction */
+  u32 max_queued_id;                    /* Monotonic ID counter for queue filenames */
   // End changes by us
 
   u8 *in_dir,                           /* Input directory with test cases  */
@@ -1394,12 +1405,26 @@ u8 save_if_interesting_skeleton(sgf_state_t *, const struct SkeletonGraph *,
 void save_race_if_interesting(sgf_state_t *sgf, const struct SkeletonGraphData *sgi);
 bool is_sc_consistent_c(const struct SkeletonGraph *graph);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void clear_and_compact_queue_after_phases(sgf_state_t *, uint32_t);
+#ifdef __cplusplus
+}
+#endif
+
 // Opaque race-pair store managed by data_race.cpp.
 // The pointer is intentionally untyped here so callers only use the helper API.
 // Create an empty opaque race-pair store.
 void* race_pair_store_create(void);
 // Destroy an opaque race-pair store.
+#ifdef __cplusplus
+extern "C" {
+#endif
 void  race_pair_store_destroy(void* race_pair_store);
+#ifdef __cplusplus
+}
+#endif
 // Clone an opaque race-pair store.
 void* race_pair_store_clone(const void* race_pair_store);
 // Return the number of stored race pairs.
@@ -1535,7 +1560,13 @@ double get_runnable_processes(void);
 void   nuke_resume_dir(sgf_state_t *);
 int    check_main_node_exists(sgf_state_t *);
 u32    select_next_queue_entry(sgf_state_t *sgf);
+#ifdef __cplusplus
+extern "C" {
+#endif
 void   create_alias_table(sgf_state_t *sgf);
+#ifdef __cplusplus
+}
+#endif
 void   setup_dirs_fds(sgf_state_t *);
 void   setup_cmdline_file(sgf_state_t *, char **);
 void   setup_stdio_file(sgf_state_t *);

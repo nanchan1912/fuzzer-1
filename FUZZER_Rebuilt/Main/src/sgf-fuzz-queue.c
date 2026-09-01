@@ -800,7 +800,7 @@ void add_to_queue(sgf_state_t *sgf, u8 *fname, u32 len, u8 passed_det) {
       SGF_BUF_PARAM(queue), sgf->queued_items * sizeof(struct queue_entry *));
   if (unlikely(!queue_buf)) { PFATAL("alloc"); }
   queue_buf[sgf->queued_items - 1] = q;
-  q->id = sgf->queued_items - 1;
+  q->id = sgf->max_queued_id++;
   if (q->graph_data) {
     q->graph_data->id = q->id;
   }

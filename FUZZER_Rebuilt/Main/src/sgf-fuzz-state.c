@@ -124,12 +124,23 @@ void afl_state_init(sgf_state_t *sgf, uint32_t map_size) {
   sgf->complete_graph_budget = 32;
   sgf->log_graph_run_details = 0;
 
+  sgf->clear_queue_after_phases = 0;
+  sgf->keep_entries_per_edge = 10;
+  sgf->min_phase_runs = 0;
+  sgf->queue_growth_threshold = 20;
+  sgf->last_cleared_queue_count = 0;
+  sgf->max_queued_id = 0;
+
   sgf->sgf_env.skeleton_graph_stage_max = 3;
   sgf->sgf_env.check_data_race = 0;
   sgf->sgf_env.enable_feedback = 0;
   sgf->sgf_env.cutoff_percentile = 1;
   sgf->sgf_env.complete_graph_budget = 32;
   sgf->sgf_env.log_graph_run_details = 0;
+  sgf->sgf_env.clear_queue_after_phases = 0;
+  sgf->sgf_env.keep_entries_per_edge = 10;
+  sgf->sgf_env.min_phase_runs = 0;
+  sgf->sgf_env.queue_growth_threshold = 20;
 
 #ifdef HAVE_AFFINITY
   sgf->cpu_aff = -1;                    /* Selected CPU core                */
@@ -336,6 +347,38 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
             u8 *val = (u8 *)get_afl_env(sgf_environment_variables[i]);
             sgf->sgf_env.complete_graph_budget = val ? (u32)atoi((char *)val) : 32;
             sgf->complete_graph_budget = sgf->sgf_env.complete_graph_budget;
+
+          } else if(!strncmp(env, "SGF_CLEAR_QUEUE_AFTER_PHASES", sgf_environment_variable_len)){
+            char *cval = get_afl_env(sgf_environment_variables[i]);
+            if (cval) {
+              sgf->sgf_env.clear_queue_after_phases = (u8)atoi(cval);
+              sgf->clear_queue_after_phases = sgf->sgf_env.clear_queue_after_phases;
+            } else {
+              sgf->clear_queue_after_phases = 0;
+            }
+
+          } else if(!strncmp(env, "SGF_KEEP_ENTRIES_PER_EDGE", sgf_environment_variable_len)){
+            char *cval = get_afl_env(sgf_environment_variables[i]);
+            if (cval) {
+              sgf->sgf_env.keep_entries_per_edge = (u32)atoi(cval);
+              sgf->keep_entries_per_edge = sgf->sgf_env.keep_entries_per_edge ? sgf->sgf_env.keep_entries_per_edge : 10;
+            } else {
+              sgf->keep_entries_per_edge = 10;
+            }
+
+          } else if(!strncmp(env, "SGF_MIN_PHASE_RUNS", sgf_environment_variable_len)){
+            char *cval = get_afl_env(sgf_environment_variables[i]);
+            if (cval) {
+              sgf->sgf_env.min_phase_runs = (u32)atoi(cval);
+              sgf->min_phase_runs = sgf->sgf_env.min_phase_runs;
+            }
+
+          } else if(!strncmp(env, "SGF_QUEUE_GROWTH_THRESHOLD", sgf_environment_variable_len)){
+            char *cval = get_afl_env(sgf_environment_variables[i]);
+            if (cval) {
+              sgf->sgf_env.queue_growth_threshold = (u32)atoi(cval);
+              sgf->queue_growth_threshold = sgf->sgf_env.queue_growth_threshold;
+            }
 
           }
           else if (!strncmp(env, "SGF_SKIP_CPUFREQ", sgf_environment_variable_len)) {
@@ -976,6 +1019,13 @@ void read_afl_environment(sgf_state_t *sgf, char **envp) {
 
     OKF("Pizza easter egg mode is now disabled.");
 
+  }
+
+  if (sgf->clear_queue_after_phases) {
+    if (!sgf->min_phase_runs) {
+      sgf->min_phase_runs = 100;
+      sgf->sgf_env.min_phase_runs = 100;
+    }
   }
 
   if (issue_detected) { sleep(2); }
