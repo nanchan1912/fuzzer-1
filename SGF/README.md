@@ -17,10 +17,10 @@ A standalone concurrency fuzzer that mutates an abstract graph of memory events 
 
 ### 1. Unified One-Command Runner (`run.sh`)
 
-The easiest way to run testcases and benchmarks is the unified [`run.sh`](run.sh) at the root of `FUZZER_Rebuilt/`. It automatically builds `sgf-fuzz` and compiles testcase sources if needed.
+The easiest way to run testcases and benchmarks is the unified [`run.sh`](run.sh) at the root of `SGF/`. It automatically builds `sgf-fuzz` and compiles testcase sources if needed.
 
 ```bash
-cd FUZZER_Rebuilt
+cd SGF
 
 # Built-in testcases (10s default duration)
 ./run.sh msg_passing          # Message Passing (alias: mp)
@@ -67,7 +67,7 @@ cd FUZZER_Rebuilt
 ### 2. Manual Build & Run
 
 ```bash
-cd FUZZER_Rebuilt/Main
+cd SGF/main
 make sgf-fuzz           # just the fuzzer
 make all                 # sgf-fuzz, sgf-showmap, sgf-tmin, sgf-gotcpu, sgf-analyze
 bash test_all_queues.sh  # sanity-check all 4 queue implementations
@@ -160,7 +160,7 @@ Unlike the built-in testcases, these ship as raw source — you generate each be
 ### Generating a benchmark
 
 ```bash
-cd FUZZER_Rebuilt/pthread_version_of_benchmarks
+cd SGF/pthread_version_of_benchmarks
 ./generate_one.sh barrier      # or any other benchmark name
 ```
 
@@ -169,7 +169,7 @@ This runs the real pipeline for that one benchmark: compile to LLVM IR → SVF s
 ### Fuzzing a generated benchmark
 
 ```bash
-cd FUZZER_Rebuilt
+cd SGF
 ./run.sh barrier
 ./run.sh barrier -q runner_up -c        # a different queue, until first crash
 ```
@@ -177,7 +177,7 @@ cd FUZZER_Rebuilt
 ### Comparing all 4 queues on a benchmark
 
 ```bash
-cd FUZZER_Rebuilt
+cd SGF
 for impl in maxheap threshold_bucket runner_up maxheap_bucket; do
   echo "=== $impl ==="
   ./run.sh barrier -q "$impl" -t 60

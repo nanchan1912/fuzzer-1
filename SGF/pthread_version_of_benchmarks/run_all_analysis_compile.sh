@@ -48,6 +48,10 @@ benchmark_dirs=(
     "test-array"
     "test-struct"
     "test-mp"
+    # Minimal compare-and-swap coverage: the larger CAS benchmarks
+    # (ms-queue, mschange) starve before their cmpxchg is reached, so this is
+    # the one that actually exercises the CAS event path end to end.
+    "cas-simple"
 )
 
 declare CXX_BIN
@@ -305,13 +309,13 @@ EOF
         if [[ "$quiet_mode" -eq 1 ]]; then
             c_flags="$c_flags -DQUIET"
         fi
-        "$cc_bin" $c_flags -I"${REPO_ROOT}/Main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
-        # shm_next_events.cpp is C++ and lives under Main/src, not here -- it must be
+        "$cc_bin" $c_flags -I"${REPO_ROOT}/main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+        # shm_next_events.cpp is C++ and lives under main/src, not here -- it must be
         # compiled and archived too, or scheduler_terminate_locked's calls to
         # begin_update_c/finish_update_c are left undefined at link time for every
         # instrumented benchmark binary. This mirrors build_project()'s complete
         # rebuild below; this lighter auto-build path had drifted out of sync with it.
-        "$cxx_bin" -O0 -g -fPIC -I"${REPO_ROOT}/Main/include" -c "${REPO_ROOT}/Main/src/shm_next_events.cpp" -o shm_next_events.o
+        "$cxx_bin" -O0 -g -fPIC -I"${REPO_ROOT}/main/include" -c "${REPO_ROOT}/main/src/shm_next_events.cpp" -o shm_next_events.o
         ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o shm_next_events.o
         rm -f *.o
         popd > /dev/null
@@ -345,8 +349,8 @@ build_project() {
     # Rebuild WMM runtime static library
     log "Rebuilding WMM runtime static library..."
     local runtime_dir="${SCRIPT_DIR}/../src/wmm-runtime"
-    local wmm_src_dir="${SCRIPT_DIR}/../Main/src"
-    local wmm_include_dir="${SCRIPT_DIR}/../Main/include"
+    local wmm_src_dir="${SCRIPT_DIR}/../main/src"
+    local wmm_include_dir="${SCRIPT_DIR}/../main/include"
 
     pushd "$runtime_dir" > /dev/null
     local cc_bin="${CC_BIN}"
@@ -356,7 +360,7 @@ build_project() {
     if [[ "$quiet_mode" -eq 1 ]]; then
         c_flags="$c_flags -DQUIET"
     fi
-    "$cc_bin" $c_flags -I"${REPO_ROOT}/Main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
+    "$cc_bin" $c_flags -I"${REPO_ROOT}/main/include" -c assert.c eg.c json.c scheduler.c wmm_hooks.c
     "$cxx_bin" -O0 -g -fPIC -I"$wmm_include_dir" -c "$wmm_src_dir/shm_next_events.cpp" -o shm_next_events.o
     ar rcs libwmm_runtime.a assert.o eg.o json.o scheduler.o wmm_hooks.o shm_next_events.o
     rm -f *.o
@@ -782,6 +786,4 @@ main() {
     print_benchmarks_summary
 }
 
-setup_environment 0
-run_benchmark mcs-lock
-print_benchmarks_summary
+main "$@"

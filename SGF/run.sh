@@ -22,9 +22,9 @@ set -euo pipefail
 
 # Determine script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -d "$SCRIPT_DIR/Main" ]]; then
+if [[ -d "$SCRIPT_DIR/main" ]]; then
     ROOT_DIR="$SCRIPT_DIR"
-    MAIN_DIR="$SCRIPT_DIR/Main"
+    MAIN_DIR="$SCRIPT_DIR/main"
     BENCHMARKS_DIR="$SCRIPT_DIR/pthread_version_of_benchmarks"
 elif [[ -f "$SCRIPT_DIR/GNUmakefile" ]]; then
     MAIN_DIR="$SCRIPT_DIR"
