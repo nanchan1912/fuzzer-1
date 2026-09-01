@@ -458,11 +458,22 @@ static bool is_read_like_type(Event_Type type) {
            type == Event_Type::RMW;
 }
 
+static inline uint32_t smooth_rarity_weight(uint32_t freq, uint32_t max_w = 100, uint32_t min_w = 20) {
+    uint32_t log_val = (freq > 0) ? (31 - __builtin_clz(1 + freq)) : 0;
+    if (log_val > 5) log_val = 5;
+    uint32_t penalty = log_val * 15;
+    if (penalty >= max_w - min_w) {
+        return min_w;
+    }
+    return max_w - penalty;
+}
+
 static EventID choose_write_weighted(const std::set<EventID>& consistent_writes,
                                      const EventID& prev_write_id,
                                      bool has_prev_write,
                                      const EventID& read_event_id,
                                      int current_phase) {
+    (void)current_phase;
     if (consistent_writes.empty()) {
         return std::make_tuple(-1, -1, -1);
     }
@@ -470,7 +481,6 @@ static EventID choose_write_weighted(const std::set<EventID>& consistent_writes,
         return *consistent_writes.begin();
     }
 
-    const uint32_t rf_base_numerator = (current_phase == RF_FOOTPRINT_DRIVEN_PHASE) ? 5000 : 1000;
     EventTriple read_triple = {std::get<0>(read_event_id), std::get<1>(read_event_id), std::get<2>(read_event_id)};
 
     std::vector<std::pair<EventID, uint32_t>> weighted_writes;
@@ -480,12 +490,11 @@ static EventID choose_write_weighted(const std::set<EventID>& consistent_writes,
     for (const auto& wid : consistent_writes) {
         EventTriple w_triple = {std::get<0>(wid), std::get<1>(wid), std::get<2>(wid)};
         uint32_t freq = get_rf_footprint_edge_freq(w_triple, read_triple);
-        uint32_t w = rf_base_numerator / (1 + freq);
-        if (w < 1) w = 1;
+        uint32_t w = smooth_rarity_weight(freq, 100, 20);
 
         // If this write was read in a previous visit of the same loop, discount it to encourage loop variation
         if (has_prev_write && wid == prev_write_id) {
-            w = std::max(1U, w / 8);
+            w = std::max(10U, w / 2);
         }
 
         weighted_writes.push_back({wid, w});
@@ -794,9 +803,9 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
     // is rarely left unmutated.
     bool mutated = false;
     if (current_phase == PRUNING_PHASE) {
-        // Baseline 15:85 (Add:RF) -> with CAS: 15 (flip) : 13 (add) : 72 (rf)
+        // Baseline 25:75 (Add:RF) -> with CAS: 15 (flip) : 21 (add) : 64 (rf)
         if (!has_cas) {
-            if (skel_rand_below(101) < 15) {
+            if (skel_rand_below(101) < 25) {
                 mutated = try_add_node();
                 if (!mutated) {
                     mutated = try_mutate_rf();
@@ -813,7 +822,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                 mutated = try_flip_cas();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_add_node(); }
-            } else if (roll < 28) {
+            } else if (roll < 36) {
                 mutated = try_add_node();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_flip_cas(); }
@@ -855,7 +864,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
         // about the diversity of existing rf edges rather than growing new ones.
         // Baseline 25:75 (Add:RF) -> with CAS: 15 (flip) : 21 (add) : 64 (rf)
         if (!has_cas) {
-            if (skel_rand_below(101) < 25) {
+            if (skel_rand_below(101) < 50) {
                 mutated = try_add_node();
                 if (!mutated) {
                     mutated = try_mutate_rf();
@@ -872,7 +881,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                 mutated = try_flip_cas();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_add_node(); }
-            } else if (roll < 36) {
+            } else if (roll < 58) {
                 mutated = try_add_node();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_flip_cas(); }
@@ -883,9 +892,9 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
             }
         }
     } else if (current_phase == MO_FOOTPRINT_DRIVEN_PHASE) {
-        // Baseline 75:25 (Add:RF) -> with CAS: 15 (flip) : 64 (add) : 21 (rf)
+        // Baseline 70:30 (Add:RF) -> with CAS: 15 (flip) : 60 (add) : 25 (rf)
         if (!has_cas) {
-            if (skel_rand_below(101) < 75) {
+            if (skel_rand_below(101) < 70) {
                 mutated = try_add_node();
                 if (!mutated) {
                     mutated = try_mutate_rf();
@@ -899,7 +908,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                 mutated = try_flip_cas();
                 if (!mutated) { mutated = try_add_node(); }
                 if (!mutated) { mutated = try_mutate_rf(); }
-            } else if (roll < 79) {
+            } else if (roll < 75) {
                 mutated = try_add_node();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_flip_cas(); }
@@ -909,9 +918,9 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
             }
         }
     } else {
-        // Baseline 50:50 (Add:RF) -> with CAS: 15 (flip) : 43 (add) : 42 (rf)
+        // Baseline 60:40 (Add:RF) -> with CAS: 15 (flip) : 51 (add) : 34 (rf)
         if (!has_cas) {
-            if (skel_rand_below(101) < 50) {
+            if (skel_rand_below(101) < 60) {
                 mutated = try_add_node();
                 if (!mutated) {
                     mutated = try_mutate_rf();
@@ -925,7 +934,7 @@ SkeletonGraph* mutate_skeleton_graph(SkeletonGraph* original,
                 mutated = try_flip_cas();
                 if (!mutated) { mutated = try_add_node(); }
                 if (!mutated) { mutated = try_mutate_rf(); }
-            } else if (roll < 58) {
+            } else if (roll < 66) {
                 mutated = try_add_node();
                 if (!mutated) { mutated = try_mutate_rf(); }
                 if (!mutated) { mutated = try_flip_cas(); }
@@ -1268,8 +1277,7 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
         }
 
         if (!available_writes.empty()) {
-            // Direct RF mutation: A new alternate write was found using RF-guided inverse-frequency selection
-            const uint32_t rf_base_numerator = (current_phase == RF_FOOTPRINT_DRIVEN_PHASE) ? 5000 : 1000;
+            // Direct RF mutation: A new alternate write was found using smooth RF-guided inverse-frequency selection
             EventTriple read_triple = {
                 std::get<0>(read_event_id_copy),
                 std::get<1>(read_event_id_copy),
@@ -1283,8 +1291,7 @@ SkeletonGraph* mutate_rf_edge(SkeletonGraph* graph, int current_phase, void* cur
             for (const auto& wid : available_writes) {
                 EventTriple w_triple = {std::get<0>(wid), std::get<1>(wid), std::get<2>(wid)};
                 uint32_t freq = get_rf_footprint_edge_freq(w_triple, read_triple);
-                uint32_t w = rf_base_numerator / (1 + freq);
-                if (w < 1) w = 1;
+                uint32_t w = smooth_rarity_weight(freq, 100, 20);
                 write_weights.push_back(w);
                 total_w += w;
             }
@@ -2225,86 +2232,150 @@ std::pair<Event*, vector<Event*>> get_a_new_event(SkeletonGraph* graph, int curr
     // }
 
     if (selected_index < 0) {
-        // 1. Classify spinning reads
+        // 1. Group enabled candidate event indices by thread and classify spinning reads
+        std::unordered_map<ThreadID, std::vector<int>> enabled_by_thread;
         std::vector<bool> is_spinning(enabled.size(), false);
+
         for (size_t i = 0; i < enabled.size(); ++i) {
             if (enabled[i].event) {
+                ThreadID tid = enabled[i].event->get_thread_id();
+                enabled_by_thread[tid].push_back(static_cast<int>(i));
                 if (is_spinning_read_without_alternate_write(graph, enabled[i], current_potential)) {
                     is_spinning[i] = true;
                 }
             }
         }
 
-        // 2. Compute dynamic MO-guided candidate weights
-        // Direct MO-frequency candidate selection:
-        // Write-like events (WRITE, RMW, CAS_SUCCESS) get weights inversely proportional to their
-        // historical MO-edge frequency with the current last write on the same memory location:
-        //   W(cand) = (mo_numerator) / (1 + get_mo_edge_freq(w_last -> cand))
-        // This directly drives discovery of unseen and rare MO-next edges across threads.
-        std::vector<uint32_t> candidate_weights;
-        candidate_weights.reserve(enabled.size());
-        uint64_t total_weight = 0;
-
-        const uint32_t mo_base_numerator = (current_phase == MO_FOOTPRINT_DRIVEN_PHASE) ? 5000 : 1000;
-
-        for (size_t i = 0; i < enabled.size(); ++i) {
-            const auto* ev = enabled[i].event.get();
-            if (!ev) {
-                candidate_weights.push_back(0);
-                continue;
-            }
-
-            uint32_t weight = 100; // Baseline weight for non-write events (READ, FENCE, CAS_FAIL)
-            Event_Type ev_type = ev->get_event_type();
-
-            if (ev_type == Event_Type::WRITE || ev_type == Event_Type::RMW || ev_type == Event_Type::CAS_SUCCESS) {
-                std::string loc = ev->get_location();
-                const Event* mo_last = graph->get_mo_last_event(loc);
-                uint32_t freq = 0;
-                bool cross_thread = false;
-
-                if (mo_last != nullptr) {
-                    EventTriple mo_last_triple = {
-                        mo_last->get_thread_id(),
-                        mo_last->get_instruction_id(),
-                        mo_last->get_visit_id()
-                    };
-                    EventTriple cand_triple = {
-                        ev->get_thread_id(),
-                        ev->get_instruction_id(),
-                        ev->get_visit_id()
-                    };
-                    freq = get_mo_edge_freq(mo_last_triple, cand_triple);
-                    cross_thread = (mo_last->get_thread_id() != ev->get_thread_id());
+        // Check which threads have only spinning candidates vs at least one non-spinning candidate
+        std::unordered_map<ThreadID, bool> thread_all_spinning;
+        for (const auto& pair : enabled_by_thread) {
+            bool all_spin = true;
+            for (int idx : pair.second) {
+                if (!is_spinning[idx]) {
+                    all_spin = false;
+                    break;
                 }
-
-                // MO rarity score: inversely proportional to historical edge frequency
-                uint32_t mo_w = mo_base_numerator / (1 + freq);
-                if (mo_w < 1) mo_w = 1;
-
-                // Cross-thread write interleaving bonus (rewards interleaving writes across threads)
-                if (cross_thread) {
-                    mo_w *= 2;
-                }
-                weight = mo_w;
-            } else if (is_spinning[i]) {
-                // Heavily penalize spinning reads that have no alternate writes yet
-                weight = 10;
             }
-
-            candidate_weights.push_back(weight);
-            total_weight += weight;
+            thread_all_spinning[pair.first] = all_spin;
         }
 
-        // 3. Sample candidate proportionally to dynamic weight
-        if (total_weight > 0) {
-            u32 r = skel_rand_below(static_cast<u32>(std::min<uint64_t>(total_weight, UINT32_MAX)));
+        // 2. Compute fair thread weights to prevent thread starvation
+        std::vector<std::pair<ThreadID, uint64_t>> thread_weights;
+        uint64_t total_thread_weight = 0;
+
+        if (thread_counts_valid) {
+            const auto& po_map = graph->get_threadwise_po();
+            for (const auto& pair : enabled_by_thread) {
+                ThreadID tid = pair.first;
+                int expected_count = 0;
+                auto it = expected_thread_counts.find(tid);
+                if (it != expected_thread_counts.end()) {
+                    expected_count = it->second;
+                }
+
+                int current_count = 0;
+                auto po_it = po_map.find(tid);
+                if (po_it != po_map.end()) {
+                    current_count = static_cast<int>(po_it->second.size());
+                }
+
+                uint64_t weight = static_cast<uint64_t>(std::max(0, expected_count - current_count));
+                if (thread_all_spinning[tid] && weight > 1) {
+                    weight = std::max<uint64_t>(1ULL, weight / 8);
+                }
+                thread_weights.push_back({tid, weight});
+                total_thread_weight += weight;
+            }
+        }
+
+        if (total_thread_weight == 0) {
+            thread_weights.clear();
+            total_thread_weight = 0;
+            const uint64_t BASE_WEIGHT = 10;
+
+            for (const auto& pair : enabled_by_thread) {
+                ThreadID tid = pair.first;
+                uint64_t weight = BASE_WEIGHT;
+                if (thread_all_spinning[tid]) {
+                    weight = 1;
+                }
+                thread_weights.push_back({tid, weight});
+                total_thread_weight += weight;
+            }
+        }
+
+        // 3. Sample a thread proportionally to its weight, then pick candidate within that thread using smooth rarity
+        if (total_thread_weight > 0) {
+            u32 r = skel_rand_below(static_cast<u32>(std::min<uint64_t>(total_thread_weight, UINT32_MAX)));
             uint64_t cumulative = 0;
-            for (size_t i = 0; i < candidate_weights.size(); ++i) {
-                cumulative += candidate_weights[i];
+            ThreadID selected_tid = -1;
+            for (const auto& tw : thread_weights) {
+                cumulative += tw.second;
                 if (r < cumulative) {
-                    selected_index = static_cast<int>(i);
+                    selected_tid = tw.first;
                     break;
+                }
+            }
+
+            if (selected_tid != -1) {
+                const auto& event_indices = enabled_by_thread[selected_tid];
+                if (!event_indices.empty()) {
+                    // Score candidates within the selected thread using smooth MO rarity
+                    std::vector<std::pair<int, uint32_t>> candidate_weights;
+                    uint32_t thread_cand_total = 0;
+
+                    for (int ev_idx : event_indices) {
+                        const auto* ev = enabled[ev_idx].event.get();
+                        if (!ev) continue;
+
+                        uint32_t weight = 70; // Baseline weight for non-write events
+                        Event_Type ev_type = ev->get_event_type();
+
+                        if (ev_type == Event_Type::WRITE || ev_type == Event_Type::RMW || ev_type == Event_Type::CAS_SUCCESS) {
+                            std::string loc = ev->get_location();
+                            const Event* mo_last = graph->get_mo_last_event(loc);
+                            uint32_t freq = 0;
+                            bool cross_thread = false;
+
+                            if (mo_last != nullptr) {
+                                EventTriple mo_last_triple = {
+                                    mo_last->get_thread_id(),
+                                    mo_last->get_instruction_id(),
+                                    mo_last->get_visit_id()
+                                };
+                                EventTriple cand_triple = {
+                                    ev->get_thread_id(),
+                                    ev->get_instruction_id(),
+                                    ev->get_visit_id()
+                                };
+                                freq = get_mo_edge_freq(mo_last_triple, cand_triple);
+                                cross_thread = (mo_last->get_thread_id() != ev->get_thread_id());
+                            }
+
+                            uint32_t mo_w = smooth_rarity_weight(freq, 100, 20);
+                            if (cross_thread) {
+                                mo_w = std::min(100U, mo_w + 15U);
+                            }
+                            weight = mo_w;
+                        } else if (is_spinning[ev_idx]) {
+                            weight = 20;
+                        }
+
+                        candidate_weights.push_back({ev_idx, weight});
+                        thread_cand_total += weight;
+                    }
+
+                    if (thread_cand_total > 0) {
+                        u32 r_cand = skel_rand_below(thread_cand_total);
+                        uint32_t cand_cum = 0;
+                        for (const auto& cw : candidate_weights) {
+                            cand_cum += cw.second;
+                            if (r_cand < cand_cum) {
+                                selected_index = cw.first;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
