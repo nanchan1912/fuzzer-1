@@ -537,6 +537,20 @@ extern "C" void destroy_SkeletonGraph(SkeletonGraph* graph) {
     delete graph;
 }
 
+extern "C" uint32_t get_skeleton_graph_depth(const SkeletonGraph* graph) {
+    if (!graph) return 0;
+    return graph->get_depth();
+}
+
+extern "C" void set_skeleton_graph_depth(SkeletonGraph* graph, uint32_t depth) {
+    if (graph) graph->set_depth(depth);
+}
+
+extern "C" uint32_t compute_skeleton_graph_depth(const SkeletonGraph* graph) {
+    if (!graph) return 0;
+    return graph->count_cross_thread_rf();
+}
+
 struct EventIDPairHash {
     std::size_t operator()(const std::pair<EventID, EventID>& p) const noexcept {
         TripleHash th;
@@ -1150,6 +1164,17 @@ void remove_po_rf_sw_successors(SkeletonGraph& graph, const EventID& target){
 
     // Delete every collected event.
     for (const auto& event : deletion_order){
+        // Decrement depth if this removed event had an incoming cross-thread RF
+        auto rf_rev_it = graph.get_rf_reverse().find(event);
+        if (rf_rev_it != graph.get_rf_reverse().end() && !rf_rev_it->second.empty()) {
+            for (const auto& w_id : rf_rev_it->second) {
+                if (std::get<0>(w_id) != std::get<0>(event)) {
+                    if (graph.get_depth() > 0) {
+                        graph.set_depth(graph.get_depth() - 1);
+                    }
+                }
+            }
+        }
         remove_event(graph, event);
     }
 
@@ -1176,6 +1201,12 @@ void disconnect_read(SkeletonGraph& graph, const EventID& read){
         assert(rf_rev_it->second.size() == 1);
 
         const EventID& write = rf_rev_it->second.front();
+
+        if (std::get<0>(write) != std::get<0>(read)) {
+            if (graph.get_depth() > 0) {
+                graph.set_depth(graph.get_depth() - 1);
+            }
+        }
 
         auto rf_it = rf.find(write);
         if (rf_it != rf.end()) {

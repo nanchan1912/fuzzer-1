@@ -62,6 +62,8 @@ protected:
     EdgeMap tcj;           // thread-create-join
     EdgeMap tcj_reverse;   // reverse thread-create-join
 
+    uint32_t depth;        // depth: number of cross-thread RF edges in this skeleton graph
+
 public:
     // Constructor
     SkeletonGraph() {
@@ -78,6 +80,7 @@ public:
         mo_position_map = std::unordered_map<EventID, std::size_t, TripleHash>{};
         tcj = EdgeMap{};
         tcj_reverse = EdgeMap{};
+        depth = 0;
     }
 
     // Destructor
@@ -128,6 +131,24 @@ public:
 
     const EdgeMap& get_tcj_reverse() const { return tcj_reverse; }
     EdgeMap& get_tcj_reverse() { return tcj_reverse; }
+
+    uint32_t get_depth() const { return depth; }
+    void set_depth(uint32_t d) { depth = d; }
+
+    // Count cross-thread RF edges: (from_write, to_read) where from_write.thread != to_read.thread
+    uint32_t count_cross_thread_rf() const {
+        uint32_t count = 0;
+        for (const auto& [to_read, from_writes] : rf_reverse) {
+            for (const auto& from_write : from_writes) {
+                if (std::get<0>(from_write) != std::get<0>(to_read)) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    void update_depth() { depth = count_cross_thread_rf(); }
 
     Event* get_event_by_id(const EventID& id) {
         auto it = events.find(id);
@@ -204,6 +225,9 @@ public:
     void add_rf(EventID from, EventID to) {
         rf[from].push_back(to);
         rf_reverse[to].push_back(from);
+        if (std::get<0>(from) != std::get<0>(to)) {
+            depth++;
+        }
     }
 
     void add_sw(EventID from, EventID to) {
@@ -372,6 +396,7 @@ public:
 
         rebuild_event_type_sets();
         rebuild_last_visit();
+        update_depth();
     }
 
     // Pretty printer
