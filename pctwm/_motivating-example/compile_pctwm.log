@@ -1,0 +1,19 @@
+/mnt/d/IIITH/sirji/pctwm/_motivating-example/motivating-example.cc:60:13: warning: 'pthread_yield' is deprecated: pthread_yield is deprecated, use sched_yield instead [-Wdeprecated-declarations]
+            pthread_yield();
+            ^
+/usr/include/pthread.h:480:3: note: 'pthread_yield' has been explicitly marked deprecated here
+  __attribute_deprecated_msg__ ("\
+  ^
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:367:19: note: expanded from macro '__attribute_deprecated_msg__'
+         __attribute__ ((__deprecated__ (msg)))
+                         ^
+/mnt/d/IIITH/sirji/pctwm/_motivating-example/motivating-example.cc:73:13: warning: 'pthread_yield' is deprecated: pthread_yield is deprecated, use sched_yield instead [-Wdeprecated-declarations]
+            pthread_yield();
+            ^
+/usr/include/pthread.h:480:3: note: 'pthread_yield' has been explicitly marked deprecated here
+  __attribute_deprecated_msg__ ("\
+  ^
+/usr/include/x86_64-linux-gnu/sys/cdefs.h:367:19: note: expanded from macro '__attribute_deprecated_msg__'
+         __attribute__ ((__deprecated__ (msg)))
+                         ^
+2 warnings generated.

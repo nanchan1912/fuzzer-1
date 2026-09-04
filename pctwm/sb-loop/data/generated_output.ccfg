@@ -1,0 +1,13 @@
+E e1 0 0x21a9e45ad6582304 W 0x49ec5d0fc3af93d1 NA
+E e2 0 0x21a9e55ad65824b7 W 0x49ec5c0fc3af921e NA
+E e3 1 0x41c9af04dd537d45 W 0x49ec5d0fc3af93d1 Rlx
+E e4 1 0x591652b7695f373b R 0x49ec5c0fc3af921e Rlx
+E e5 2 0x1fcb125f5bb91329 W 0x49ec5c0fc3af921e Rlx
+E e6 2 0xed23a92c31ab97d5 R 0x49ec5d0fc3af93d1 Rlx
+CF e6 e5
+CF e5 e6
+CF e4 e3
+CF e3 e4
+CF e1 e2
+CF e2 e3
+CF e2 e5
