@@ -6,6 +6,7 @@
 #include "eg.h"
 #include "json.h"
 #include "scheduler.h" /* for scheduler_terminate, used by eg_validate_cas_resolved */
+#include "eg_binary.h"
 
 #ifdef QUIET
 #define EG_LOG(...) do {} while (0)
@@ -17,13 +18,33 @@
 
 eg_graph_t* eg_create(void) {
     eg_graph_t *g = malloc(sizeof(eg_graph_t));
+    if (!g) return NULL;
     g->node_count = 0;
     g->node_capacity = 1024;
     g->nodes = malloc(sizeof(eg_node_t) * g->node_capacity);
+    if (!g->nodes) {
+        free(g);
+        return NULL;
+    }
     
     g->rf_count = 0;
     g->rf_capacity = 1024;
     g->rf_edges = malloc(sizeof(eg_edge_t) * g->rf_capacity);
+    if (!g->rf_edges) {
+        free(g->nodes);
+        free(g);
+        return NULL;
+    }
+
+    g->hash_table_size = EG_HASH_SIZE;
+    g->hash_table = malloc(sizeof(int) * g->hash_table_size);
+    if (!g->hash_table) {
+        free(g->rf_edges);
+        free(g->nodes);
+        free(g);
+        return NULL;
+    }
+    memset(g->hash_table, -1, sizeof(int) * g->hash_table_size);
     return g;
 }
 
@@ -31,7 +52,38 @@ void eg_free(eg_graph_t *g) {
     if (!g) return;
     free(g->nodes);
     free(g->rf_edges);
+    free(g->hash_table);
     free(g);
+}
+
+static inline uint32_t hash_dynamic(uint64_t tid, long long iid, int vid, uint32_t size) {
+    uint64_t h = tid ^ (uint64_t)iid ^ (uint64_t)vid;
+    h = (~h) + (h << 18);
+    h = h ^ (h >> 31);
+    h = h * 2654435761ULL;
+    h = h ^ (h >> 16);
+    return (uint32_t)(h & (size - 1));
+}
+
+static bool eg_resize_hash_table(eg_graph_t *g) {
+    int old_size = g->hash_table_size;
+    int new_size = old_size * 2;
+    int *new_table = malloc(sizeof(int) * new_size);
+    if (!new_table) return false;
+
+    memset(new_table, -1, sizeof(int) * new_size);
+    for (int i = 0; i < g->node_count; i++) {
+        eg_node_t *n = &g->nodes[i];
+        uint32_t idx = hash_dynamic(n->tid, n->instruction_id, n->visit_id, new_size);
+        while (new_table[idx] != -1) {
+            idx = (idx + 1) & (new_size - 1);
+        }
+        new_table[idx] = i;
+    }
+    free(g->hash_table);
+    g->hash_table = new_table;
+    g->hash_table_size = new_size;
+    return true;
 }
 
 void eg_add_node(eg_graph_t *g, uint64_t id, uint64_t tid, long long iid,
@@ -39,9 +91,22 @@ void eg_add_node(eg_graph_t *g, uint64_t id, uint64_t tid, long long iid,
                  const char *loc, intptr_t val) {
     if (!g) return;
     if (g->node_count >= g->node_capacity) {
-        g->node_capacity *= 2;
-        g->nodes = realloc(g->nodes, sizeof(eg_node_t) * g->node_capacity);
+        size_t new_capacity = g->node_capacity * 2;
+        eg_node_t *tmp = realloc(g->nodes, sizeof(eg_node_t) * new_capacity);
+        if (!tmp) {
+            fprintf(stderr, "[EG] Error: Out of memory during eg_nodes realloc.\n");
+            scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+        }
+        g->nodes = tmp;
+        g->node_capacity = new_capacity;
     }
+
+    // Resize hash table if load factor is high (>70%)
+    if (g->hash_table && g->node_count * 10 >= g->hash_table_size * 7) {
+        eg_resize_hash_table(g);
+    }
+
+    int node_idx = g->node_count;
     eg_node_t *n = &g->nodes[g->node_count++];
     n->id = id;
     n->tid = tid;
@@ -52,6 +117,24 @@ void eg_add_node(eg_graph_t *g, uint64_t id, uint64_t tid, long long iid,
     strncpy(n->location, loc ? loc : "", 63);
     n->location[63] = 0;
     n->value = val;
+
+    if (g->hash_table) {
+        if (g->node_count >= g->hash_table_size) {
+            fprintf(stderr, "[EG] Error: Hash table full, cannot insert node.\n");
+            scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+        }
+        uint32_t idx = hash_dynamic(tid, iid, vid, g->hash_table_size);
+        int steps = 0;
+        while (g->hash_table[idx] != -1 && steps < g->hash_table_size) {
+            idx = (idx + 1) & (g->hash_table_size - 1);
+            steps++;
+        }
+        if (g->hash_table[idx] != -1) {
+            fprintf(stderr, "[EG] Error: Hash table collision loop limit exceeded.\n");
+            scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+        }
+        g->hash_table[idx] = node_idx;
+    }
 }
 
 static uint64_t json_to_u64(const JsonNode *node, uint64_t fallback) {
@@ -110,121 +193,77 @@ static int json_to_i32(const JsonNode *node, int fallback) {
 }
 
 static void eg_validate_read_nodes_have_rf(const eg_graph_t *g);
+static eg_graph_t* eg_deserialize_binary_mem(const char *buf, size_t size);
 
 void eg_add_edge_rf(eg_graph_t *g, uint64_t write_id, uint64_t read_id) {
     if (!g) return;
     if (g->rf_count >= g->rf_capacity) {
-        g->rf_capacity *= 2;
-        g->rf_edges = realloc(g->rf_edges, sizeof(eg_edge_t) * g->rf_capacity);
+        size_t new_capacity = g->rf_capacity * 2;
+        eg_edge_t *tmp = realloc(g->rf_edges, sizeof(eg_edge_t) * new_capacity);
+        if (!tmp) {
+            fprintf(stderr, "[EG] Error: Out of memory during rf_edges realloc.\n");
+            scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+        }
+        g->rf_edges = tmp;
+        g->rf_capacity = new_capacity;
     }
     eg_edge_t *e = &g->rf_edges[g->rf_count++];
     e->src_id = write_id;
     e->dst_id = read_id;
 }
 
-// Internal helper for serialization
-void eg_write_to_file(eg_graph_t *g, FILE *f) {
-    fprintf(f, "NODES %d\n", g->node_count);
-    for (int i = 0; i < g->node_count; i++) {
-        eg_node_t *n = &g->nodes[i];
-        fprintf(f, "%llu %llu %lld %d %d %ld %s\n",
-            (unsigned long long)n->id,
-            (unsigned long long)n->tid,
-            (long long)n->instruction_id,
-            n->visit_id,
-            n->type,
-            (long)n->value,
-            n->location);
-    }
-    fprintf(f, "RF %d\n", g->rf_count);
-    for (int i = 0; i < g->rf_count; i++) {
-        fprintf(f, "%llu %llu\n",
-            (unsigned long long)g->rf_edges[i].src_id,
-            (unsigned long long)g->rf_edges[i].dst_id);
-    }
-}
-
-// Simple text serialization for now
 void eg_serialize(eg_graph_t *g, const char *filename) {
-    const char *dot = strrchr(filename, '.');
-    if (dot && strcmp(dot, ".json") == 0) {
-        eg_serialize_json(g, filename);
-        return;
-    }
-    FILE *f = fopen(filename, "w");
-    if (!f) return;
-    eg_write_to_file(g, f);
-    fclose(f);
-}
-
-// Internal helper for deserialization
-eg_graph_t* eg_read_from_file(FILE *f) {
-    eg_graph_t *g = eg_create();
-    int count;
-    if (fscanf(f, "NODES %d\n", &count) == 1) {
-        for (int i = 0; i < count; i++) {
-            uint64_t id, tid;
-            long long iid;
-            int vid, type;
-            long val;
-            char loc[64];
-            // Format: id tid iid vid type val loc
-            if (fscanf(f, "%lu %lu %lld %d %d %ld %63s\n", &id, &tid, &iid, &vid, &type, &val, loc) == 7) {
-                eg_add_node(g, id, tid, iid, 0, vid, type, loc, (intptr_t)val);
-            }
-        }
-    }
-    if (fscanf(f, "RF %d\n", &count) == 1) {
-        for (int i = 0; i < count; i++) {
-            uint64_t src, dst;
-            if (fscanf(f, "%lu %lu\n", &src, &dst) == 2) {
-                eg_add_edge_rf(g, src, dst);
-            }
-        }
-    }
-    eg_validate_read_nodes_have_rf(g);
-    return g;
+    eg_serialize_json(g, filename);
 }
 
 eg_graph_t* eg_deserialize(const char *filename) {
     FILE *f = fopen(filename, "r");
     if (!f) return NULL;
-    
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char *buf = malloc(len + 1);
-    if (!buf) { fclose(f); return NULL; }
-    if (fread(buf, 1, len, f) != len) {
-        // Handle partial read
+
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
     }
-    buf[len] = 0;
+    long len = ftell(f);
+    if (len < 0) {
+        fclose(f);
+        return NULL;
+    }
+    if (fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    if ((unsigned long)len >= SIZE_MAX) {
+        fclose(f);
+        return NULL;
+    }
+    char *buf = malloc(len + 1);
+    if (!buf) {
+        fclose(f);
+        return NULL;
+    }
+    size_t read_bytes = fread(buf, 1, len, f);
+    buf[read_bytes] = 0;
     fclose(f);
-    eg_graph_t *g = eg_deserialize_mem(buf, len);
+
+    eg_graph_t *g = eg_deserialize_mem(buf, read_bytes);
     free(buf);
     return g;
 }
 
-void eg_serialize_mem(eg_graph_t *g, char **out_buf, size_t *out_size) {
-    size_t size;
-    FILE *f = open_memstream(out_buf, &size);
-    if (!f) return;
-    eg_write_to_file(g, f);
-    fclose(f);
-    *out_size = size;
-}
-
 eg_graph_t* eg_deserialize_mem(const char *buf, size_t size) {
     if (!buf || size == 0) return NULL;
-    if (buf[0] == '{' || buf[0] == '[') {
-        EG_LOG("[eg] Detected JSON format for EG deserialization\n");
-        return eg_deserialize_json_mem(buf, size);
+    /* Additive dispatch: a binary-format buffer starts with EG_BIN_MAGIC,
+     * which never matches valid JSON (always '{'/whitespace, ASCII). Falls
+     * through to the existing, unmodified JSON path otherwise. */
+    if (size >= sizeof(uint32_t)) {
+        uint32_t magic;
+        memcpy(&magic, buf, sizeof(magic));
+        if (magic == EG_BIN_MAGIC) {
+            return eg_deserialize_binary_mem(buf, size);
+        }
     }
-    FILE *f = fmemopen((void*)buf, size, "r");
-    if (!f) return NULL;
-    eg_graph_t* g = eg_read_from_file(f);
-    fclose(f);
-    return g;
+    return eg_deserialize_json_mem(buf, size);
 }
 
 eg_node_t* eg_find_node_by_id(eg_graph_t *g, uint64_t id) {
@@ -235,26 +274,21 @@ eg_node_t* eg_find_node_by_id(eg_graph_t *g, uint64_t id) {
     return NULL;
 }
 
-eg_node_t* eg_find_node_by_uid(eg_graph_t *g, uint64_t uid) {
-    return eg_find_node_by_id(g, uid);
-}
-
 eg_node_t* eg_find_node_by_dynamic(eg_graph_t *g, uint64_t tid, long long iid, int vid) {
-    if (!g) return NULL;
-    for (int i=0; i<g->node_count; i++) {
-         EG_LOG("[eg-debug] Checking node id=%llu tid=%llu iid=%llx vid=%d against query tid=%llu iid=%llx vid=%d\n",
-             (unsigned long long)g->nodes[i].id,
-             (unsigned long long)g->nodes[i].tid,
-             g->nodes[i].instruction_id,
-             g->nodes[i].visit_id,
-             (unsigned long long)tid,
-             iid,
-             vid);
-        if (g->nodes[i].tid == tid && g->nodes[i].instruction_id == iid && g->nodes[i].visit_id == vid) {
-            return &g->nodes[i];
+    eg_node_t *res = NULL;
+    if (g && g->hash_table) {
+        uint32_t idx = hash_dynamic(tid, iid, vid, g->hash_table_size);
+        while (g->hash_table[idx] != -1) {
+            int node_idx = g->hash_table[idx];
+            eg_node_t *n = &g->nodes[node_idx];
+            if (n->tid == tid && n->instruction_id == iid && n->visit_id == vid) {
+                res = n;
+                break;
+            }
+            idx = (idx + 1) & (g->hash_table_size - 1);
         }
     }
-    return NULL;
+    return res;
 }
 
 /* TLV Serialization Support */
@@ -344,7 +378,7 @@ static void eg_validate_read_nodes_have_rf(const eg_graph_t *g) {
                 (unsigned long long)n->tid,
                 n->instruction_id,
                 n->visit_id);
-            exit(WMM_EXIT_INVALID_INPUT);
+            scheduler_terminate(WMM_EXIT_INVALID_INPUT);
         }
     }
 }
@@ -431,21 +465,26 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
             if ((tmp = json_find_member(n, "visit_id"))) vid = json_to_i32(tmp, DEFAULT_VISIT_ID);
             
             // Check for existing event with same dynamic properties
+            int new_type = eg_string_to_type(kind);
+            if (new_type == -1) {
+                fprintf(stderr, "[EGF] Error: Invalid event kind '%s' for event_id=%llu\n", kind ? kind : "<null>", (unsigned long long)id);
+                scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+            }
+
             eg_node_t *existing = eg_find_node_by_dynamic(g, tid, iid, vid);
             if (existing) {
-                int new_type = eg_string_to_type(kind);
                 if (existing->type != new_type || strcmp(existing->location, loc) != 0) {
                     fprintf(stderr,
                             "[EGF] Error: Event mismatch for tid=%llu iid=%llx vid=%d. Exist: type=%d loc=%s. New: type=%d loc=%s\n",
                             (unsigned long long)tid, iid, vid,
                             existing->type, existing->location,
                             new_type, loc);
-                    exit(WMM_EXIT_INVALID_INPUT);
+                    scheduler_terminate(WMM_EXIT_INVALID_INPUT);
                 }
                 continue;
             }
 
-            eg_add_node(g, id, tid, iid, loc_id, vid, eg_string_to_type(kind), loc, val);
+            eg_add_node(g, id, tid, iid, loc_id, vid, new_type, loc, val);
         }
         EG_LOG("Loaded %d nodes from JSON\n", g->node_count);
     }
@@ -480,7 +519,7 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                     } else {
                         fprintf(stderr, "[EGF] Error: Write event not found for RF edge: tid=%llu, instr=%lld, visit_id=%d\n",
                             (unsigned long long)tid, instr, visit_id);
-                        exit(EXIT_EVENT_NOT_FOUND);
+                        scheduler_terminate(EXIT_EVENT_NOT_FOUND);
                     }
                 }
             } else if (from && (from->tag == JSON_NUMBER || from->tag == JSON_STRING)) {
@@ -510,7 +549,7 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                             } else {
                                 fprintf(stderr, "[EGF] Error: Read event not found for RF edge: tid=%lu, instr=%lld, visit_id=%d\n",
                                     tid, instr, visit_id);
-                                exit(EXIT_EVENT_NOT_FOUND);
+                                scheduler_terminate(EXIT_EVENT_NOT_FOUND);
                             }
                         }
                     } else if (to_item && (to_item->tag == JSON_NUMBER || to_item->tag == JSON_STRING)) {
@@ -525,11 +564,11 @@ static eg_graph_t* eg_graph_from_json_node(JsonNode *root) {
                              * CAS is a legal rf DEST but never a legal rf SOURCE. */
                             if (wn && !eg_is_write_like(wn->type)) {
                                 fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW/CAS_SUCCESS. Found type %d (id=%lu)\n", wn->type, write_id);
-                             exit(EXIT_RF_TYPE_MISMATCH);
+                             scheduler_terminate(EXIT_RF_TYPE_MISMATCH);
                         }
                             if (rn && !eg_is_read_like(rn->type)) {
                                 fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW/CAS_*. Found type %d (id=%lu)\n", rn->type, read_id);
-                             exit(EXIT_RF_TYPE_MISMATCH);
+                             scheduler_terminate(EXIT_RF_TYPE_MISMATCH);
                         }
                         EG_LOG("[eg-debug] Adding RF edge: write_id=(%lu) -> read_id=(%lu)\n", write_id, read_id);
                         eg_add_edge_rf(g, write_id, read_id);
@@ -621,6 +660,120 @@ eg_graph_t* eg_deserialize_json(const char *buf) {
     
     eg_graph_t *g = eg_graph_from_json_node(root);
     json_delete(root);
+    return g;
+}
+
+/* Flat binary counterpart of eg_graph_from_json_node: a header + packed
+ * eg_bin_node_t[node_count] + packed eg_bin_edge_t[rf_count] (see
+ * eg_binary.h). Reuses eg_create/eg_add_node/eg_add_edge_rf so capacity
+ * growth and the dynamic (tid,iid,vid)->id hash table stay in exactly one
+ * implementation, and mirrors eg_graph_from_json_node's validation
+ * (duplicate-node mismatch check, CAS-resolved check, rf source/dest type
+ * checks, "every read has an rf edge" check) so a binary-loaded graph is
+ * held to the same structural contract as a JSON-loaded one, with the same
+ * scheduler_terminate() exit codes on failure. Fields are read via memcpy
+ * into locals rather than dereferencing the buffer as a struct array, since
+ * the wire buffer's alignment isn't guaranteed. */
+static eg_graph_t* eg_deserialize_binary_mem(const char *buf, size_t size) {
+    if (!buf || size < sizeof(eg_bin_header_t)) return NULL;
+
+    eg_bin_header_t hdr;
+    memcpy(&hdr, buf, sizeof(hdr));
+    if (hdr.magic != EG_BIN_MAGIC) return NULL; /* caller already checked; stay safe if called directly */
+    if (hdr.version != EG_BIN_VERSION) {
+        fprintf(stderr, "[EGF] Error: unsupported binary graph version %u (expected %u)\n",
+                hdr.version, EG_BIN_VERSION);
+        return NULL;
+    }
+
+    size_t nodes_off = sizeof(eg_bin_header_t);
+    size_t nodes_bytes = (size_t)hdr.node_count * sizeof(eg_bin_node_t);
+    size_t edges_off = nodes_off + nodes_bytes;
+    size_t edges_bytes = (size_t)hdr.rf_count * sizeof(eg_bin_edge_t);
+    size_t total_needed = edges_off + edges_bytes;
+    if (total_needed > size) {
+        fprintf(stderr, "[EGF] Error: truncated binary graph (need %zu bytes, have %zu)\n",
+                total_needed, size);
+        return NULL;
+    }
+
+    eg_graph_t *g = eg_create();
+    if (!g) return NULL;
+
+    for (uint32_t i = 0; i < hdr.node_count; i++) {
+        eg_bin_node_t bn;
+        memcpy(&bn, buf + nodes_off + (size_t)i * sizeof(eg_bin_node_t), sizeof(bn));
+        char loc[65];
+        memcpy(loc, bn.location, 64);
+        loc[64] = '\0'; /* defensive; the writer always NUL-terminates within 64 */
+
+        /* bn.location carries the same string AFL_patches' Event model uses
+         * as its location (== what the JSON path receives as the "loc_id"
+         * field's *string* value), so derive the numeric loc_id from it the
+         * same way eg_graph_from_json_node's JSON_STRING branch does; loc
+         * itself (the runtime's separate symbolic-name field) stays empty,
+         * matching the JSON path's default when no "loc" key is present --
+         * so duplicate-node comparison below checks loc_id, not the (always
+         * empty here) location string. */
+        uint64_t loc_id = parse_field_sensitive_loc_id(loc);
+
+        /* Same duplicate-node semantics as eg_graph_from_json_node. */
+        eg_node_t *existing = eg_find_node_by_dynamic(g, bn.tid, bn.instruction_id, bn.visit_id);
+        if (existing) {
+            bool mismatch = (existing->type != bn.type) || (existing->loc_id != loc_id);
+            if (mismatch) {
+                fprintf(stderr,
+                        "[EGF] Error: Event mismatch (binary) for tid=%llu iid=%lld vid=%d. Exist: type=%d loc_id=%llu. New: type=%d loc_id=%llu\n",
+                        (unsigned long long)bn.tid, (long long)bn.instruction_id, bn.visit_id,
+                        existing->type, (unsigned long long)existing->loc_id, bn.type, (unsigned long long)loc_id);
+                scheduler_terminate(WMM_EXIT_INVALID_INPUT);
+            }
+            continue;
+        }
+
+        uint64_t id = (uint64_t)g->node_count + 1;
+        eg_add_node(g, id, bn.tid, bn.instruction_id, loc_id, bn.visit_id, bn.type, "", (intptr_t)bn.value);
+    }
+    EG_LOG("Loaded %d nodes from binary graph\n", g->node_count);
+
+    /* Before the rf edges, so an unresolved CAS is reported as itself rather
+     * than as a downstream rf type-mismatch error -- same ordering as the
+     * JSON path. */
+    eg_validate_cas_resolved(g);
+
+    for (uint32_t i = 0; i < hdr.rf_count; i++) {
+        eg_bin_edge_t be;
+        memcpy(&be, buf + edges_off + (size_t)i * sizeof(eg_bin_edge_t), sizeof(be));
+
+        eg_node_t *wn = eg_find_node_by_dynamic(g, be.src_tid, be.src_instruction_id, be.src_visit_id);
+        if (!wn) {
+            fprintf(stderr, "[EGF] Error: Write event not found for RF edge (binary): tid=%llu, instr=%lld, visit_id=%d\n",
+                    (unsigned long long)be.src_tid, (long long)be.src_instruction_id, be.src_visit_id);
+            scheduler_terminate(EXIT_EVENT_NOT_FOUND);
+        }
+        eg_node_t *rn = eg_find_node_by_dynamic(g, be.dst_tid, be.dst_instruction_id, be.dst_visit_id);
+        if (!rn) {
+            fprintf(stderr, "[EGF] Error: Read event not found for RF edge (binary): tid=%llu, instr=%lld, visit_id=%d\n",
+                    (unsigned long long)be.dst_tid, (long long)be.dst_instruction_id, be.dst_visit_id);
+            scheduler_terminate(EXIT_EVENT_NOT_FOUND);
+        }
+
+        /* Only an event that stores can be read from. A failed CAS is a
+         * legal rf DEST but never a legal rf SOURCE -- same check as the
+         * JSON path. */
+        if (!eg_is_write_like(wn->type)) {
+            fprintf(stderr, "[EGF] Error: RF edge source must be WRITE/RMW/CAS_SUCCESS. Found type %d (binary)\n", wn->type);
+            scheduler_terminate(EXIT_RF_TYPE_MISMATCH);
+        }
+        if (!eg_is_read_like(rn->type)) {
+            fprintf(stderr, "[EGF] Error: RF edge dest must be READ/RMW/CAS_*. Found type %d (binary)\n", rn->type);
+            scheduler_terminate(EXIT_RF_TYPE_MISMATCH);
+        }
+        eg_add_edge_rf(g, wn->id, rn->id);
+    }
+    EG_LOG("Loaded %d RF edges from binary graph\n", g->rf_count);
+
+    eg_validate_read_nodes_have_rf(g);
     return g;
 }
 

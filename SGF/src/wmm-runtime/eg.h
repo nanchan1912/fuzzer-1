@@ -97,6 +97,8 @@ typedef struct {
     uint64_t dst_id;
 } eg_edge_t;
 
+#define EG_HASH_SIZE 1024
+
 typedef struct {
     eg_node_t *nodes;
     int node_count;
@@ -106,6 +108,8 @@ typedef struct {
     int rf_count;
     int rf_capacity;
     
+    int *hash_table;
+    int hash_table_size;
     // Future: PO, MO edges
 } eg_graph_t;
 
@@ -125,17 +129,14 @@ eg_graph_t* eg_deserialize(const char *filename);
 
 // Legacy JSON Serialization (kept for compatibility)
 void eg_serialize_json(eg_graph_t *g, const char *filename);
-eg_graph_t* eg_deserialize_json(const char *filename);
 eg_graph_t* eg_deserialize_json_mem(const char *buf, size_t size);
 
 // Buffer APIs
-void eg_serialize_mem(eg_graph_t *g, char **out_buf, size_t *out_size);
 eg_graph_t* eg_deserialize_mem(const char *buf, size_t size);
 
 // Helper to find nodes
 eg_node_t* eg_find_node_by_id(eg_graph_t *g, uint64_t id);
 eg_node_t* eg_find_node_by_dynamic(eg_graph_t *g, uint64_t tid, long long sid, int vid);
-eg_node_t* eg_find_node_by_uid(eg_graph_t *g, uint64_t uid);
 
 #ifdef __cplusplus
 }
