@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include <errno.h>
 #include <time.h>
+#include <limits.h>
 
 // TODO: This path is hardcoded - change it!
 #include "/home/aritra/fuzzer-1/SGF/main/include/shm_next_events.h"
@@ -68,6 +69,9 @@ static eg_graph_t *current_graph = NULL;
 static eg_graph_t *recording_graph = NULL;
 static atomic_int global_event_id_counter = 1;
 static atomic_int wmm_exiting = 0;
+
+extern void __gcov_flush(void) __attribute__((weak));
+extern int __llvm_profile_write_file(void) __attribute__((weak));
 
 static void scheduler_terminate_locked(int code);
 
@@ -224,6 +228,8 @@ typedef struct WriteEvent {
     uint64_t graph_node_id;
     uint64_t timestamp;
     struct WriteEvent *next;
+    struct WriteEvent *global_next;
+    struct WriteEvent *global_prev;
 } WriteEvent;
 
 // Since addresses are dynamic, we use a simple list or hash table for histories mechanism
@@ -232,13 +238,97 @@ typedef struct WriteEvent {
 
 #define HASH_SIZE 1024
 static WriteEvent *history[HASH_SIZE]; // Hash table buckets
+static WriteEvent *global_history_head = NULL;
 static uint64_t global_write_timestamp = 0;
+
+/* Bump-pointer arena for the fixed-size WriteEvent struct itself (not its
+ * variable-length ->bytes payload, which varies too widely across call
+ * sites -- some pass sizeof(intptr_t), others an arbitrary memcpy-style
+ * copy_size -- to size a second arena/inline buffer safely; that payload
+ * stays a plain per-write malloc/free).
+ *
+ * Grown only when empty (write_event_arena_count == 0, i.e. between
+ * executions, never while entries from the current execution are still
+ * live) -- a realloc while WriteEvent* pointers are already threaded into
+ * history[]/global_history_head via ->next/->global_next/->global_prev
+ * would move the buffer and dangle every one of them. If growth is ever
+ * needed mid-execution (this run's write count exceeds what's already
+ * allocated), fall back to a normal heap allocation instead; such entries
+ * are freed individually at reset, same as before this arena existed.
+ * Nothing here needs to survive across executions (each is a fresh forked
+ * child), but the arena's backing buffer does survive, inherited via COW
+ * from whichever ancestor (the forkserver parent's own warmup run, most
+ * commonly) first grew it to a given capacity, so a typical execution pays
+ * zero allocator calls for WriteEvent structs instead of one malloc + one
+ * free per write. */
+static WriteEvent *write_event_arena = NULL;
+static size_t write_event_arena_capacity = 0;
+static size_t write_event_arena_count = 0;
+
+static inline bool write_event_is_arena_backed(const WriteEvent *we) {
+    return we >= write_event_arena && we < write_event_arena + write_event_arena_capacity;
+}
+
+static WriteEvent *write_event_alloc(void) {
+    if (write_event_arena_count < write_event_arena_capacity) {
+        return &write_event_arena[write_event_arena_count++];
+    }
+    WriteEvent *we = (WriteEvent *)malloc(sizeof(WriteEvent));
+    if (!we) {
+        fprintf(stderr, "[SCHED] Error: Out of memory in write_event_alloc.\n");
+        scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
+    }
+    return we;
+}
+
+/* Safe to grow here: only ever called when write_event_arena_count == 0
+ * (reset_write_history, before any WriteEvent has been allocated for the
+ * upcoming execution), so no live pointer into the old buffer can dangle. */
+static void write_event_arena_grow_if_needed(void) {
+    if (write_event_arena_capacity > 0) return;
+    size_t initial_capacity = 1024;
+    write_event_arena = (WriteEvent *)malloc(sizeof(WriteEvent) * initial_capacity);
+    if (write_event_arena) {
+        write_event_arena_capacity = initial_capacity;
+    }
+    /* On failure, capacity stays 0 and write_event_alloc falls back to
+     * malloc for every entry -- degrades to the pre-arena behavior rather
+     * than failing outright. */
+}
+
+// Reset write history. Walk global_history_head once (it already threads
+// every live entry) rather than scanning all HASH_SIZE buckets: free the
+// ->bytes payload always (never arena-backed, see write_event_alloc), and
+// free the WriteEvent itself only for the rare malloc-fallback overflow
+// entries -- an arena-backed one is reclaimed by the bump reset below, not
+// individually. Then a flat memset clears every bucket, safe now that every
+// node it pointed to has been handled.
+static void reset_write_history(void) {
+    for (WriteEvent *w = global_history_head; w; ) {
+        WriteEvent *next = w->global_next;
+        if (w->bytes) free(w->bytes);
+        if (!write_event_is_arena_backed(w)) { free(w); }
+        w = next;
+    }
+    memset(history, 0, sizeof(history));
+    write_event_arena_count = 0;
+    write_event_arena_grow_if_needed();
+    global_write_timestamp = 0;
+    global_history_head = NULL;
+}
 
 unsigned int hash_ptr(void *ptr) {
     return ((uintptr_t)ptr >> 3) % HASH_SIZE;
 }
 
+/* thread_event_indices[t] are pointer VIEWS into thread_event_indices_buf, a
+ * single combined allocation covering every thread's node-index list,
+ * instead of one malloc per active thread (was up to MAX_THREADS separate
+ * malloc/free pairs per execution). NULL for a thread with no events, same
+ * as before. Every read site keeps indexing as thread_event_indices[t][i],
+ * unaffected by the change in what backs the pointer. */
 static int *thread_event_indices[MAX_THREADS];
+static int *thread_event_indices_buf = NULL;
 static int thread_event_count[MAX_THREADS];
 static int thread_frontier[MAX_THREADS];
 
@@ -295,26 +385,42 @@ static void add_history_bytes(void *addr, const void *data, size_t size,
                 *pp = (*pp)->next;
                 LOG("[INFO] History: Evicted oldest write for %p (gnid=%llu), keeping %d writes\n",
                     addr, (unsigned long long)to_remove->graph_node_id, max_per_addr - 1);
+                
+                // Remove from global list
+                if (to_remove->global_prev) {
+                    to_remove->global_prev->global_next = to_remove->global_next;
+                } else {
+                    global_history_head = to_remove->global_next;
+                }
+                if (to_remove->global_next) {
+                    to_remove->global_next->global_prev = to_remove->global_prev;
+                }
+                
                 free(to_remove->bytes);
-                free(to_remove);
+                if (!write_event_is_arena_backed(to_remove)) {
+                    free(to_remove);
+                }
                 break;
             }
         }
     }
     
     // Add new write event at head (prepend)
-    WriteEvent *we = malloc(sizeof(WriteEvent));
+    WriteEvent *we = write_event_alloc();
     we->addr = addr;
     we->val = bytes_to_intptr(data, size);
     we->size = (data && size > 0) ? size : 0;
     we->bytes = NULL;
     if (we->size > 0) {
         we->bytes = (unsigned char *)malloc(we->size);
-        if (we->bytes) {
-            memcpy(we->bytes, data, we->size);
-        } else {
-            we->size = 0;
+        if (!we->bytes) {
+            fprintf(stderr, "[SCHED] Error: Out of memory in add_history_bytes.\n");
+            /* No free(we) here: we may be arena-backed (freeing it would be
+             * undefined behavior), and scheduler_terminate_locked does not
+             * return, so there is nothing to clean up for. */
+            scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
         }
+        memcpy(we->bytes, data, we->size);
     }
     we->loc_id = loc_id;
     we->tid = tid;
@@ -322,8 +428,18 @@ static void add_history_bytes(void *addr, const void *data, size_t size,
     we->visit_id = vid;
     we->graph_node_id = gnid;
     we->timestamp = ++global_write_timestamp;
+    
+    // Prepend to hash bucket
     we->next = history[h];
     history[h] = we;
+    
+    // Prepend to global history list
+    we->global_next = global_history_head;
+    we->global_prev = NULL;
+    if (global_history_head) {
+        global_history_head->global_prev = we;
+    }
+    global_history_head = we;
 }
 
 static void add_history(void *addr, intptr_t val, uint64_t loc_id, uint64_t tid,
@@ -332,10 +448,8 @@ static void add_history(void *addr, intptr_t val, uint64_t loc_id, uint64_t tid,
 }
 
 static WriteEvent* find_write_in_history(uint64_t graph_node_id) {
-    for (int i = 0; i < HASH_SIZE; i++) {
-        for (WriteEvent *w = history[i]; w; w = w->next) {
-            if (w->graph_node_id == graph_node_id) return w;
-        }
+    for (WriteEvent *w = global_history_head; w; w = w->global_next) {
+        if (w->graph_node_id == graph_node_id) return w;
     }
     LOG("[SCHED-DEBUG] No write found in history for graph_node_id=%llu\n", (unsigned long long)graph_node_id);
     return NULL;
@@ -345,70 +459,48 @@ static WriteEvent* find_latest_overlapping_write(void *addr, size_t size) {
     if (!addr) return NULL;
     uintptr_t L_start = (uintptr_t)addr;
     uintptr_t L_end = L_start + size;
-    WriteEvent *best = NULL;
-    for (int i = 0; i < HASH_SIZE; i++) {
-        for (WriteEvent *w = history[i]; w; w = w->next) {
-            if (!w->addr) continue;
-            uintptr_t W_start = (uintptr_t)w->addr;
-            size_t w_size = w->size;
-            if (w_size == 0) {
-                w_size = sizeof(w->val);
-            }
-            uintptr_t W_end = W_start + w_size;
-            
-            // Check overlap
-            uintptr_t O_start = L_start > W_start ? L_start : W_start;
-            uintptr_t O_end = L_end < W_end ? L_end : W_end;
-            if (O_start < O_end) {
-                if (!best || w->timestamp > best->timestamp) {
-                    best = w;
-                }
-            }
+    for (WriteEvent *w = global_history_head; w; w = w->global_next) {
+        if (!w->addr) continue;
+        uintptr_t W_start = (uintptr_t)w->addr;
+        size_t w_size = w->size ? w->size : sizeof(w->val);
+        uintptr_t W_end = W_start + w_size;
+        
+        // Check overlap
+        uintptr_t O_start = L_start > W_start ? L_start : W_start;
+        uintptr_t O_end = L_end < W_end ? L_end : W_end;
+        if (O_start < O_end) {
+            return w;
         }
     }
-    return best;
+    return NULL;
 }
 
 static WriteEvent* find_latest_write_by_loc(uint64_t loc_id) {
-    WriteEvent *best = NULL;
-    for (int i = 0; i < HASH_SIZE; i++) {
-        for (WriteEvent *w = history[i]; w; w = w->next) {
-            if (w->loc_id != loc_id)
-                continue;
-            if (!best || w->timestamp > best->timestamp)
-                best = w;
-        }
+    for (WriteEvent *w = global_history_head; w; w = w->global_next) {
+        if (w->loc_id == loc_id) return w;
     }
-    return best;
+    return NULL;
 }
 
 static WriteEvent* find_latest_local_overlapping_write(void *addr, size_t size, uint64_t tid) {
     if (!addr) return NULL;
     uintptr_t L_start = (uintptr_t)addr;
     uintptr_t L_end = L_start + size;
-    WriteEvent *best = NULL;
-    for (int i = 0; i < HASH_SIZE; i++) {
-        for (WriteEvent *w = history[i]; w; w = w->next) {
-            if (w->tid != tid) continue;
-            if (!w->addr) continue;
-            uintptr_t W_start = (uintptr_t)w->addr;
-            size_t w_size = w->size;
-            if (w_size == 0) {
-                w_size = sizeof(w->val);
-            }
-            uintptr_t W_end = W_start + w_size;
-            
-            // Check overlap
-            uintptr_t O_start = L_start > W_start ? L_start : W_start;
-            uintptr_t O_end = L_end < W_end ? L_end : W_end;
-            if (O_start < O_end) {
-                if (!best || w->timestamp > best->timestamp) {
-                    best = w;
-                }
-            }
+    for (WriteEvent *w = global_history_head; w; w = w->global_next) {
+        if (w->tid != tid) continue;
+        if (!w->addr) continue;
+        uintptr_t W_start = (uintptr_t)w->addr;
+        size_t w_size = w->size ? w->size : sizeof(w->val);
+        uintptr_t W_end = W_start + w_size;
+        
+        // Check overlap
+        uintptr_t O_start = L_start > W_start ? L_start : W_start;
+        uintptr_t O_end = L_end < W_end ? L_end : W_end;
+        if (O_start < O_end) {
+            return w;
         }
     }
-    return best;
+    return NULL;
 }
 
 static WriteEvent* find_random_overlapping_write(void *addr, size_t size) {
@@ -417,23 +509,18 @@ static WriteEvent* find_random_overlapping_write(void *addr, size_t size) {
     uintptr_t L_end = L_start + size;
     int count = 0;
     WriteEvent* candidates[1024];
-    for (int i = 0; i < HASH_SIZE; i++) {
-        for (WriteEvent *w = history[i]; w; w = w->next) {
-            if (!w->addr) continue;
-            uintptr_t W_start = (uintptr_t)w->addr;
-            size_t w_size = w->size;
-            if (w_size == 0) {
-                w_size = sizeof(w->val);
-            }
-            uintptr_t W_end = W_start + w_size;
-            
-            // Check overlap
-            uintptr_t O_start = L_start > W_start ? L_start : W_start;
-            uintptr_t O_end = L_end < W_end ? L_end : W_end;
-            if (O_start < O_end) {
-                if (count < 1024) {
-                    candidates[count++] = w;
-                }
+    for (WriteEvent *w = global_history_head; w; w = w->global_next) {
+        if (!w->addr) continue;
+        uintptr_t W_start = (uintptr_t)w->addr;
+        size_t w_size = w->size ? w->size : sizeof(w->val);
+        uintptr_t W_end = W_start + w_size;
+        
+        // Check overlap
+        uintptr_t O_start = L_start > W_start ? L_start : W_start;
+        uintptr_t O_end = L_end < W_end ? L_end : W_end;
+        if (O_start < O_end) {
+            if (count < 1024) {
+                candidates[count++] = w;
             }
         }
     }
@@ -727,7 +814,13 @@ static void scheduler_terminate_locked(int code) {
     int expected = 0;
     if (atomic_compare_exchange_strong(&wmm_exiting, &expected, code)) {
         pthread_mutex_unlock(&sched_lock);
-        _exit(code);
+        if (__gcov_flush) {
+            __gcov_flush();
+        }
+        if (__llvm_profile_write_file) {
+            __llvm_profile_write_file();
+        }
+        exit(code);
     } else {
         pthread_mutex_unlock(&sched_lock);
         for (;;) {
@@ -740,7 +833,13 @@ void scheduler_terminate(int code) {
 
     int expected = 0;
     if (atomic_compare_exchange_strong(&wmm_exiting, &expected, code)) {
-        _exit(code);
+        if (__gcov_flush) {
+            __gcov_flush();
+        }
+        if (__llvm_profile_write_file) {
+            __llvm_profile_write_file();
+        }
+        exit(code);
     } else {
         for (;;) {
             pause();
@@ -772,13 +871,18 @@ static int cmp_node_idx_for_thread_order(const void *a, const void *b) {
 
 static void reset_thread_frontier_state(void) {
     for (int i = 0; i < MAX_THREADS; ++i) {
-        free(thread_event_indices[i]);
-        thread_event_indices[i] = NULL;
+        thread_event_indices[i] = NULL; /* view only; backing storage freed once below */
         thread_event_count[i] = 0;
         thread_frontier[i] = 0;
     }
-    free(covered_node_by_index);
-    covered_node_by_index = NULL;
+    if (thread_event_indices_buf) {
+        free(thread_event_indices_buf);
+        thread_event_indices_buf = NULL;
+    }
+    if (covered_node_by_index) {
+        free(covered_node_by_index);
+        covered_node_by_index = NULL;
+    }
 }
 
 static void init_thread_frontier_state_for_current_graph(void) {
@@ -797,14 +901,25 @@ static void init_thread_frontier_state_for_current_graph(void) {
             local_counts[slot]++;
     }
 
+    /* One allocation sized to the whole graph (CSR-style: per-thread offsets
+     * into a shared buffer) instead of one malloc per active thread. */
+    int thread_event_offset[MAX_THREADS];
+    int total_events = 0;
+    for (int t = 0; t < MAX_THREADS; ++t) {
+        thread_event_offset[t] = total_events;
+        total_events += local_counts[t];
+    }
+    if (total_events > 0) {
+        thread_event_indices_buf = (int *)malloc(sizeof(int) * (size_t)total_events);
+        if (!thread_event_indices_buf) {
+            return; /* thread_event_count[*] stays 0, same fallback as before */
+        }
+    }
+
     for (int t = 0; t < MAX_THREADS; ++t) {
         if (local_counts[t] <= 0)
             continue;
-        thread_event_indices[t] = (int *)malloc(sizeof(int) * (size_t)local_counts[t]);
-        if (!thread_event_indices[t]) {
-            thread_event_count[t] = 0;
-            continue;
-        }
+        thread_event_indices[t] = thread_event_indices_buf + thread_event_offset[t];
         thread_event_count[t] = local_counts[t];
     }
 
@@ -1186,6 +1301,10 @@ static void init_covered_rf_edges_for_current_graph(void) {
     if (!current_graph || current_graph->rf_count <= 0)
         return;
     covered_rf_edges = (bool *)calloc((size_t)current_graph->rf_count, sizeof(bool));
+    if (!covered_rf_edges && current_graph->rf_count > 0) {
+        fprintf(stderr, "[SCHED] Error: Out of memory in init_covered_rf_edges_for_current_graph.\n");
+        scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
+    }
 }
 
 static void mark_rf_edge_covered(uint64_t src_id, uint64_t dst_id) {
@@ -1240,6 +1359,8 @@ static bool mark_node_covered(uint64_t node_id) {
             return false;
     }
     if (covered_node_count >= covered_node_capacity) {
+        if (covered_node_capacity > INT_MAX / 2)
+            return false;
         int next_capacity = covered_node_capacity == 0 ? 128 : covered_node_capacity * 2;
         uint64_t *next = (uint64_t *)realloc(covered_node_ids,
                                              sizeof(uint64_t) * (size_t)next_capacity);
@@ -1276,6 +1397,10 @@ static int classify_terminal_code_locked(void) {
 
 static void scheduler_verify_atexit(void) {
     pthread_mutex_lock(&sched_lock);
+    if (atomic_load(&wmm_exiting) != 0) {
+        pthread_mutex_unlock(&sched_lock);
+        return;
+    }
     if (current_graph) {
         if (!is_instantiated_but_not_done_locked()) {
             fprintf(stderr, "[SCHED] Program exited normally but graph is NOT fully covered/instantiated. Covered nodes: %d/%d. Exiting with WMM_EXIT_NOT_INSTANTIABLE (21).\n",
@@ -1343,17 +1468,7 @@ void scheduler_init(void) {
 
 
     // Reset write history
-    for (int i = 0; i < HASH_SIZE; i++) {
-        WriteEvent *w = history[i];
-        while (w) {
-            WriteEvent *next = w->next;
-            if (w->bytes) free(w->bytes);
-            free(w);
-            w = next;
-        }
-        history[i] = NULL;
-    }
-    global_write_timestamp = 0;
+    reset_write_history();
 
     // Reset defaults (important for tests)
     config_missing_random_sampling = MRS_STOP;
@@ -1557,6 +1672,10 @@ static void add_child(unsigned long long ptid,thread_graph_t * node){
 // Function to add a thread to all_threads and map child and a parent
 static void add_to_all_threads(unsigned long long tid,unsigned long long parentid){
     thread_graph_t * node=(thread_graph_t *)malloc(sizeof(thread_graph_t));
+    if (!node) {
+        fprintf(stderr, "[SCHED] Error: Out of memory in add_to_all_threads.\n");
+        scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
+    }
     node->tid=tid;
     node->joined=false;
     node->children=NULL;
@@ -1692,6 +1811,10 @@ void scheduler_thread_join_wait_end(int tid,int child_tid) {
 static void store_the_unknown_event(int tid, long long iid, int vid,Access_Mode order,
                                     int event_type, long long loc_id){
     next_event_list_t *node=(next_event_list_t *) malloc(sizeof(next_event_list_t));
+    if (!node) {
+        fprintf(stderr, "[SCHED] Error: Out of memory in store_the_unknown_event.\n");
+        scheduler_terminate_locked(WMM_EXIT_INVALID_INPUT);
+    }
     node->nxt_event.tid=tid;
     node->nxt_event.iid=iid;
     node->nxt_event.vid=vid;
