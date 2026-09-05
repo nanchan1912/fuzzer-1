@@ -1,0 +1,7 @@
+*.box
+*.msi
+*.exe
+.vagrant/
+benchmarks_extracted/
+extracted_artifact/
+*.o
